@@ -2,13 +2,18 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { AssessmentProvider } from './context/AssessmentContext';
 import { DashboardProvider } from './context/DashboardContext';
+import { AdminProvider } from './context/AdminContext';
 import { PrivateRoute } from './components/PrivateRoute';
+import { AdminLayout } from './components/AdminLayout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { Dashboard } from './pages/Dashboard';
 import { AssessmentWizard } from './pages/AssessmentWizard';
 import { AssessmentResults } from './pages/AssessmentResults';
+import { AdminDashboard } from './pages/AdminDashboard';
+import { MembersManagement } from './pages/MembersManagement';
+import { InvitesManagement } from './pages/InvitesManagement';
 import './App.css';
 
 function App() {
@@ -51,6 +56,44 @@ function App() {
                 <AssessmentProvider>
                   <AssessmentResults />
                 </AssessmentProvider>
+              </PrivateRoute>
+            }
+          />
+          
+          {/* Admin Routes */}
+          <Route
+            path="/admin"
+            element={
+              <PrivateRoute>
+                <AdminProvider>
+                  <AdminLayout>
+                    <AdminDashboard />
+                  </AdminLayout>
+                </AdminProvider>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/members"
+            element={
+              <PrivateRoute>
+                <AdminProvider>
+                  <AdminLayout>
+                    <MembersManagement />
+                  </AdminLayout>
+                </AdminProvider>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/invites"
+            element={
+              <PrivateRoute>
+                <AdminProvider>
+                  <AdminLayout>
+                    <InvitesManagement />
+                  </AdminLayout>
+                </AdminProvider>
               </PrivateRoute>
             }
           />
