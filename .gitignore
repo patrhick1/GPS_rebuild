@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database
+*.sqlite3
+*.db
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node.js (web)
+web/node_modules/
+web/dist/
+web/dist-ssr/
+web/*.local
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Alembic
+api/alembic/versions/*.pyc
+api/alembic/versions/__pycache__/
+
+# Build artifacts
+build/
+dist/
