@@ -302,6 +302,55 @@ This matches the legacy structure. Gift and passion IDs reference the `gifts_pas
 
 This is the scoring engine's lookup table. The `questions` field tells the system which questions to sum for each gift/passion category.
 
+**Spiritual Gifts (19 total, type_id: 1):**
+Each gift is scored by summing 4 Likert-scale questions (1-5), giving a range of 4-20 per gift.
+
+| Gift Name | Short Code | Questions (IDs) |
+|-----------|------------|-----------------|
+| Administration | AD | 9, 28, 47, 66 |
+| Apostleship | AP | 14, 33, 52, 71 |
+| Craftsmanship | C | 16, 35, 54, 73 |
+| Creative Communication | CC | 17, 36, 55, 74 |
+| Discernment | D | 13, 32, 51, 70 |
+| Encouragement | EN | 4, 23, 42, 61 |
+| Evangelism | EV | 1, 20, 39, 58 |
+| Faith | F | 18, 37, 56, 75 |
+| Giving | G | 8, 27, 46, 65 |
+| Hospitality | H | 19, 38, 57, 76 |
+| Intercession | I | 15, 34, 53, 72 |
+| Knowledge | K | 12, 31, 50, 69 |
+| Leadership | L | 10, 29, 48, 67 |
+| Mercy | ME | 6, 25, 44, 63 |
+| Prophecy | PR | 2, 21, 40, 59 |
+| Service | SE | 7, 26, 45, 64 |
+| Shepherding | SH | 5, 24, 43, 62 |
+| Teaching | TE | 3, 22, 41, 60 |
+| Wisdom | W | 11, 30, 49, 68 |
+
+**Influencing Styles (5 total, type_id: 2):**
+Each style is scored by summing 16-18 Likert-scale questions (1-5).
+
+| Style Name | Short Code | Questions (IDs) |
+|------------|------------|-----------------|
+| Apostle | A | 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 64, 65, 70, 73, 75, 80 |
+| Prophet | P | 4, 9, 14, 19, 24, 29, 34, 39, 44, 49, 54, 59, 63, 64, 69, 74, 77, 79 |
+| Evangelist | E | 3, 8, 13, 18, 21, 23, 28, 33, 38, 43, 48, 53, 58, 63, 68, 72, 73, 78 |
+| Shepherd | S | 1, 6, 8, 11, 16, 21, 23, 26, 31, 36, 41, 46, 51, 56, 61, 66, 71, 76 |
+| Teacher | T | 2, 7, 11, 6, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57, 61, 62, 67, 72 |
+
+**Scoring Algorithm:**
+1. For each gift/style, sum the `numeric_value` (1-5) of answers where `question_id` matches the gift's question list
+2. Sort gifts/styles by total score descending
+3. Top 2 gifts with highest scores are the user's identified spiritual gifts
+4. Top 2 influencing styles with highest scores are primary and secondary styles
+5. Tie handling: If scores are equal, include all tied items in results (up to 4 gifts, 3 passions)
+
+**Special Questions:**
+- Question 157: People selection (multiple choice checkboxes)
+- Question 158: Cause selection (multiple choice checkboxes)
+- Question 166: Abilities selection (multiple choice checkboxes)
+- Type 3 questions: Story/free text responses (7 questions)
+
 #### types
 
 | Field | Type | Required | Notes |

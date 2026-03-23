@@ -83,7 +83,6 @@ def seed_gifts_passions(db: Session):
         db_gift = GiftsPassion(
             **gift_data,
             type_id=spiritual_gift_type.id,
-            questions="",  # Will be populated later when questions are created
         )
         db.add(db_gift)
     
@@ -93,7 +92,6 @@ def seed_gifts_passions(db: Session):
         db_style = GiftsPassion(
             **style_data,
             type_id=influencing_style_type.id,
-            questions="",
         )
         db.add(db_style)
     
