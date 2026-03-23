@@ -1,0 +1,512 @@
+"""
+Dashboard API endpoints for user-facing dashboard features
+"""
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Response
+from sqlalchemy.orm import Session
+from datetime import datetime
+import csv
+import io
+
+from app.core.database import get_db
+from app.dependencies.auth import get_current_active_user
+from app.models.user import User
+from app.models.assessment import Assessment
+from app.models.assessment_result import AssessmentResult
+from app.models.gifts_passion import GiftsPassion
+from app.models.organization import Organization
+from app.schemas.dashboard import (
+    DashboardSummary,
+    AssessmentHistoryItem,
+    AssessmentDetail,
+    ComparisonRequest,
+    ComparisonResult,
+    ChurchSearchResult,
+    LinkRequestCreate,
+    LinkRequestResponse,
+)
+
+router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+
+
+@router.get("/summary", response_model=DashboardSummary)
+async def get_dashboard_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get dashboard summary for current user"""
+    
+    # Get most recent completed assessment
+    latest_assessment = db.query(Assessment).filter(
+        Assessment.user_id == current_user.id,
+        Assessment.status == "completed"
+    ).order_by(Assessment.completed_at.desc()).first()
+    
+    latest_result = None
+    if latest_assessment:
+        latest_result = db.query(AssessmentResult).filter(
+            AssessmentResult.assessment_id == latest_assessment.id
+        ).first()
+    
+    # Get assessment counts
+    total_count = db.query(Assessment).filter(
+        Assessment.user_id == current_user.id,
+        Assessment.status == "completed"
+    ).count()
+    
+    # Get organization info
+    organization = None
+    if current_user.memberships:
+        membership = current_user.memberships[0]
+        if membership.organization:
+            organization = {
+                "id": membership.organization.id,
+                "name": membership.organization.name,
+                "role": membership.role.name if membership.role else None
+            }
+    
+    return DashboardSummary(
+        user={
+            "id": current_user.id,
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
+            "email": current_user.email
+        },
+        latest_assessment={
+            "id": latest_assessment.id,
+            "completed_at": latest_assessment.completed_at,
+            "top_gifts": _get_top_gifts_detail(db, latest_result) if latest_result else None,
+            "top_passions": _get_top_passions_detail(db, latest_result) if latest_result else None
+        } if latest_assessment else None,
+        stats={
+            "total_assessments": total_count,
+            "has_organization": organization is not None
+        },
+        organization=organization
+    )
+
+
+@router.get("/assessments", response_model=List[AssessmentHistoryItem])
+async def get_assessment_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    limit: int = 50,
+    offset: int = 0
+):
+    """Get assessment history for current user"""
+    
+    assessments = db.query(Assessment).filter(
+        Assessment.user_id == current_user.id,
+        Assessment.status == "completed"
+    ).order_by(Assessment.completed_at.desc()).offset(offset).limit(limit).all()
+    
+    result = []
+    for assessment in assessments:
+        assessment_result = db.query(AssessmentResult).filter(
+            AssessmentResult.assessment_id == assessment.id
+        ).first()
+        
+        result.append(AssessmentHistoryItem(
+            id=assessment.id,
+            completed_at=assessment.completed_at,
+            created_at=assessment.created_at,
+            top_gifts=_get_top_gifts_summary(db, assessment_result) if assessment_result else [],
+            top_passions=_get_top_passions_summary(db, assessment_result) if assessment_result else []
+        ))
+    
+    return result
+
+
+@router.get("/assessments/{assessment_id}", response_model=AssessmentDetail)
+async def get_assessment_detail(
+    assessment_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get detailed view of a specific assessment"""
+    
+    assessment = db.query(Assessment).filter(
+        Assessment.id == assessment_id,
+        Assessment.user_id == current_user.id
+    ).first()
+    
+    if not assessment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assessment not found"
+        )
+    
+    result = db.query(AssessmentResult).filter(
+        AssessmentResult.assessment_id == assessment.id
+    ).first()
+    
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assessment results not found"
+        )
+    
+    return AssessmentDetail(
+        id=assessment.id,
+        completed_at=assessment.completed_at,
+        created_at=assessment.created_at,
+        gifts=_get_all_gifts_detail(db, result),
+        passions=_get_all_passions_detail(db, result),
+        selections={
+            "people": result.people.split(',') if result.people else [],
+            "causes": result.cause.split(',') if result.cause else [],
+            "abilities": result.abilities.split(',') if result.abilities else []
+        },
+        stories={
+            "gift": result.story_gift_answer,
+            "ability": result.story_ability_answer,
+            "passion": result.story_passion_answer,
+            "influencing": result.story_influencing_answer,
+            "onechange": result.story_onechange_answer,
+            "closestpeople": result.story_closestpeople_answer,
+            "oneregret": result.story_oneregret_answer
+        }
+    )
+
+
+@router.post("/compare", response_model=ComparisonResult)
+async def compare_assessments(
+    comparison: ComparisonRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Compare two assessments side by side"""
+    
+    # Verify both assessments belong to user
+    assessment1 = db.query(Assessment).filter(
+        Assessment.id == comparison.assessment_id_1,
+        Assessment.user_id == current_user.id,
+        Assessment.status == "completed"
+    ).first()
+    
+    assessment2 = db.query(Assessment).filter(
+        Assessment.id == comparison.assessment_id_2,
+        Assessment.user_id == current_user.id,
+        Assessment.status == "completed"
+    ).first()
+    
+    if not assessment1 or not assessment2:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or both assessments not found"
+        )
+    
+    result1 = db.query(AssessmentResult).filter(
+        AssessmentResult.assessment_id == assessment1.id
+    ).first()
+    
+    result2 = db.query(AssessmentResult).filter(
+        AssessmentResult.assessment_id == assessment2.id
+    ).first()
+    
+    return ComparisonResult(
+        assessment_1={
+            "id": assessment1.id,
+            "completed_at": assessment1.completed_at,
+            "gifts": _get_all_gifts_detail(db, result1) if result1 else [],
+            "passions": _get_all_passions_detail(db, result1) if result1 else []
+        },
+        assessment_2={
+            "id": assessment2.id,
+            "completed_at": assessment2.completed_at,
+            "gifts": _get_all_gifts_detail(db, result2) if result2 else [],
+            "passions": _get_all_passions_detail(db, result2) if result2 else []
+        }
+    )
+
+
+@router.get("/export/csv")
+async def export_assessments_csv(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Export user's assessment history as CSV"""
+    
+    assessments = db.query(Assessment).filter(
+        Assessment.user_id == current_user.id,
+        Assessment.status == "completed"
+    ).order_by(Assessment.completed_at.desc()).all()
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow([
+        "Assessment Date",
+        "Gift 1",
+        "Score 1",
+        "Gift 2",
+        "Score 2",
+        "Passion 1",
+        "Score 1",
+        "Passion 2",
+        "Score 2"
+    ])
+    
+    # Write data
+    for assessment in assessments:
+        result = db.query(AssessmentResult).filter(
+            AssessmentResult.assessment_id == assessment.id
+        ).first()
+        
+        if result:
+            # Get gift names
+            gift1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_1_id).first()
+            gift2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_2_id).first()
+            passion1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.passion_1_id).first()
+            passion2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.passion_2_id).first()
+            
+            writer.writerow([
+                assessment.completed_at.isoformat() if assessment.completed_at else "",
+                gift1.name if gift1 else "",
+                result.spiritual_gift_1_score or "",
+                gift2.name if gift2 else "",
+                result.spiritual_gift_2_score or "",
+                passion1.name if passion1 else "",
+                result.passion_1_score or "",
+                passion2.name if passion2 else "",
+                result.passion_2_score or ""
+            ])
+    
+    # Prepare response
+    output.seek(0)
+    filename = f"gps_assessments_{current_user.email}_{datetime.now().strftime('%Y%m%d')}.csv"
+    
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+# Helper functions
+def _get_top_gifts_detail(db: Session, result: AssessmentResult):
+    """Get detailed info for top gifts"""
+    gifts = []
+    for gift_id, score in [
+        (result.gift_1_id, result.spiritual_gift_1_score),
+        (result.gift_2_id, result.spiritual_gift_2_score)
+    ]:
+        if gift_id:
+            gift = db.query(GiftsPassion).filter(GiftsPassion.id == gift_id).first()
+            if gift:
+                gifts.append({
+                    "id": gift.id,
+                    "name": gift.name,
+                    "short_code": gift.short_code,
+                    "score": score,
+                    "description": gift.description
+                })
+    return gifts
+
+
+def _get_top_passions_detail(db: Session, result: AssessmentResult):
+    """Get detailed info for top passions"""
+    passions = []
+    for passion_id, score in [
+        (result.passion_1_id, result.passion_1_score),
+        (result.passion_2_id, result.passion_2_score)
+    ]:
+        if passion_id:
+            passion = db.query(GiftsPassion).filter(GiftsPassion.id == passion_id).first()
+            if passion:
+                passions.append({
+                    "id": passion.id,
+                    "name": passion.name,
+                    "short_code": passion.short_code,
+                    "score": score,
+                    "description": passion.description
+                })
+    return passions
+
+
+def _get_top_gifts_summary(db: Session, result: AssessmentResult):
+    """Get summary for top gifts"""
+    gifts = []
+    for gift_id, score in [
+        (result.gift_1_id, result.spiritual_gift_1_score),
+        (result.gift_2_id, result.spiritual_gift_2_score)
+    ]:
+        if gift_id:
+            gift = db.query(GiftsPassion).filter(GiftsPassion.id == gift_id).first()
+            if gift:
+                gifts.append({
+                    "name": gift.name,
+                    "score": score
+                })
+    return gifts
+
+
+def _get_top_passions_summary(db: Session, result: AssessmentResult):
+    """Get summary for top passions"""
+    passions = []
+    for passion_id, score in [
+        (result.passion_1_id, result.passion_1_score),
+        (result.passion_2_id, result.passion_2_score)
+    ]:
+        if passion_id:
+            passion = db.query(GiftsPassion).filter(GiftsPassion.id == passion_id).first()
+            if passion:
+                passions.append({
+                    "name": passion.name,
+                    "score": score
+                })
+    return passions
+
+
+def _get_all_gifts_detail(db: Session, result: AssessmentResult):
+    """Get all gifts with scores from a result"""
+    gifts = []
+    for gift_id, score in [
+        (result.gift_1_id, result.spiritual_gift_1_score),
+        (result.gift_2_id, result.spiritual_gift_2_score),
+        (result.gift_3_id, result.spiritual_gift_3_score),
+        (result.gift_4_id, result.spiritual_gift_4_score)
+    ]:
+        if gift_id and score:
+            gift = db.query(GiftsPassion).filter(GiftsPassion.id == gift_id).first()
+            if gift:
+                gifts.append({
+                    "id": gift.id,
+                    "name": gift.name,
+                    "short_code": gift.short_code,
+                    "score": score
+                })
+    return gifts
+
+
+def _get_all_passions_detail(db: Session, result: AssessmentResult):
+    """Get all passions with scores from a result"""
+    passions = []
+    for passion_id, score in [
+        (result.passion_1_id, result.passion_1_score),
+        (result.passion_2_id, result.passion_2_score),
+        (result.passion_3_id, result.passion_3_score)
+    ]:
+        if passion_id and score:
+            passion = db.query(GiftsPassion).filter(GiftsPassion.id == passion_id).first()
+            if passion:
+                passions.append({
+                    "id": passion.id,
+                    "name": passion.name,
+                    "short_code": passion.short_code,
+                    "score": score
+                })
+    return passions
+
+
+# Church Linking Endpoints
+
+@router.get("/churches/search", response_model=List[ChurchSearchResult])
+async def search_churches(
+    query: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Search for churches to link to"""
+    
+    churches = db.query(Organization).filter(
+        Organization.name.ilike(f"%{query}%")
+    ).limit(10).all()
+    
+    result = []
+    for church in churches:
+        member_count = db.query(Membership).filter(
+            Membership.organization_id == church.id
+        ).count()
+        
+        result.append(ChurchSearchResult(
+            id=church.id,
+            name=church.name,
+            city=church.city,
+            state=church.state,
+            member_count=member_count
+        ))
+    
+    return result
+
+
+@router.post("/link-request", response_model=LinkRequestResponse)
+async def request_church_link(
+    request: LinkRequestCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Request to link to a church"""
+    
+    # Check if user already has a membership
+    existing = db.query(Membership).filter(
+        Membership.user_id == current_user.id
+    ).first()
+    
+    if existing and existing.organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are already linked to an organization"
+        )
+    
+    # Get the organization
+    org = db.query(Organization).filter(Organization.id == request.organization_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+    
+    # Create or update membership with pending status
+    if existing:
+        existing.organization_id = request.organization_id
+        existing.status = "pending"
+    else:
+        # Get the member role
+        from app.models.role import Role
+        member_role = db.query(Role).filter(Role.name == "member").first()
+        
+        membership = Membership(
+            user_id=current_user.id,
+            organization_id=request.organization_id,
+            role_id=member_role.id if member_role else None,
+            status="pending"
+        )
+        db.add(membership)
+    
+    db.commit()
+    
+    return LinkRequestResponse(
+        id=membership.id,
+        organization_id=org.id,
+        organization_name=org.name,
+        status="pending",
+        created_at=membership.created_at
+    )
+
+
+@router.post("/leave-organization")
+async def leave_organization(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Leave current organization and become independent"""
+    
+    membership = db.query(Membership).filter(
+        Membership.user_id == current_user.id
+    ).first()
+    
+    if not membership or not membership.organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are not linked to any organization"
+        )
+    
+    # Set organization to null (become independent)
+    membership.organization_id = None
+    membership.status = "active"
+    db.commit()
+    
+    return {"message": "Successfully left organization"}

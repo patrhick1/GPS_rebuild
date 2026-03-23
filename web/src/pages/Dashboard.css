@@ -47,21 +47,61 @@
 
 /* Content */
 .dashboard-content {
-  padding: 40px;
+  padding: 30px 40px;
   max-width: 1200px;
   margin: 0 auto;
 }
 
-.dashboard-content h2 {
-  margin: 0 0 10px 0;
-  color: #1f2937;
-  font-size: 28px;
+/* Tabs */
+.dashboard-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 30px;
+  background: white;
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.dashboard-content > p {
-  color: #6b7280;
-  margin-bottom: 30px;
+.tab {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
   font-size: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.tab.active {
+  background: #667eea;
+  color: white;
+}
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.btn-large {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 32px;
+  font-size: 18px;
+}
+
+.btn-large .icon {
+  font-size: 24px;
 }
 
 /* Cards */
@@ -73,37 +113,132 @@
 
 .dashboard-card {
   background: white;
-  padding: 32px;
+  padding: 24px;
   border-radius: 12px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.dashboard-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
 .dashboard-card.featured {
   border: 2px solid #667eea;
 }
 
-.card-icon {
-  font-size: 48px;
+.dashboard-card h3 {
+  margin: 0 0 20px 0;
+  color: #1f2937;
+  font-size: 18px;
+}
+
+/* Latest Assessment Card */
+.latest-assessment {
+  text-align: center;
+}
+
+.assessment-date {
+  color: #6b7280;
+  font-size: 14px;
   margin-bottom: 16px;
 }
 
-.dashboard-card h3 {
-  margin: 0 0 12px 0;
-  color: #1f2937;
-  font-size: 20px;
+.top-gifts,
+.top-passions {
+  margin-bottom: 20px;
 }
 
-.dashboard-card p {
+.top-gifts h4,
+.top-passions h4 {
+  margin: 0 0 12px 0;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.gift-tags,
+.passion-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.gift-tag {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.passion-tag {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-view {
+  padding: 12px 24px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-view:hover {
+  background: #5568d3;
+}
+
+.no-assessment {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.no-assessment p {
   color: #6b7280;
-  margin-bottom: 24px;
-  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #667eea;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Profile Info */
+.profile-info p {
+  margin: 0 0 12px 0;
+  color: #374151;
+}
+
+.profile-info strong {
+  color: #1f2937;
 }
 
 /* Buttons */
@@ -130,6 +265,9 @@
 }
 
 .btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 14px 28px;
   background: white;
   color: #667eea;
@@ -152,7 +290,7 @@
 }
 
 /* Responsive */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .dashboard-header {
     padding: 16px 20px;
     flex-direction: column;
@@ -164,15 +302,22 @@
     padding: 20px;
   }
 
-  .dashboard-content h2 {
-    font-size: 24px;
+  .dashboard-tabs {
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .quick-actions {
+    flex-direction: column;
   }
 
   .dashboard-cards {
     grid-template-columns: 1fr;
-  }
-
-  .dashboard-card {
-    padding: 24px;
   }
 }
