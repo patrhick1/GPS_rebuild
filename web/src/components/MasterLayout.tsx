@@ -47,6 +47,13 @@ export function MasterLayout({ children }: { children: React.ReactNode }) {
             <span className="icon">📋</span>
             Audit Log
           </Link>
+          <Link
+            to="/master/export"
+            className={isActive('/master/export') ? 'active' : ''}
+          >
+            <span className="icon">📥</span>
+            Export Data
+          </Link>
         </nav>
 
         <div className="sidebar-footer">

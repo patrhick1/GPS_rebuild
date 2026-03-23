@@ -19,6 +19,7 @@ from app.models.role import Role
 from app.models.assessment import Assessment
 from app.models.assessment_result import AssessmentResult
 from app.models.audit_log import AuditLog
+from app.models.gifts_passion import GiftsPassion
 from app.schemas.master import (
     SystemStats,
     ChurchListResponse,
@@ -540,74 +541,179 @@ async def get_audit_log(
     )
 
 
-@router.post("/export")
+@router.get("/export/{export_type}")
 async def system_export(
-    request: SystemExportRequest,
+    export_type: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_master)
 ):
     """Export system data as CSV"""
     
+    # Log the export
+    audit_log = AuditLog(
+        user_id=current_user.id,
+        action="export",
+        target_type="system",
+        details={"export_type": export_type}
+    )
+    db.add(audit_log)
+    db.commit()
+    
     output = io.StringIO()
     writer = csv.writer(output)
     
-    if request.export_type == "users":
+    if export_type == "users":
         writer.writerow(["ID", "Email", "First Name", "Last Name", "Status", "Organization", "Role", "Created At"])
         
-        query = db.query(User, Membership, Organization).outerjoin(
-            Membership, User.id == Membership.user_id
-        ).outerjoin(
-            Organization, Membership.organization_id == Organization.id
-        )
-        
-        if request.organization_id:
-            query = query.filter(Organization.id == request.organization_id)
-        
-        if request.date_from:
-            query = query.filter(User.created_at >= request.date_from)
-        
-        if request.date_to:
-            query = query.filter(User.created_at <= request.date_to)
-        
-        for user, membership, org in query:
+        users = db.query(User).all()
+        for user in users:
+            membership = db.query(Membership).filter(Membership.user_id == user.id).first()
+            org_name = membership.organization.name if membership and membership.organization else "Independent"
+            role_name = membership.role.name if membership and membership.role else "N/A"
+            
             writer.writerow([
-                user.id,
+                str(user.id),
                 user.email,
                 user.first_name,
                 user.last_name,
                 user.status,
-                org.name if org else "Independent",
-                membership.role.name if membership and membership.role else "N/A",
+                org_name,
+                role_name,
                 user.created_at.isoformat() if user.created_at else ""
             ])
     
-    elif request.export_type == "assessments":
-        writer.writerow(["Assessment ID", "User Email", "Completed At", "Gift 1", "Score 1", "Gift 2", "Score 2"])
+    elif export_type == "assessments":
+        writer.writerow(["Assessment ID", "User Email", "Completed At", "Gift 1", "Score 1", "Gift 2", "Score 2", "Style 1", "Score 1", "Style 2", "Score 2"])
         
-        query = db.query(Assessment, User, AssessmentResult).join(
+        assessments = db.query(Assessment, User, AssessmentResult).join(
             User, Assessment.user_id == User.id
-        ).join(
+        ).outerjoin(
             AssessmentResult, Assessment.id == AssessmentResult.assessment_id
-        )
+        ).filter(Assessment.status == "completed").all()
         
-        if request.date_from:
-            query = query.filter(Assessment.completed_at >= request.date_from)
-        
-        if request.date_to:
-            query = query.filter(Assessment.completed_at <= request.date_to)
-        
-        for assessment, user, result in query:
-            gift1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_1_id).first()
-            gift2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_2_id).first()
+        for assessment, user, result in assessments:
+            gift1_name = ""
+            gift2_name = ""
+            style1_name = ""
+            style2_name = ""
+            
+            if result:
+                gift1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_1_id).first() if result.gift_1_id else None
+                gift2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_2_id).first() if result.gift_2_id else None
+                style1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.passion_1_id).first() if result.passion_1_id else None
+                style2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.passion_2_id).first() if result.passion_2_id else None
+                gift1_name = gift1.name if gift1 else ""
+                gift2_name = gift2.name if gift2 else ""
+                style1_name = style1.name if style1 else ""
+                style2_name = style2.name if style2 else ""
             
             writer.writerow([
-                assessment.id,
+                str(assessment.id),
                 user.email,
                 assessment.completed_at.isoformat() if assessment.completed_at else "",
-                gift1.name if gift1 else "",
-                result.spiritual_gift_1_score or "",
-                gift2.name if gift2 else "",
-                result.spiritual_gift_2_score or ""
+                gift1_name,
+                result.spiritual_gift_1_score if result else "",
+                gift2_name,
+                result.spiritual_gift_2_score if result else "",
+                style1_name,
+                result.influencing_style_1_score if result else "",
+                style2_name,
+                result.influencing_style_2_score if result else ""
+            ])
+    
+    elif export_type == "full":
+        # Full export - users and their assessments
+        writer.writerow(["=== USERS ==="])
+        writer.writerow(["ID", "Email", "First Name", "Last Name", "Status", "Organization", "Role", "Created At"])
+        
+        users = db.query(User).all()
+        for user in users:
+            membership = db.query(Membership).filter(Membership.user_id == user.id).first()
+            org_name = membership.organization.name if membership and membership.organization else "Independent"
+            role_name = membership.role.name if membership and membership.role else "N/A"
+            
+            writer.writerow([
+                str(user.id),
+                user.email,
+                user.first_name,
+                user.last_name,
+                user.status,
+                org_name,
+                role_name,
+                user.created_at.isoformat() if user.created_at else ""
+            ])
+        
+        writer.writerow([])
+        writer.writerow(["=== CHURCHES ==="])
+        writer.writerow(["ID", "Name", "Key", "City", "State", "Country", "Created At"])
+        
+        churches = db.query(Organization).all()
+        for church in churches:
+            writer.writerow([
+                str(church.id),
+                church.name,
+                church.key,
+                church.city or "",
+                church.state or "",
+                church.country or "",
+                church.created_at.isoformat() if church.created_at else ""
+            ])
+        
+        writer.writerow([])
+        writer.writerow(["=== ASSESSMENTS ==="])
+        writer.writerow(["Assessment ID", "User Email", "Completed At", "Gift 1", "Score 1", "Gift 2", "Score 2", "Style 1", "Score 1", "Style 2", "Score 2"])
+        
+        assessments = db.query(Assessment, User, AssessmentResult).join(
+            User, Assessment.user_id == User.id
+        ).outerjoin(
+            AssessmentResult, Assessment.id == AssessmentResult.assessment_id
+        ).filter(Assessment.status == "completed").all()
+        
+        for assessment, user, result in assessments:
+            gift1_name = ""
+            gift2_name = ""
+            style1_name = ""
+            style2_name = ""
+            
+            if result:
+                gift1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_1_id).first() if result.gift_1_id else None
+                gift2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_2_id).first() if result.gift_2_id else None
+                style1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.passion_1_id).first() if result.passion_1_id else None
+                style2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.passion_2_id).first() if result.passion_2_id else None
+                gift1_name = gift1.name if gift1 else ""
+                gift2_name = gift2.name if gift2 else ""
+                style1_name = style1.name if style1 else ""
+                style2_name = style2.name if style2 else ""
+            
+            writer.writerow([
+                str(assessment.id),
+                user.email,
+                assessment.completed_at.isoformat() if assessment.completed_at else "",
+                gift1_name,
+                result.spiritual_gift_1_score if result else "",
+                gift2_name,
+                result.spiritual_gift_2_score if result else "",
+                style1_name,
+                result.influencing_style_1_score if result else "",
+                style2_name,
+                result.influencing_style_2_score if result else ""
+            ])
+        
+        writer.writerow([])
+        writer.writerow(["=== AUDIT LOG ==="])
+        writer.writerow(["ID", "User Email", "Action", "Target Type", "Target ID", "Details", "Created At"])
+        
+        audit_logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).all()
+        for log in audit_logs:
+            user = db.query(User).filter(User.id == log.user_id).first()
+            writer.writerow([
+                str(log.id),
+                user.email if user else "System",
+                log.action,
+                log.target_type or "",
+                str(log.target_id) if log.target_id else "",
+                str(log.details) if log.details else "",
+                log.created_at.isoformat() if log.created_at else ""
             ])
     
     output.seek(0)
@@ -616,5 +722,5 @@ async def system_export(
     return Response(
         content=output.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=export_{request.export_type}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=export_{export_type}_{datetime.utcnow().strftime('%Y%m%d')}.csv"}
     )

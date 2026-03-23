@@ -19,6 +19,7 @@ import { InvitesManagement } from './pages/InvitesManagement';
 import { MasterDashboard } from './pages/MasterDashboard';
 import { ChurchesManagement } from './pages/ChurchesManagement';
 import { AuditLog } from './pages/AuditLog';
+import { SystemExport } from './pages/SystemExport';
 import './App.css';
 
 function App() {
@@ -147,6 +148,18 @@ function App() {
                 <MasterProvider>
                   <MasterLayout>
                     <AuditLog />
+                  </MasterLayout>
+                </MasterProvider>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/master/export"
+            element={
+              <PrivateRoute>
+                <MasterProvider>
+                  <MasterLayout>
+                    <SystemExport />
                   </MasterLayout>
                 </MasterProvider>
               </PrivateRoute>

@@ -1,0 +1,157 @@
+.churches-management {
+  max-width: 1200px;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: #1f2937;
+}
+
+.error-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #fee2e2;
+  color: #dc2626;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.error-banner button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.search-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.churches-table {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.churches-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.churches-table th,
+.churches-table td {
+  padding: 16px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.churches-table th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.btn-view {
+  padding: 8px 16px;
+  background: #fbbf24;
+  color: #111827;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn-view:hover {
+  background: #f59e0b;
+}
+
+.pagination {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.page-btn {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.page-btn:hover {
+  background: #f3f4f6;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  padding: 32px;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+}
+
+.modal h2 {
+  margin: 0 0 20px 0;
+  color: #1f2937;
+}
+
+.detail-content p {
+  margin: 0 0 12px 0;
+  color: #4b5563;
+}
+
+.detail-content h3 {
+  margin: 20px 0 12px 0;
+  color: #374151;
+}
+
+.detail-content ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.detail-content li {
+  margin-bottom: 8px;
+  color: #4b5563;
+}
+
+.btn-close {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
