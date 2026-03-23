@@ -25,4 +25,5 @@ class Type(Base):
         return [
             {"name": "Spiritual Gift", "description": "Spiritual gifts assessment", "order": 1},
             {"name": "Influencing Style", "description": "Influencing style assessment", "order": 2},
+            {"name": "Story", "description": "Story/free text questions", "order": 3},
         ]
