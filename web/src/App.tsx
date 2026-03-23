@@ -1,10 +1,13 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { AssessmentProvider } from './context/AssessmentContext';
 import { PrivateRoute } from './components/PrivateRoute';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { Dashboard } from './pages/Dashboard';
+import { AssessmentWizard } from './pages/AssessmentWizard';
+import { AssessmentResults } from './pages/AssessmentResults';
 import './App.css';
 
 function App() {
@@ -23,6 +26,28 @@ function App() {
             element={
               <PrivateRoute>
                 <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          
+          <Route
+            path="/assessment"
+            element={
+              <PrivateRoute>
+                <AssessmentProvider>
+                  <AssessmentWizard />
+                </AssessmentProvider>
+              </PrivateRoute>
+            }
+          />
+          
+          <Route
+            path="/assessment-results"
+            element={
+              <PrivateRoute>
+                <AssessmentProvider>
+                  <AssessmentResults />
+                </AssessmentProvider>
               </PrivateRoute>
             }
           />

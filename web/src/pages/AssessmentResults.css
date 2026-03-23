@@ -1,0 +1,369 @@
+.assessment-results {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Header */
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.results-header h1 {
+  font-size: 32px;
+  color: #1f2937;
+  margin: 0;
+}
+
+.results-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Sections */
+.results-section {
+  margin-bottom: 50px;
+}
+
+.results-section h2 {
+  font-size: 24px;
+  color: #1f2937;
+  margin: 0 0 8px 0;
+}
+
+.section-description {
+  color: #6b7280;
+  margin-bottom: 24px;
+}
+
+/* Gift Cards */
+.gifts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.gift-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 12px;
+  position: relative;
+}
+
+.gift-card.primary {
+  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+}
+
+.gift-rank {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 48px;
+  font-weight: 700;
+  opacity: 0.3;
+}
+
+.gift-card h3 {
+  font-size: 28px;
+  margin: 0 0 12px 0;
+}
+
+.gift-score {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  opacity: 0.9;
+}
+
+.gift-card p {
+  font-size: 16px;
+  line-height: 1.6;
+  opacity: 0.95;
+  margin: 0;
+}
+
+/* Passion Cards */
+.passions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.passion-card {
+  padding: 30px;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+}
+
+.passion-card.primary {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+
+.passion-card.secondary {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.passion-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+  color: #6b7280;
+}
+
+.passion-card.primary .passion-label {
+  color: #059669;
+}
+
+.passion-card.secondary .passion-label {
+  color: #2563eb;
+}
+
+.passion-card h3 {
+  font-size: 24px;
+  margin: 0 0 8px 0;
+  color: #1f2937;
+}
+
+.passion-score {
+  font-size: 16px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 16px;
+}
+
+.passion-card p {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #4b5563;
+  margin: 0;
+}
+
+/* Charts */
+.all-gifts,
+.all-passions {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.all-gifts h3,
+.all-passions h3 {
+  font-size: 18px;
+  margin: 0 0 20px 0;
+  color: #374151;
+}
+
+.gifts-chart,
+.passions-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chart-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chart-label {
+  width: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  text-align: center;
+}
+
+.chart-bar-container {
+  flex: 1;
+  height: 24px;
+  background: #f3f4f6;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.chart-bar {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 0.5s ease;
+}
+
+.chart-bar.high {
+  background: #10b981;
+}
+
+.chart-bar.medium {
+  background: #f59e0b;
+}
+
+.chart-bar.low {
+  background: #6b7280;
+}
+
+.chart-value {
+  width: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  text-align: right;
+}
+
+/* Selections */
+.selections .selection-group {
+  margin-bottom: 24px;
+}
+
+.selections h3 {
+  font-size: 16px;
+  color: #374151;
+  margin: 0 0 12px 0;
+}
+
+.selection-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  background: #f3f4f6;
+  color: #374151;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+/* Stories */
+.stories .story-response {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+}
+
+.stories h3 {
+  font-size: 16px;
+  color: #374151;
+  margin: 0 0 12px 0;
+  font-style: italic;
+}
+
+.story-answer {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #4b5563;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* Footer */
+.results-footer {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding-top: 30px;
+  border-top: 2px solid #e5e7eb;
+}
+
+/* Buttons */
+.btn-primary {
+  padding: 14px 32px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: #5568d3;
+}
+
+.btn-secondary {
+  padding: 14px 32px;
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #f3f4f6;
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .assessment-results {
+    padding: 0;
+    max-width: none;
+  }
+
+  .results-section {
+    page-break-inside: avoid;
+    margin-bottom: 30px;
+  }
+
+  .gift-card {
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .chart-bar {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .results-header {
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+  }
+
+  .results-header h1 {
+    font-size: 24px;
+  }
+
+  .gifts-grid,
+  .passions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gift-card h3 {
+    font-size: 22px;
+  }
+
+  .chart-label,
+  .chart-value {
+    width: 30px;
+    font-size: 12px;
+  }
+}
