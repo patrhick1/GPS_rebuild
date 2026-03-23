@@ -3,8 +3,10 @@ import { AuthProvider } from './context/AuthContext';
 import { AssessmentProvider } from './context/AssessmentContext';
 import { DashboardProvider } from './context/DashboardContext';
 import { AdminProvider } from './context/AdminContext';
+import { MasterProvider } from './context/MasterContext';
 import { PrivateRoute } from './components/PrivateRoute';
 import { AdminLayout } from './components/AdminLayout';
+import { MasterLayout } from './components/MasterLayout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ForgotPassword } from './pages/ForgotPassword';
@@ -14,6 +16,9 @@ import { AssessmentResults } from './pages/AssessmentResults';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { MembersManagement } from './pages/MembersManagement';
 import { InvitesManagement } from './pages/InvitesManagement';
+import { MasterDashboard } from './pages/MasterDashboard';
+import { ChurchesManagement } from './pages/ChurchesManagement';
+import { AuditLog } from './pages/AuditLog';
 import './App.css';
 
 function App() {
@@ -94,6 +99,56 @@ function App() {
                     <InvitesManagement />
                   </AdminLayout>
                 </AdminProvider>
+              </PrivateRoute>
+            }
+          />
+          
+          {/* Master Admin Routes */}
+          <Route
+            path="/master"
+            element={
+              <PrivateRoute>
+                <MasterProvider>
+                  <MasterLayout>
+                    <MasterDashboard />
+                  </MasterLayout>
+                </MasterProvider>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/master/churches"
+            element={
+              <PrivateRoute>
+                <MasterProvider>
+                  <MasterLayout>
+                    <ChurchesManagement />
+                  </MasterLayout>
+                </MasterProvider>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/master/users"
+            element={
+              <PrivateRoute>
+                <MasterProvider>
+                  <MasterLayout>
+                    <div>Users Management (Coming Soon)</div>
+                  </MasterLayout>
+                </MasterProvider>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/master/audit"
+            element={
+              <PrivateRoute>
+                <MasterProvider>
+                  <MasterLayout>
+                    <AuditLog />
+                  </MasterLayout>
+                </MasterProvider>
               </PrivateRoute>
             }
           />
