@@ -1,33 +1,38 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import './App.css'
-
-function Home() {
-  return (
-    <div className="home">
-      <h1>GPS Assessment Platform</h1>
-      <p>Welcome to the Gift, Passion, Story assessment platform.</p>
-      <div className="status-card">
-        <h2>Phase 0 Status: In Progress</h2>
-        <ul>
-          <li>✅ Project structure created</li>
-          <li>✅ FastAPI backend initialized</li>
-          <li>✅ React frontend initialized</li>
-          <li>⏳ Environment configuration</li>
-          <li>⏳ Deploy to Render</li>
-        </ul>
-      </div>
-    </div>
-  )
-}
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { PrivateRoute } from './components/PrivateRoute';
+import { Login } from './pages/Login';
+import { Register } from './pages/Register';
+import { ForgotPassword } from './pages/ForgotPassword';
+import { Dashboard } from './pages/Dashboard';
+import './App.css';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-      </Routes>
-    </Router>
-  )
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          
+          {/* Protected routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          
+          {/* Default redirect */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;

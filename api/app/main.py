@@ -6,7 +6,10 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routers import health
+from app.routers import health, auth
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -33,6 +36,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
+app.include_router(auth.router)
 
 
 @app.get("/")
@@ -42,9 +46,3 @@ async def root():
         "version": settings.VERSION,
         "docs": "/docs"
     }
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Create database tables on startup."""
-    Base.metadata.create_all(bind=engine)
