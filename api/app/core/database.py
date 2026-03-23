@@ -9,7 +9,7 @@ if settings.DATABASE_URL.startswith("postgresql"):
 else:
     # SQLite for local development
     engine = create_engine(
-        "sqlite:///./gps_local.db",
+        settings.DATABASE_URL,
         connect_args={"check_same_thread": False}
     )
 

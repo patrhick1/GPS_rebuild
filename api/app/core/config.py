@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
-    # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost/gps_db"
+    # Database - defaults to SQLite for local development
+    DATABASE_URL: str = "sqlite:///./gps_local.db"
     
     # CORS
     CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:5173"]
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = "noreply@giftpassionstory.com"
     
     # Frontend URL
-    FRONTEND_URL: str = "http://localhost:3000"
+    FRONTEND_URL: str = "http://localhost:5173"
     
     class Config:
         env_file = ".env"
