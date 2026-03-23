@@ -4,6 +4,7 @@ import { AssessmentProvider } from './context/AssessmentContext';
 import { DashboardProvider } from './context/DashboardContext';
 import { AdminProvider } from './context/AdminContext';
 import { MasterProvider } from './context/MasterContext';
+import { BillingProvider } from './context/BillingContext';
 import { PrivateRoute } from './components/PrivateRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { MasterLayout } from './components/MasterLayout';
@@ -20,6 +21,7 @@ import { MasterDashboard } from './pages/MasterDashboard';
 import { ChurchesManagement } from './pages/ChurchesManagement';
 import { AuditLog } from './pages/AuditLog';
 import { SystemExport } from './pages/SystemExport';
+import { BillingDashboard } from './pages/BillingDashboard';
 import './App.css';
 
 function App() {
@@ -162,6 +164,20 @@ function App() {
                     <SystemExport />
                   </MasterLayout>
                 </MasterProvider>
+              </PrivateRoute>
+            }
+          />
+          
+          {/* Billing Route */}
+          <Route
+            path="/admin/billing"
+            element={
+              <PrivateRoute>
+                <BillingProvider>
+                  <AdminLayout>
+                    <BillingDashboard />
+                  </AdminLayout>
+                </BillingProvider>
               </PrivateRoute>
             }
           />

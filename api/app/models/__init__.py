@@ -13,7 +13,7 @@ from app.models.question import Question
 from app.models.assessment import Assessment
 from app.models.answer import Answer
 from app.models.assessment_result import AssessmentResult
-from app.models.subscription import Subscription
+from app.models.subscription import Subscription, Payment
 
 __all__ = [
     "User",
@@ -32,4 +32,5 @@ __all__ = [
     "Answer",
     "AssessmentResult",
     "Subscription",
+    "Payment",
 ]

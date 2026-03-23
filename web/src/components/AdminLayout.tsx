@@ -47,6 +47,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <span className="icon">⚙️</span>
             Settings
           </Link>
+          <Link
+            to="/admin/billing"
+            className={isActive('/admin/billing') ? 'active' : ''}
+          >
+            <span className="icon">💳</span>
+            Billing
+          </Link>
         </nav>
 
         <div className="sidebar-footer">
