@@ -11,6 +11,7 @@ from app.models.gifts_passion import GiftsPassion
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.membership import Membership
+from app.models.question import Question
 from app.core.security import get_password_hash
 
 
@@ -137,10 +138,12 @@ def seed_test_data(db: Session):
         {"email": "member1@test.com", "first_name": "Bob", "last_name": "Wilson", "role": member_role, "org": orgs[0]},
         {"email": "member2@test.com", "first_name": "Alice", "last_name": "Brown", "role": member_role, "org": orgs[0]},
         {"email": "member3@test.com", "first_name": "Charlie", "last_name": "Davis", "role": member_role, "org": orgs[1]},
-        # Admins
-        {"email": "admin1@test.com", "first_name": "Admin", "last_name": "One", "role": admin_role, "org": orgs[0]},
-        {"email": "admin2@test.com", "first_name": "Admin", "last_name": "Two", "role": admin_role, "org": orgs[1]},
-        {"email": "admin3@test.com", "first_name": "Admin", "last_name": "Three", "role": admin_role, "org": orgs[2]},
+        # Admins (first admin of each org is primary)
+        {"email": "admin1@test.com", "first_name": "Admin", "last_name": "One", "role": admin_role, "org": orgs[0], "is_primary_admin": True},
+        {"email": "admin2@test.com", "first_name": "Admin", "last_name": "Two", "role": admin_role, "org": orgs[1], "is_primary_admin": True},
+        {"email": "admin3@test.com", "first_name": "Admin", "last_name": "Three", "role": admin_role, "org": orgs[2], "is_primary_admin": True},
+        # Secondary admin for testing
+        {"email": "admin2nd@test.com", "first_name": "Secondary", "last_name": "Admin", "role": admin_role, "org": orgs[0], "is_primary_admin": False},
         # Master admin
         {"email": "master@test.com", "first_name": "Master", "last_name": "Admin", "role": master_role},
     ]
@@ -148,10 +151,11 @@ def seed_test_data(db: Session):
     for user_data in users_data:
         role = user_data.pop("role")
         org = user_data.pop("org", None)
+        is_primary_admin = user_data.pop("is_primary_admin", False)
         
         user = User(
             **user_data,
-            password_hash=get_password_hash("password123"),
+            password_hash=get_password_hash("TestPass#2024"),
             status="active",
         )
         db.add(user)
@@ -161,11 +165,141 @@ def seed_test_data(db: Session):
             user_id=user.id,
             organization_id=org.id if org else None,
             role_id=role.id,
+            is_primary_admin=is_primary_admin,
         )
         db.add(membership)
     
     db.commit()
     print(f"Created {len(users_data)} test users")
+
+
+def seed_questions(db: Session):
+    """Seed questions from CSV file."""
+    from app.models.question import Question
+    import csv
+    import os
+    
+    # Get type IDs
+    spiritual_gift_type = db.query(Type).filter(Type.name == "Spiritual Gift").first()
+    influencing_style_type = db.query(Type).filter(Type.name == "Influencing Style").first()
+    story_type = db.query(Type).filter(Type.name == "Story").first()
+    
+    # Get question type IDs
+    likert_type = db.query(QuestionType).filter(QuestionType.type == "likert").first()
+    multiple_choice_type = db.query(QuestionType).filter(QuestionType.type == "multiple_choice").first()
+    text_type = db.query(QuestionType).filter(QuestionType.type == "text").first()
+    
+    if not all([spiritual_gift_type, influencing_style_type, story_type, likert_type, multiple_choice_type, text_type]):
+        print("Error: Required types and question_types must be seeded first")
+        return
+    
+    # Seed GPS questions if not already present
+    existing_gps = db.query(Question).filter(Question.instrument_type == "gps").count()
+    if existing_gps == 0:
+        # Read questions from CSV
+        csv_path = os.path.join(os.path.dirname(__file__), '..', '..', 'gps_questions.csv')
+        if not os.path.exists(csv_path):
+            csv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'gps_questions.csv')
+        
+        if os.path.exists(csv_path):
+            count = 0
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # Map GPSType to type_id
+                    gpstype = int(row['GPSType'])
+                    if gpstype == 1:
+                        type_id = spiritual_gift_type.id
+                    elif gpstype == 2:
+                        type_id = influencing_style_type.id
+                    elif gpstype == 3:
+                        type_id = story_type.id
+                    else:
+                        type_id = spiritual_gift_type.id
+                    
+                    # Map QuestionType to question_type_id
+                    question_type_id = int(row['QuestionType'])
+                    if question_type_id == 1:
+                        qtype_id = likert_type.id
+                    elif question_type_id == 2:
+                        qtype_id = multiple_choice_type.id
+                    elif question_type_id == 3:
+                        qtype_id = text_type.id
+                    else:
+                        qtype_id = likert_type.id
+                    
+                    question = Question(
+                        question=row['Question'],
+                        question_es=None,  # Spanish version in separate CSV
+                        order=int(row['SortOrder']),
+                        passion_type=row['PassionType'] if row['PassionType'] else None,
+                        passion_type_es=None,
+                        default_text=row['AnswerDefault'] if row['AnswerDefault'] else None,
+                        default_text_es=None,
+                        summary=row['SummaryText'] if row['SummaryText'] else None,
+                        summary_es=None,
+                        type_id=type_id,
+                        question_type_id=qtype_id,
+                        instrument_type="gps",
+                    )
+                    db.add(question)
+                    count += 1
+            
+            db.commit()
+            print(f"Seeded {count} GPS questions")
+        else:
+            print(f"Warning: gps_questions.csv not found at {csv_path}")
+    else:
+        print(f"GPS questions already seeded ({existing_gps} found)")
+    
+    # Seed MyImpact questions if not already present
+    existing_myimpact = db.query(Question).filter(Question.instrument_type == "myimpact").count()
+    if existing_myimpact == 0:
+        csv_path = os.path.join(os.path.dirname(__file__), '..', '..', 'myimpact_questions.csv')
+        if not os.path.exists(csv_path):
+            csv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'myimpact_questions.csv')
+        
+        if os.path.exists(csv_path):
+            count = 0
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # MyImpact uses Character/Calling sections mapped to types
+                    section = row['Section']
+                    if section == "Character":
+                        type_id = spiritual_gift_type.id  # Character maps to Spiritual Gift type
+                    else:  # Calling
+                        type_id = story_type.id  # Calling maps to Story type
+                    
+                    # Use sequential global order: Character 1-9, Calling 10-17
+                    # CSV SortOrder is per-section (1-9 and 1-8), so offset Calling by 9
+                    sort_order = int(row['SortOrder'])
+                    global_order = sort_order if section == "Character" else sort_order + 9
+
+                    question = Question(
+                        question=row['Question'],
+                        question_es=None,
+                        order=global_order,
+                        passion_type=None,
+                        passion_type_es=None,
+                        default_text=row.get('BibleRef'),
+                        default_text_es=None,
+                        summary=None,
+                        summary_es=None,
+                        type_id=type_id,
+                        question_type_id=likert_type.id,  # All MyImpact questions are likert 1-10
+                        instrument_type="myimpact",
+                        section=section,
+                    )
+                    db.add(question)
+                    count += 1
+            
+            db.commit()
+            print(f"Seeded {count} MyImpact questions")
+        else:
+            print(f"Warning: myimpact_questions.csv not found at {csv_path}")
+    else:
+        print(f"MyImpact questions already seeded ({existing_myimpact} found)")
 
 
 def seed_all():
@@ -180,6 +314,7 @@ def seed_all():
         seed_types(db)
         seed_question_types(db)
         seed_gifts_passions(db)
+        seed_questions(db)  # Add questions seeding
         seed_test_data(db)
         print("Database seeding completed!")
     except Exception as e:

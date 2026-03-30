@@ -21,6 +21,8 @@ class Question(Base):
     summary_es = Column(Text, nullable=True)
     type_id = Column(UUID(as_uuid=True), ForeignKey("types.id"), nullable=False)
     question_type_id = Column(UUID(as_uuid=True), ForeignKey("question_types.id"), nullable=False)
+    instrument_type = Column(String(20), nullable=False, default="gps")  # gps, myimpact
+    section = Column(String(50), nullable=True)  # For MyImpact: Character, Calling
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -2,23 +2,28 @@
 Church Admin API endpoints
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import csv
 import io
 import secrets
 import string
 
 from app.core.database import get_db
-from app.dependencies.auth import get_current_active_user, require_admin
+from app.core.rate_limits import limiter, ADMIN_RATE
+from app.core.audit import audit_action
+from app.dependencies.auth import get_current_active_user, require_admin, require_active_subscription
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.membership import Membership
 from app.models.role import Role
 from app.models.assessment import Assessment
 from app.models.assessment_result import AssessmentResult
+from app.models.gifts_passion import GiftsPassion
+from app.models.myimpact_result import MyImpactResult
 from app.models.invitation import Invitation
 from app.schemas.admin import (
     MemberListResponse,
@@ -33,6 +38,10 @@ from app.schemas.admin import (
     BulkInviteRequest,
     BulkInviteResponse,
 )
+from app.schemas.assessment import GradedAssessmentResponse, GradedMyImpactResponse
+from app.services.scoring_service import ScoringService
+from app.services.myimpact_scoring_service import MyImpactScoringService
+from app.services.email_service import send_invite_email
 
 router = APIRouter(prefix="/admin", tags=["Church Admin"])
 
@@ -54,13 +63,15 @@ def get_admin_organization(db: Session, user: User) -> Organization:
 
 
 @router.get("/members", response_model=MemberListResponse)
+@limiter.limit(ADMIN_RATE)
 async def get_members(
+    request: Request,
     search: Optional[str] = None,
     status: Optional[str] = None,
     page: int = 1,
     per_page: int = 50,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Get members of the admin's organization"""
     
@@ -73,10 +84,11 @@ async def get_members(
     
     # Apply filters
     if search:
+        search_pattern = f"%{search}%"
         query = query.filter(
-            (User.first_name.ilike(f"%{search}%")) |
-            (User.last_name.ilike(f"%{search}%")) |
-            (User.email.ilike(f"%{search}%"))
+            (User.first_name.ilike(search_pattern)) |
+            (User.last_name.ilike(search_pattern)) |
+            (User.email.ilike(search_pattern))
         )
     
     if status:
@@ -96,24 +108,76 @@ async def get_members(
             Assessment.user_id == user.id,
             Assessment.status == "completed"
         ).count()
-        
-        # Get latest assessment
-        latest = db.query(Assessment).filter(
+
+        # Get latest GPS assessment
+        latest_gps = db.query(Assessment).filter(
             Assessment.user_id == user.id,
-            Assessment.status == "completed"
+            Assessment.status == "completed",
+            Assessment.instrument_type == "gps"
         ).order_by(Assessment.completed_at.desc()).first()
-        
+
+        # Get latest MyImpact assessment
+        latest_myimpact = db.query(Assessment).filter(
+            Assessment.user_id == user.id,
+            Assessment.status == "completed",
+            Assessment.instrument_type == "myimpact"
+        ).order_by(Assessment.completed_at.desc()).first()
+
+        # Use the most recent of either for last_assessment_date
+        latest_date = None
+        if latest_gps and latest_myimpact:
+            latest_date = max(latest_gps.completed_at, latest_myimpact.completed_at)
+        elif latest_gps:
+            latest_date = latest_gps.completed_at
+        elif latest_myimpact:
+            latest_date = latest_myimpact.completed_at
+
+        # Get top gifts and passions from latest GPS assessment result
+        top_gifts = []
+        top_passions = []
+        if latest_gps:
+            result = db.query(AssessmentResult).filter(
+                AssessmentResult.assessment_id == latest_gps.id
+            ).first()
+            if result:
+                top_gifts = _get_member_gifts(db, result)
+                top_passions = _get_member_passions(db, result)
+
+        # Get MyImpact scores from latest MyImpact result
+        myimpact_character_score = None
+        myimpact_calling_score = None
+        myimpact_score_val = None
+        if latest_myimpact:
+            mi_result = db.query(MyImpactResult).filter(
+                MyImpactResult.assessment_id == latest_myimpact.id
+            ).first()
+            if mi_result:
+                myimpact_character_score = mi_result.character_score
+                myimpact_calling_score = mi_result.calling_score
+                myimpact_score_val = mi_result.myimpact_score
+
+        role_name = membership.role.name if membership.role else None
+
         member_list.append(MemberDetail(
             id=user.id,
             first_name=user.first_name,
             last_name=user.last_name,
             email=user.email,
             status=membership.status,
-            role=membership.role.name if membership.role else None,
+            role=role_name,
+            is_admin=role_name == "admin",
+            is_primary_admin=membership.is_primary_admin or False,
             joined_at=membership.created_at,
             assessment_count=assessment_count,
-            last_assessment_date=latest.completed_at if latest else None,
-            phone_number=user.phone_number
+            last_assessment_date=latest_date,
+            latest_gps_assessment_id=latest_gps.id if latest_gps else None,
+            latest_myimpact_assessment_id=latest_myimpact.id if latest_myimpact else None,
+            phone_number=user.phone_number,
+            top_gifts=top_gifts,
+            top_passions=top_passions,
+            myimpact_character_score=myimpact_character_score,
+            myimpact_calling_score=myimpact_calling_score,
+            myimpact_score=myimpact_score_val,
         ))
     
     return MemberListResponse(
@@ -126,10 +190,12 @@ async def get_members(
 
 
 @router.get("/members/{member_id}", response_model=MemberDetail)
+@limiter.limit(ADMIN_RATE)
 async def get_member_detail(
+    request: Request,
     member_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Get detailed info about a specific member"""
     
@@ -155,12 +221,27 @@ async def get_member_detail(
         Assessment.status == "completed"
     ).count()
     
-    # Get latest assessment
-    latest = db.query(Assessment).filter(
+    # Get latest GPS and MyImpact assessments separately
+    latest_gps = db.query(Assessment).filter(
         Assessment.user_id == user.id,
-        Assessment.status == "completed"
+        Assessment.status == "completed",
+        Assessment.instrument_type == "gps"
     ).order_by(Assessment.completed_at.desc()).first()
-    
+
+    latest_myimpact = db.query(Assessment).filter(
+        Assessment.user_id == user.id,
+        Assessment.status == "completed",
+        Assessment.instrument_type == "myimpact"
+    ).order_by(Assessment.completed_at.desc()).first()
+
+    latest_date = None
+    if latest_gps and latest_myimpact:
+        latest_date = max(latest_gps.completed_at, latest_myimpact.completed_at)
+    elif latest_gps:
+        latest_date = latest_gps.completed_at
+    elif latest_myimpact:
+        latest_date = latest_myimpact.completed_at
+
     return MemberDetail(
         id=user.id,
         first_name=user.first_name,
@@ -170,17 +251,98 @@ async def get_member_detail(
         role=membership.role.name if membership.role else None,
         joined_at=membership.created_at,
         assessment_count=assessment_count,
-        last_assessment_date=latest.completed_at if latest else None,
+        last_assessment_date=latest_date,
+        latest_gps_assessment_id=latest_gps.id if latest_gps else None,
+        latest_myimpact_assessment_id=latest_myimpact.id if latest_myimpact else None,
         phone_number=user.phone_number
     )
 
 
+@router.get("/members/{member_id}/results")
+@limiter.limit(ADMIN_RATE)
+async def get_member_results(
+    request: Request,
+    member_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_active_subscription)
+):
+    """Get full graded assessment results for a member"""
+    import uuid as uuid_mod
+
+    org = get_admin_organization(db, current_user)
+
+    # Verify member belongs to admin's organization
+    membership = db.query(Membership).filter(
+        Membership.user_id == member_id,
+        Membership.organization_id == org.id
+    ).first()
+
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Member not found"
+        )
+
+    # Get latest completed assessment
+    assessment = db.query(Assessment).filter(
+        Assessment.user_id == member_id,
+        Assessment.status == "completed"
+    ).order_by(Assessment.completed_at.desc()).first()
+
+    if not assessment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No completed assessment found for this member"
+        )
+
+    # Route to correct scoring service
+    if assessment.instrument_type == "myimpact":
+        scoring_service = MyImpactScoringService(db)
+        graded = scoring_service.grade_assessment(assessment)
+        return GradedMyImpactResponse(
+            character=graded.to_dict()["character"],
+            calling=graded.to_dict()["calling"],
+            myimpact_score=graded.myimpact_score
+        )
+    else:
+        scoring_service = ScoringService(db)
+        graded = scoring_service.grade_assessment(assessment)
+        return GradedAssessmentResponse(
+            gifts=[
+                {"id": g.id, "name": g.name, "short_code": g.short_code, "description": g.description, "points": g.points}
+                for g in graded.gifts
+            ],
+            top_gifts=[
+                {"id": g.id, "name": g.name, "short_code": g.short_code, "description": g.description, "points": g.points}
+                for g in graded.top_gifts
+            ],
+            passions=[
+                {"id": p.id, "name": p.name, "short_code": p.short_code, "description": p.description, "points": p.points}
+                for p in graded.passions
+            ],
+            top_passions=[
+                {"id": p.id, "name": p.name, "short_code": p.short_code, "description": p.description, "points": p.points}
+                for p in graded.top_passions
+            ],
+            abilities=graded.abilities,
+            people=graded.people,
+            causes=graded.causes,
+            stories=[
+                {"question": s.question, "answer": s.answer, "question_es": s.question_es}
+                for s in graded.stories
+            ]
+        )
+
+
 @router.put("/members/{member_id}")
+@limiter.limit(ADMIN_RATE)
+@audit_action("member_updated", "user")
 async def update_member(
+    request: Request,
     member_id: str,
     update: MemberUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Update member role or status"""
     
@@ -197,11 +359,21 @@ async def update_member(
             detail="Member not found"
         )
     
+    # Prevent demoting the primary admin
+    if membership.is_primary_admin and update.role and update.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot demote the primary administrator. Transfer primary status first."
+        )
+    
     # Update role if provided
     if update.role:
         role = db.query(Role).filter(Role.name == update.role).first()
         if role:
             membership.role_id = role.id
+            # When promoting to admin, always set as secondary (is_primary_admin=False)
+            if update.role == "admin":
+                membership.is_primary_admin = False
     
     # Update status if provided
     if update.status:
@@ -213,10 +385,13 @@ async def update_member(
 
 
 @router.delete("/members/{member_id}")
+@limiter.limit(ADMIN_RATE)
+@audit_action("member_removed", "user")
 async def remove_member(
+    request: Request,
     member_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Remove member from organization"""
     
@@ -233,6 +408,13 @@ async def remove_member(
             detail="Member not found"
         )
     
+    # Prevent removing the primary admin
+    if membership.is_primary_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot remove the primary administrator. Transfer primary status first."
+        )
+    
     # Set organization to null (make independent)
     membership.organization_id = None
     membership.status = "active"
@@ -242,10 +424,12 @@ async def remove_member(
 
 
 @router.get("/invites", response_model=InviteListResponse)
+@limiter.limit(ADMIN_RATE)
 async def get_invites(
+    request: Request,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Get list of invitations"""
     
@@ -274,10 +458,13 @@ async def get_invites(
 
 
 @router.post("/invites", response_model=InviteResponse)
+@limiter.limit(ADMIN_RATE)
+@audit_action("invite_created", "invitation")
 async def create_invite(
+    request: Request,
     invite: InviteCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Create a new invitation"""
     
@@ -292,15 +479,20 @@ async def create_invite(
         organization_id=org.id,
         created_by=current_user.id,
         status="sent",
-        expires_at=datetime.utcnow() + timedelta(days=7)
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7)
     )
     
     db.add(new_invite)
     db.commit()
     db.refresh(new_invite)
-    
-    # TODO: Send email via Resend
-    
+
+    send_invite_email(
+        to_email=new_invite.email,
+        org_name=org.name,
+        org_key=org.key,
+        invite_token=new_invite.sign_up_key,
+    )
+
     return InviteResponse(
         id=new_invite.id,
         email=new_invite.email,
@@ -312,10 +504,13 @@ async def create_invite(
 
 
 @router.post("/invites/bulk", response_model=BulkInviteResponse)
+@limiter.limit(ADMIN_RATE)
+@audit_action("bulk_invites_created", "invitation")
 async def bulk_invite(
-    request: BulkInviteRequest,
+    request: Request,
+    invite_request: BulkInviteRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Create multiple invitations"""
     
@@ -323,8 +518,9 @@ async def bulk_invite(
     
     created = []
     failed = []
-    
-    for email in request.emails:
+    pending_emails: list[tuple[str, str]] = []  # (email, token)
+
+    for email in invite_request.emails:
         try:
             # Check if already invited
             existing = db.query(Invitation).filter(
@@ -332,30 +528,39 @@ async def bulk_invite(
                 Invitation.organization_id == org.id,
                 Invitation.status == "sent"
             ).first()
-            
+
             if existing:
                 failed.append({"email": email, "reason": "Already invited"})
                 continue
-            
+
             token = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
-            
+
             new_invite = Invitation(
                 sign_up_key=token,
                 email=email,
                 organization_id=org.id,
                 created_by=current_user.id,
                 status="sent",
-                expires_at=datetime.utcnow() + timedelta(days=7)
+                expires_at=datetime.now(timezone.utc) + timedelta(days=7)
             )
-            
+
             db.add(new_invite)
             created.append(email)
-            
+            pending_emails.append((email, token))
+
         except Exception as e:
             failed.append({"email": email, "reason": str(e)})
-    
+
     db.commit()
-    
+
+    for email, token in pending_emails:
+        send_invite_email(
+            to_email=email,
+            org_name=org.name,
+            org_key=org.key,
+            invite_token=token,
+        )
+
     return BulkInviteResponse(
         created_count=len(created),
         created_emails=created,
@@ -364,10 +569,12 @@ async def bulk_invite(
 
 
 @router.post("/invites/csv")
+@limiter.limit(ADMIN_RATE)
 async def invite_from_csv(
+    request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Upload CSV file with emails to invite"""
     
@@ -409,7 +616,7 @@ async def invite_from_csv(
                 organization_id=org.id,
                 created_by=current_user.id,
                 status="sent",
-                expires_at=datetime.utcnow() + timedelta(days=7)
+                expires_at=datetime.now(timezone.utc) + timedelta(days=7)
             )
             
             db.add(new_invite)
@@ -428,10 +635,12 @@ async def invite_from_csv(
 
 
 @router.post("/invites/{invite_id}/resend")
+@limiter.limit(ADMIN_RATE)
 async def resend_invite(
+    request: Request,
     invite_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Resend an invitation"""
     
@@ -449,19 +658,26 @@ async def resend_invite(
         )
     
     # Extend expiry
-    invite.expires_at = datetime.utcnow() + timedelta(days=7)
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     db.commit()
-    
-    # TODO: Resend email
-    
+
+    send_invite_email(
+        to_email=invite.email,
+        org_name=org.name,
+        org_key=org.key,
+        invite_token=invite.sign_up_key,
+    )
+
     return {"message": "Invitation resent"}
 
 
 @router.delete("/invites/{invite_id}")
+@limiter.limit(ADMIN_RATE)
 async def cancel_invite(
+    request: Request,
     invite_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Cancel an invitation"""
     
@@ -485,9 +701,11 @@ async def cancel_invite(
 
 
 @router.get("/pending", response_model=List[PendingMember])
+@limiter.limit(ADMIN_RATE)
 async def get_pending_members(
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Get pending membership requests"""
     
@@ -512,10 +730,13 @@ async def get_pending_members(
 
 
 @router.post("/pending/{membership_id}/approve")
+@limiter.limit(ADMIN_RATE)
+@audit_action("membership_approved", "membership")
 async def approve_pending(
+    request: Request,
     membership_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Approve a pending membership request"""
     
@@ -539,10 +760,13 @@ async def approve_pending(
 
 
 @router.post("/pending/{membership_id}/decline")
+@limiter.limit(ADMIN_RATE)
+@audit_action("membership_declined", "membership")
 async def decline_pending(
+    request: Request,
     membership_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Decline a pending membership request"""
     
@@ -566,9 +790,11 @@ async def decline_pending(
 
 
 @router.get("/settings", response_model=ChurchSettings)
+@limiter.limit(ADMIN_RATE)
 async def get_settings(
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Get church settings"""
     
@@ -586,10 +812,12 @@ async def get_settings(
 
 
 @router.put("/settings")
+@limiter.limit(ADMIN_RATE)
 async def update_settings(
+    request: Request,
     settings: ChurchSettings,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Update church settings"""
     
@@ -612,9 +840,11 @@ async def update_settings(
 
 
 @router.get("/stats", response_model=ChurchStats)
+@limiter.limit(ADMIN_RATE)
 async def get_stats(
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_active_subscription)
 ):
     """Get church statistics"""
     
@@ -648,4 +878,154 @@ async def get_stats(
         active_members=active_count,
         pending_members=pending_count,
         total_assessments=assessment_count
+    )
+
+
+# ── Helpers for member gift/passion summaries ──
+
+def _get_member_gifts(db: Session, result: AssessmentResult):
+    """Get top gift short_codes for the admin members table."""
+    gifts = []
+    for gift_id, score in [
+        (result.gift_1_id, result.spiritual_gift_1_score),
+        (result.gift_2_id, result.spiritual_gift_2_score),
+    ]:
+        if gift_id:
+            gift = db.query(GiftsPassion).filter(GiftsPassion.id == gift_id).first()
+            if gift:
+                gifts.append({"name": gift.name, "short_code": gift.short_code, "score": score or 0})
+    return gifts
+
+
+def _get_member_passions(db: Session, result: AssessmentResult):
+    """Get top passion names for the admin members table."""
+    passions = []
+    for passion_id, score in [
+        (result.passion_1_id, result.passion_1_score),
+    ]:
+        if passion_id:
+            passion = db.query(GiftsPassion).filter(GiftsPassion.id == passion_id).first()
+            if passion:
+                passions.append({"name": passion.name, "short_code": passion.short_code, "score": score or 0})
+    return passions
+
+
+@router.get("/export/csv")
+@limiter.limit(ADMIN_RATE)
+async def export_church_data(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),  # No subscription check — export works even when canceled
+):
+    """
+    Export all church member and assessment data as a CSV file.
+    Accessible regardless of subscription status so admins can retrieve
+    their data before access is fully removed.
+    """
+    org = get_admin_organization(db, current_user)
+
+    memberships = db.query(Membership).filter(
+        Membership.organization_id == org.id,
+        Membership.status != "removed",
+    ).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "First Name", "Last Name", "Email", "Member Status", "Joined Date",
+        "Assessment Type", "Assessment Completed",
+        "Gift 1", "Gift 1 Score", "Gift 2", "Gift 2 Score",
+        "Gift 3", "Gift 3 Score", "Gift 4", "Gift 4 Score",
+        "Passion 1", "Passion 1 Score", "Passion 2", "Passion 2 Score",
+        "Passion 3", "Passion 3 Score",
+        "MyImpact Score", "Character Score", "Calling Score",
+        "People", "Cause", "Abilities",
+    ])
+
+    for m in memberships:
+        user = m.user
+        if not user:
+            continue
+
+        base = [
+            user.first_name or "",
+            user.last_name or "",
+            user.email or "",
+            m.status,
+            m.created_at.strftime("%Y-%m-%d") if m.created_at else "",
+        ]
+
+        # Get the latest completed assessment
+        assessment = db.query(Assessment).filter(
+            Assessment.user_id == user.id,
+            Assessment.status == "completed",
+        ).order_by(Assessment.completed_at.desc()).first()
+
+        if not assessment:
+            writer.writerow(base + [""] * 21)
+            continue
+
+        completed = assessment.completed_at.strftime("%Y-%m-%d") if assessment.completed_at else ""
+
+        if assessment.instrument_type == "myimpact":
+            mi = assessment.myimpact_results
+            writer.writerow(base + [
+                "MyImpact", completed,
+                "", "", "", "", "", "", "", "",  # GPS gift/passion columns blank
+                "", "", "", "", "", "",
+                mi.myimpact_score if mi else "",
+                mi.character_score if mi else "",
+                mi.calling_score if mi else "",
+                "", "", "",
+            ])
+        else:
+            r = assessment.results
+            gifts = []
+            passions = []
+            if r:
+                for gid, gscore in [
+                    (r.gift_1_id, r.spiritual_gift_1_score),
+                    (r.gift_2_id, r.spiritual_gift_2_score),
+                    (r.gift_3_id, r.spiritual_gift_3_score),
+                    (r.gift_4_id, r.spiritual_gift_4_score),
+                ]:
+                    if gid:
+                        gp = db.query(GiftsPassion).filter(GiftsPassion.id == gid).first()
+                        gifts.append((gp.name if gp else "", gscore or ""))
+                    else:
+                        gifts.append(("", ""))
+                for pid, pscore in [
+                    (r.passion_1_id, r.passion_1_score),
+                    (r.passion_2_id, r.passion_2_score),
+                    (r.passion_3_id, r.passion_3_score),
+                ]:
+                    if pid:
+                        gp = db.query(GiftsPassion).filter(GiftsPassion.id == pid).first()
+                        passions.append((gp.name if gp else "", pscore or ""))
+                    else:
+                        passions.append(("", ""))
+
+            while len(gifts) < 4:
+                gifts.append(("", ""))
+            while len(passions) < 3:
+                passions.append(("", ""))
+
+            writer.writerow(base + [
+                "GPS", completed,
+                gifts[0][0], gifts[0][1], gifts[1][0], gifts[1][1],
+                gifts[2][0], gifts[2][1], gifts[3][0], gifts[3][1],
+                passions[0][0], passions[0][1], passions[1][0], passions[1][1],
+                passions[2][0], passions[2][1],
+                "", "", "",  # MyImpact columns blank
+                r.people if r else "", r.cause if r else "", r.abilities if r else "",
+            ])
+
+    output.seek(0)
+    filename = f"{org.name.replace(' ', '-').lower()}-church-data.csv"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

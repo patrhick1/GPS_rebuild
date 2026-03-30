@@ -1,29 +1,249 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --brand-teal: #0B6C80;
+  --brand-gold: #F7A824;
+  --brand-teal-light: #88C0C3;
+  --brand-charcoal: #3F4644;
+  --brand-gray-med: #797E7C;
+  --brand-gray-light: #E3E3E3;
+  --brand-gray-lightest: #F8F8F8;
+
+  font-family: 'Mulish', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  font-family: 'Mulish', system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+/* Custom utility classes */
+@layer components {
+  .form-group {
+    @apply mb-5;
+  }
+
+  .form-row {
+    @apply grid grid-cols-2 gap-4;
+  }
+
+  .form-group label {
+    @apply block mb-2 text-gray-700 font-medium text-sm;
+  }
+
+  .form-group input,
+  .form-group select {
+    @apply w-full px-3 py-3 rounded-md text-base transition-colors focus:outline-none;
+    border: 1px solid var(--brand-gray-light);
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-teal) 20%, transparent);
+  }
+
+  .btn-primary {
+    @apply w-full py-3.5 px-4 text-white rounded-md font-semibold text-base cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: var(--brand-teal);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--brand-teal) 90%, black);
+  }
+
+  .btn-secondary {
+    @apply py-2.5 px-5 bg-transparent rounded-md text-sm cursor-pointer transition-all;
+    color: var(--brand-teal);
+    border: 1px solid var(--brand-teal);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--brand-teal);
+    color: white;
+  }
+
+  .error-message {
+    @apply bg-red-50 text-red-600 px-3 py-3 rounded-md mb-5 text-sm;
+  }
+
+  .auth-links {
+    @apply mt-5 text-center text-sm;
+    color: var(--brand-charcoal);
+  }
+
+  .auth-links a {
+    @apply no-underline hover:underline;
+    color: var(--brand-teal);
+  }
+
+  /* Dashboard styles */
+  .dashboard {
+    @apply min-h-screen bg-gray-100;
+  }
+
+  .dashboard-header {
+    @apply bg-white px-10 py-5 flex justify-between items-center shadow-sm;
+  }
+
+  .dashboard-header h1 {
+    @apply m-0 text-gray-800 text-2xl font-semibold;
+  }
+
+  .user-menu {
+    @apply flex items-center gap-5;
+  }
+
+  .user-menu span {
+    @apply text-gray-600;
+  }
+
+  .dashboard-content {
+    @apply p-10 max-w-6xl mx-auto;
+  }
+
+  .dashboard-content h2 {
+    @apply m-0 mb-2.5 text-gray-800 text-xl font-semibold;
+  }
+
+  .dashboard-content > p {
+    @apply text-gray-600 mb-8;
+  }
+
+  .dashboard-cards {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5;
+  }
+
+  .card {
+    @apply bg-white p-6 rounded-lg shadow-sm;
+  }
+
+  .card h3 {
+    @apply m-0 mb-2.5 text-gray-800 font-semibold;
+  }
+
+  .card p {
+    @apply text-gray-600 mb-5;
+  }
+
+  .loading-container {
+    @apply min-h-screen flex items-center justify-center;
+  }
+
+  .loading-spinner {
+    @apply text-lg;
+    color: var(--brand-teal);
+  }
+
+  /* Password Input with Eye Toggle */
+  .password-input-wrapper {
+    @apply relative;
+  }
+
+  .password-input {
+    @apply w-full px-3 py-3 pr-12 rounded-md text-base transition-colors focus:outline-none;
+    border: 1px solid var(--brand-gray-light);
+  }
+
+  .password-input:focus {
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-teal) 20%, transparent);
+  }
+
+  .password-toggle-btn {
+    @apply absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none text-gray-400 cursor-pointer p-1 rounded transition-colors hover:text-gray-600 focus:outline-none;
+  }
+
+  .password-toggle-btn:focus {
+    color: var(--brand-teal);
+  }
+
+  .password-toggle-btn svg {
+    @apply block;
+  }
+
+  /* Password Strength Meter */
+  .password-strength-meter {
+    @apply mt-3 space-y-2;
+  }
+
+  .strength-bar-container {
+    @apply w-full h-2 bg-gray-200 rounded-full overflow-hidden;
+  }
+
+  .strength-bar {
+    @apply h-full rounded-full transition-all duration-300;
+  }
+
+  .strength-label {
+    @apply text-xs font-medium;
+  }
+
+  .password-requirements {
+    @apply list-none p-0 m-0 space-y-1;
+  }
+
+  .requirement-item {
+    @apply flex items-center gap-2 text-xs text-gray-600;
+  }
+
+  .requirement-icon {
+    @apply text-red-500 font-bold;
+  }
+
+  .requirement-passed .requirement-icon {
+    @apply text-green-500;
+  }
+
+  .requirement-failed .requirement-icon {
+    @apply text-red-500;
+  }
+
+  .password-requirements-help {
+    @apply mt-2;
+  }
+
+  .password-requirements-help summary {
+    @apply text-xs cursor-pointer hover:underline select-none;
+    color: var(--brand-teal);
+  }
+
+  .requirements-text {
+    @apply mt-2 p-3 bg-gray-50 rounded text-xs text-gray-600 space-y-1;
+  }
+
+  .requirements-text p {
+    @apply m-0;
+  }
+
+  /* Register card – override PasswordInput to match Figma design */
+  .register-card .form-group {
+    @apply mb-4;
+  }
+
+  .register-card .form-group label {
+    @apply hidden;
+  }
+
+  .register-card .password-input {
+    @apply h-[50px] px-5 pr-12 rounded-xl font-bold text-lg;
+    background: rgba(136, 192, 195, 0.17);
+    border: 1px solid var(--brand-teal-light);
+  }
+
+  .register-card .password-input::placeholder {
+    color: rgba(63, 70, 68, 0.6);
+    font-weight: 700;
+  }
+
+  .register-card .password-input:focus {
+    border-color: var(--brand-teal);
   }
 }

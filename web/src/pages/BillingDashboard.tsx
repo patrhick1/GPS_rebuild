@@ -1,6 +1,141 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useBilling } from '../context/BillingContext';
-import './BillingDashboard.css';
+import { api } from '../context/AuthContext';
+import { Navbar } from '../components/Navbar';
+import { Footer } from '../components/Footer';
+import adminHeroImg from '../../Graphics for Dev/Images/Admin Accounts Hero.webp';
+import tealArrowIcon from '../../Graphics for Dev/Icons/Dark Teal Arrow Circle Icon.svg';
+
+// Stripe promise (loaded once)
+let stripePromise: ReturnType<typeof loadStripe> | null = null;
+
+function getStripePromise(publishableKey: string | null) {
+  if (!stripePromise && publishableKey) {
+    stripePromise = loadStripe(publishableKey);
+  }
+  return stripePromise;
+}
+
+/* ─────────────────────── Checkout Form (inside Elements) ─────────────────────── */
+
+function CheckoutForm({
+  plan,
+  onSuccess,
+  onCancel,
+}: {
+  plan: 'monthly' | 'yearly';
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const { subscribe } = useBilling();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) return;
+
+    try {
+      // Create payment method
+      const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+      });
+
+      if (pmError) {
+        setError(pmError.message || 'Failed to process card');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Subscribe via backend
+      const result = await subscribe(plan, paymentMethod.id);
+
+      // Payment confirmation is always required with default_incomplete behavior.
+      // A missing client_secret means the backend failed to return it — surface that immediately.
+      if (result.requires_action) {
+        if (!result.client_secret) {
+          setError('Payment setup incomplete — the server did not return a confirmation token. Please try again.');
+          setIsProcessing(false);
+          return;
+        }
+        const { error: confirmError } = await stripe.confirmCardPayment(result.client_secret);
+        if (confirmError) {
+          setError(confirmError.message || 'Payment authentication failed. Please try again.');
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Subscription failed. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label className="block font-body font-bold text-base text-brand-charcoal mb-2">
+          Card Details
+        </label>
+        <div className="bg-[rgba(136,192,195,0.17)] border border-brand-teal-light rounded-xl p-4">
+          <CardElement
+            options={{
+              style: {
+                base: {
+                  fontSize: '16px',
+                  fontFamily: 'Mulish, sans-serif',
+                  color: '#3F4644',
+                  '::placeholder': { color: '#797E7C' },
+                },
+                invalid: { color: '#dc2626' },
+              },
+            }}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <p className="font-body text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl">
+          {error}
+        </p>
+      )}
+
+      <div className="flex items-center gap-4">
+        <button
+          type="submit"
+          disabled={!stripe || isProcessing}
+          className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isProcessing ? 'Processing...' : `Subscribe — ${plan === 'monthly' ? '$10/mo' : '$100/yr'}`}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-[50px] px-6 bg-white border border-brand-gray-light text-brand-charcoal font-body font-bold text-base rounded-xl hover:bg-gray-50 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/* ─────────────────────── Main Billing Dashboard ─────────────────────── */
 
 export function BillingDashboard() {
   const {
@@ -14,12 +149,33 @@ export function BillingDashboard() {
     fetchInvoices,
     fetchConfig,
     cancelSubscription,
-    reactivateSubscription
+    reactivateSubscription,
   } = useBilling();
 
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices'>('overview');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const response = await api.get('/admin/export/csv', { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'church-data.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to export data. Please try again.' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     fetchSubscription();
@@ -29,292 +185,524 @@ export function BillingDashboard() {
 
   const handleCancel = async (atPeriodEnd: boolean) => {
     try {
-      setActionError(null);
+      setActionMessage(null);
       await cancelSubscription(atPeriodEnd);
       setShowCancelConfirm(false);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to cancel subscription');
+      setActionMessage({
+        type: 'success',
+        text: atPeriodEnd
+          ? 'Your subscription will cancel at the end of the billing period.'
+          : 'Your subscription has been canceled.',
+      });
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to cancel subscription. Please try again.' });
     }
   };
 
   const handleReactivate = async () => {
     try {
-      setActionError(null);
+      setActionMessage(null);
       await reactivateSubscription();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to reactivate subscription');
+      setActionMessage({ type: 'success', text: 'Subscription reactivated successfully!' });
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to reactivate subscription.' });
     }
   };
 
   const formatDate = (timestamp: number | string | null) => {
     if (!timestamp) return 'N/A';
-    const date = typeof timestamp === 'number' 
-      ? new Date(timestamp * 1000) 
-      : new Date(timestamp);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
+    const date = typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency.toUpperCase()
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number, currency: string) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(amount);
 
-  const getStatusBadge = (status: string) => {
-    const statusClasses: Record<string, string> = {
-      active: 'status-active',
-      canceled: 'status-canceled',
-      past_due: 'status-past-due',
-      unpaid: 'status-unpaid',
-      incomplete: 'status-incomplete',
-      trialing: 'status-trialing'
+  const getStatusStyles = (status: string) => {
+    const map: Record<string, string> = {
+      active: 'bg-green-100 text-green-800',
+      canceled: 'bg-red-100 text-red-800',
+      past_due: 'bg-yellow-100 text-yellow-800',
+      unpaid: 'bg-red-100 text-red-800',
+      incomplete: 'bg-gray-100 text-gray-700',
+      trialing: 'bg-blue-100 text-blue-800',
     };
-    return <span className={`status-badge ${statusClasses[status] || 'status-default'}`}>{status}</span>;
+    return map[status] || 'bg-gray-100 text-gray-700';
   };
-
-  if (isLoading && !subscription) {
-    return <div className="billing-dashboard loading">Loading billing information...</div>;
-  }
 
   return (
-    <div className="billing-dashboard">
-      <div className="page-header">
-        <h1>Billing & Subscription</h1>
-        <p>Manage your church's subscription and payment methods</p>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+
+      {/* ── Hero ── */}
+      <div className="relative w-full h-[220px] md:h-[280px] overflow-hidden">
+        <img
+          src={adminHeroImg}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-[rgba(63,70,68,0.84)] mix-blend-multiply" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <h1 className="font-heading font-black text-3xl md:text-[52px] md:leading-[60px] text-white text-center">
+            Subscription &amp; Billing
+          </h1>
+          <p className="font-body font-semibold text-lg text-white/80 mt-2">
+            Manage your church's plan and payment
+          </p>
+        </div>
       </div>
 
-      {error && (
-        <div className="error-banner">
-          {error}
-          <button onClick={() => window.location.reload()}>Retry</button>
-        </div>
-      )}
-
-      {actionError && (
-        <div className="error-banner">
-          {actionError}
-          <button onClick={() => setActionError(null)}>×</button>
-        </div>
-      )}
-
-      {!subscription ? (
-        <div className="no-subscription">
-          <div className="subscription-card">
-            <h2>Choose Your Plan</h2>
-            <p>Subscribe to unlock all features for your church members.</p>
-            
-            <div className="plans-grid">
-              <div className="plan-card">
-                <h3>Monthly</h3>
-                <div className="plan-price">
-                  <span className="currency">$</span>
-                  <span className="amount">29</span>
-                  <span className="period">/month</span>
-                </div>
-                <ul className="plan-features">
-                  <li>Unlimited members</li>
-                  <li>Unlimited assessments</li>
-                  <li>Analytics dashboard</li>
-                  <li>Email support</li>
-                </ul>
-                <button className="btn-subscribe" disabled={!config?.prices?.monthly}>
-                  Subscribe Monthly
-                </button>
+      <main className="flex-1 bg-white">
+        {/* ── Messages ── */}
+        {(error || actionMessage) && (
+          <div className="max-w-[1057px] mx-auto px-6 pt-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl font-body text-base mb-4">
+                {error}
               </div>
-
-              <div className="plan-card recommended">
-                <div className="badge">Save 20%</div>
-                <h3>Yearly</h3>
-                <div className="plan-price">
-                  <span className="currency">$</span>
-                  <span className="amount">279</span>
-                  <span className="period">/year</span>
-                </div>
-                <ul className="plan-features">
-                  <li>Unlimited members</li>
-                  <li>Unlimited assessments</li>
-                  <li>Analytics dashboard</li>
-                  <li>Priority support</li>
-                  <li>2 months free</li>
-                </ul>
-                <button className="btn-subscribe btn-primary" disabled={!config?.prices?.yearly}>
-                  Subscribe Yearly
-                </button>
+            )}
+            {actionMessage && (
+              <div
+                className={`px-5 py-4 rounded-xl font-body text-base mb-4 ${
+                  actionMessage.type === 'success'
+                    ? 'bg-green-50 border border-green-200 text-green-700'
+                    : 'bg-red-50 border border-red-200 text-red-700'
+                }`}
+              >
+                {actionMessage.text}
               </div>
-            </div>
-
-            <p className="setup-note">
-              <strong>Note:</strong> To complete subscription setup, you'll need to add a payment method. 
-              Contact support if you need assistance.
-            </p>
+            )}
           </div>
-        </div>
-      ) : (
-        <>
-          <div className="tabs">
-            <button 
-              className={activeTab === 'overview' ? 'active' : ''}
-              onClick={() => setActiveTab('overview')}
-            >
-              Overview
-            </button>
-            <button 
-              className={activeTab === 'invoices' ? 'active' : ''}
-              onClick={() => setActiveTab('invoices')}
-            >
-              Payment History
-            </button>
-          </div>
+        )}
 
-          {activeTab === 'overview' && (
-            <div className="overview-tab">
-              <div className="info-cards">
-                <div className="info-card">
-                  <h3>Current Plan</h3>
-                  <div className="plan-info">
-                    <span className="plan-name">{subscription.plan === 'yearly' ? 'Yearly' : 'Monthly'} Plan</span>
-                    {getStatusBadge(subscription.status)}
-                  </div>
-                  <p className="plan-detail">
-                    {subscription.quantity} seat{subscription.quantity !== 1 ? 's' : ''}
+        {isLoading && !subscription ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="w-10 h-10 border-4 border-brand-teal border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : !subscription ? (
+          /* ── No Subscription: Plan Selection ── */
+          <>
+            {/* Checkout overlay */}
+            {selectedPlan && config?.publishable_key && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+                  <h2 className="font-heading font-black text-2xl text-brand-charcoal mb-1">
+                    Complete Your Subscription
+                  </h2>
+                  <p className="font-body text-brand-gray-med mb-6">
+                    {selectedPlan === 'monthly' ? 'Monthly Plan — $10/month' : 'Annual Plan — $100/year (save $20)'}
                   </p>
+                  <Elements stripe={getStripePromise(config.publishable_key)}>
+                    <CheckoutForm
+                      plan={selectedPlan}
+                      onSuccess={() => {
+                        setSelectedPlan(null);
+                        fetchSubscription();
+                        setActionMessage({ type: 'success', text: 'Subscription created successfully! Welcome aboard.' });
+                      }}
+                      onCancel={() => setSelectedPlan(null)}
+                    />
+                  </Elements>
+                </div>
+              </div>
+            )}
+
+            {/* Plan Cards Section */}
+            <section className="max-w-[1057px] mx-auto px-6 py-12 md:py-16">
+              <div className="text-center mb-12">
+                <h2 className="font-heading font-black text-3xl md:text-[44px] md:leading-[50px] text-brand-charcoal mb-4">
+                  Choose Your Plan
+                </h2>
+                <p className="font-body font-semibold text-lg text-brand-gray-med max-w-2xl mx-auto">
+                  Unlock the full potential of personal calling in your organization. Track and manage your church&apos;s assessment results.
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-8 max-w-[800px] mx-auto">
+                {/* Monthly Plan */}
+                <div className="bg-white border border-brand-gray-light rounded-2xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-8 flex flex-col">
+                  <h3 className="font-heading font-black text-2xl text-brand-charcoal mb-2">Monthly</h3>
+                  <div className="mb-6">
+                    <span className="font-heading font-black text-[56px] leading-none text-brand-teal">$10</span>
+                    <span className="font-body font-bold text-lg text-brand-gray-med ml-1">/month</span>
+                  </div>
+
+                  <ul className="space-y-3 mb-8 flex-1">
+                    <li className="flex items-start gap-3">
+                      <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
+                      <span className="font-body text-base text-brand-charcoal">Exclusive Dashboard Access</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
+                      <span className="font-body text-base text-brand-charcoal">Unique Invitation Link for Members</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
+                      <span className="font-body text-base text-brand-charcoal">View &amp; Export Assessment Results</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
+                      <span className="font-body text-base text-brand-charcoal">Unlimited Members</span>
+                    </li>
+                  </ul>
+
+                  <button
+                    onClick={() => setSelectedPlan('monthly')}
+                    className="w-full h-[50px] bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-lg rounded-xl hover:bg-brand-teal hover:text-white transition-colors"
+                  >
+                    Choose Monthly
+                  </button>
                 </div>
 
-                <div className="info-card">
-                  <h3>Payment Method</h3>
-                  {subscription.organization.card_brand ? (
-                    <div className="payment-method">
-                      <span className="card-brand">{subscription.organization.card_brand}</span>
-                      <span className="card-last4">•••• {subscription.organization.card_last_four}</span>
-                    </div>
-                  ) : (
-                    <p className="no-payment-method">No payment method on file</p>
-                  )}
-                </div>
+                {/* Yearly Plan */}
+                <div className="relative bg-white border-2 border-brand-teal rounded-2xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-8 flex flex-col">
+                  {/* Best Value badge */}
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-brand-gold text-white font-body font-bold text-sm px-5 py-1.5 rounded-full whitespace-nowrap">
+                    Best Value — Save $20
+                  </div>
 
-                <div className="info-card">
-                  <h3>Next Payment</h3>
-                  {subscription.upcoming_invoice ? (
-                    <div className="next-payment">
-                      <span className="amount">
-                        {formatCurrency(subscription.upcoming_invoice.amount_due, subscription.upcoming_invoice.currency)}
-                      </span>
-                      <span className="date">Due {formatDate(subscription.upcoming_invoice.due_date)}</span>
-                    </div>
-                  ) : subscription.current_period_end ? (
-                    <div className="next-payment">
-                      <span className="date">
-                        {subscription.cancel_at_period_end 
-                          ? `Access until ${formatDate(subscription.current_period_end)}`
-                          : `Renews ${formatDate(subscription.current_period_end)}`
-                        }
-                      </span>
-                    </div>
-                  ) : (
-                    <p className="no-payment">No upcoming payment</p>
-                  )}
+                  <h3 className="font-heading font-black text-2xl text-brand-charcoal mb-2 mt-2">Annual</h3>
+                  <div className="mb-2">
+                    <span className="font-heading font-black text-[56px] leading-none text-brand-teal">$100</span>
+                    <span className="font-body font-bold text-lg text-brand-gray-med ml-1">/year</span>
+                  </div>
+                  <p className="font-body text-sm text-brand-gray-med mb-6">
+                    That&apos;s just $8.33/month
+                  </p>
+
+                  <ul className="space-y-3 mb-8 flex-1">
+                    <li className="flex items-start gap-3">
+                      <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
+                      <span className="font-body text-base text-brand-charcoal">Everything in Monthly</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
+                      <span className="font-body text-base text-brand-charcoal">Priority Email Support</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
+                      <span className="font-body text-base text-brand-charcoal">2 Months Free vs Monthly</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
+                      <span className="font-body text-base text-brand-charcoal">Locked-in Rate Guarantee</span>
+                    </li>
+                  </ul>
+
+                  <button
+                    onClick={() => setSelectedPlan('yearly')}
+                    className="w-full h-[50px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
+                  >
+                    Choose Annual
+                  </button>
                 </div>
               </div>
 
-              <div className="subscription-actions">
-                {subscription.cancel_at_period_end ? (
-                  <div className="cancel-notice">
-                    <p>⚠️ Your subscription is set to cancel on {formatDate(subscription.current_period_end)}</p>
-                    <button className="btn-reactivate" onClick={handleReactivate}>
-                      Reactivate Subscription
+              {/* Contact line */}
+              <p className="text-center font-body font-semibold text-base text-brand-gray-med mt-10">
+                Have questions?{' '}
+                <a
+                  href="mailto:support@giftpassionstory.com"
+                  className="text-brand-teal underline hover:text-brand-teal/80 transition-colors"
+                >
+                  Email us at support@giftpassionstory.com
+                </a>
+              </p>
+            </section>
+          </>
+        ) : (
+          /* ── Active Subscription: Management ── */
+          <section className="max-w-[1057px] mx-auto px-6 py-10">
+            {/* Resubscribe banner for dead subscriptions */}
+            {(subscription.status === 'incomplete_expired' || subscription.status === 'canceled') && (
+              <>
+                {config?.publishable_key && selectedPlan && (
+                  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+                      <h2 className="font-heading font-black text-2xl text-brand-charcoal mb-1">
+                        Complete Your Subscription
+                      </h2>
+                      <p className="font-body text-brand-gray-med mb-6">
+                        {selectedPlan === 'monthly' ? 'Monthly Plan — $10/month' : 'Annual Plan — $100/year (save $20)'}
+                      </p>
+                      <Elements stripe={getStripePromise(config.publishable_key)}>
+                        <CheckoutForm
+                          plan={selectedPlan}
+                          onSuccess={() => {
+                            setSelectedPlan(null);
+                            fetchSubscription();
+                            fetchInvoices();
+                            setActionMessage({ type: 'success', text: 'Subscription activated! Welcome back.' });
+                          }}
+                          onCancel={() => setSelectedPlan(null)}
+                        />
+                      </Elements>
+                    </div>
+                  </div>
+                )}
+                <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-6 py-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <p className="font-body font-bold text-base text-yellow-800">
+                      {subscription.status === 'incomplete_expired'
+                        ? 'Your previous subscription attempt did not complete. Please subscribe again to access the dashboard.'
+                        : 'Your subscription has been canceled. Subscribe again to restore access.'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3 shrink-0">
+                    <button
+                      onClick={() => setSelectedPlan('monthly')}
+                      className="h-[44px] px-5 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-sm rounded-xl hover:bg-brand-teal hover:text-white transition-colors"
+                    >
+                      Monthly — $10
+                    </button>
+                    <button
+                      onClick={() => setSelectedPlan('yearly')}
+                      className="h-[44px] px-5 bg-brand-teal text-white font-body font-bold text-sm rounded-xl hover:bg-brand-teal/90 transition-colors"
+                    >
+                      Annual — $100
+                    </button>
+                    <button
+                      onClick={handleExport}
+                      disabled={isExporting}
+                      className="h-[44px] px-5 bg-white border border-brand-gray-light text-brand-charcoal font-body font-bold text-sm rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isExporting ? 'Exporting…' : 'Export Your Data'}
                     </button>
                   </div>
+                </div>
+              </>
+            )}
+
+            {/* Tabs + Back link */}
+            <div className="flex items-center justify-between border-b border-brand-gray-light mb-8">
+              <div className="flex gap-1">
+                <button
+                  className={`px-6 py-3 font-body font-bold text-base border-b-2 transition-colors ${
+                    activeTab === 'overview'
+                      ? 'border-brand-teal text-brand-teal'
+                      : 'border-transparent text-brand-gray-med hover:text-brand-charcoal'
+                  }`}
+                  onClick={() => setActiveTab('overview')}
+                >
+                  Overview
+                </button>
+                <button
+                  className={`px-6 py-3 font-body font-bold text-base border-b-2 transition-colors ${
+                    activeTab === 'invoices'
+                      ? 'border-brand-teal text-brand-teal'
+                      : 'border-transparent text-brand-gray-med hover:text-brand-charcoal'
+                  }`}
+                  onClick={() => setActiveTab('invoices')}
+                >
+                  Payment History
+                </button>
+              </div>
+              <Link
+                to="/admin"
+                className="font-body font-bold text-sm text-brand-teal hover:text-brand-teal/80 transition-colors"
+              >
+                ← Back to Dashboard
+              </Link>
+            </div>
+
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                {/* Info cards */}
+                <div className="grid md:grid-cols-3 gap-6">
+                  {/* Current Plan */}
+                  <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
+                    <p className="font-body font-bold text-sm text-brand-gray-med uppercase tracking-wide mb-3">
+                      Current Plan
+                    </p>
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="font-heading font-black text-xl text-brand-charcoal">
+                        {subscription.plan === 'yearly' ? 'Annual' : 'Monthly'}
+                      </span>
+                      <span
+                        className={`px-3 py-1 rounded-full font-body font-bold text-xs uppercase ${getStatusStyles(subscription.status)}`}
+                      >
+                        {subscription.status}
+                      </span>
+                    </div>
+                    <p className="font-body text-sm text-brand-gray-med">
+                      {subscription.quantity} seat{subscription.quantity !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+
+                  {/* Payment Method */}
+                  <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
+                    <p className="font-body font-bold text-sm text-brand-gray-med uppercase tracking-wide mb-3">
+                      Payment Method
+                    </p>
+                    {subscription.organization.card_brand ? (
+                      <div>
+                        <span className="font-heading font-black text-xl text-brand-charcoal capitalize">
+                          {subscription.organization.card_brand}
+                        </span>
+                        <span className="font-body text-base text-brand-gray-med ml-2">
+                          **** {subscription.organization.card_last_four}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="font-body text-base text-brand-gray-med">No payment method on file</p>
+                    )}
+                  </div>
+
+                  {/* Next Payment */}
+                  <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
+                    <p className="font-body font-bold text-sm text-brand-gray-med uppercase tracking-wide mb-3">
+                      Next Payment
+                    </p>
+                    {subscription.upcoming_invoice ? (
+                      <>
+                        <p className="font-heading font-black text-xl text-brand-charcoal">
+                          {formatCurrency(subscription.upcoming_invoice.amount_due, subscription.upcoming_invoice.currency)}
+                        </p>
+                        <p className="font-body text-sm text-brand-gray-med">
+                          Due {formatDate(subscription.upcoming_invoice.due_date)}
+                        </p>
+                      </>
+                    ) : subscription.current_period_end ? (
+                      <p className="font-body text-base text-brand-charcoal">
+                        {subscription.cancel_at_period_end
+                          ? `Access until ${formatDate(subscription.current_period_end)}`
+                          : `Renews ${formatDate(subscription.current_period_end)}`}
+                      </p>
+                    ) : (
+                      <p className="font-body text-base text-brand-gray-med">No upcoming payment</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Trial banner */}
+                {subscription.trial_end && new Date(subscription.trial_end) > new Date() && (
+                  <div className="bg-brand-teal/10 border border-brand-teal rounded-xl px-6 py-4 text-center">
+                    <p className="font-body font-bold text-base text-brand-teal">
+                      You're currently in your trial period. Trial ends on {formatDate(subscription.trial_end)}.
+                    </p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
+                  {subscription.cancel_at_period_end ? (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <p className="font-body font-bold text-base text-yellow-700">
+                        Your subscription is set to cancel on {formatDate(subscription.current_period_end)}.
+                      </p>
+                      <button
+                        onClick={handleReactivate}
+                        className="h-[44px] px-6 bg-green-600 text-white font-body font-bold text-base rounded-xl hover:bg-green-700 transition-colors"
+                      >
+                        Reactivate Subscription
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <p className="font-body text-base text-brand-gray-med">
+                        Need to make changes to your subscription?
+                      </p>
+                      <button
+                        onClick={() => setShowCancelConfirm(true)}
+                        className="h-[44px] px-6 bg-white border border-red-300 text-red-600 font-body font-bold text-base rounded-xl hover:bg-red-50 transition-colors"
+                      >
+                        Cancel Subscription
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'invoices' && (
+              <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] overflow-hidden">
+                {invoices.length === 0 && payments.length === 0 ? (
+                  <p className="text-center font-body text-base text-brand-gray-med py-16">
+                    No payment history yet.
+                  </p>
                 ) : (
-                  <button 
-                    className="btn-cancel"
-                    onClick={() => setShowCancelConfirm(true)}
-                  >
-                    Cancel Subscription
-                  </button>
+                  <div className="divide-y divide-brand-gray-light">
+                    {[...invoices, ...payments]
+                      .sort(
+                        (a: any, b: any) =>
+                          (b.created || new Date(b.created_at).getTime() / 1000) -
+                          (a.created || new Date(a.created_at).getTime() / 1000)
+                      )
+                      .map((item: any) => (
+                        <div key={item.id} className="flex items-center justify-between px-6 py-4">
+                          <div>
+                            <p className="font-body font-bold text-base text-brand-charcoal">
+                              {formatDate(item.created || item.created_at)}
+                            </p>
+                            <span
+                              className={`inline-block mt-1 px-3 py-0.5 rounded-full font-body font-bold text-xs uppercase ${
+                                item.status === 'paid' || item.status === 'succeeded'
+                                  ? 'bg-green-100 text-green-800'
+                                  : item.status === 'open' || item.status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {item.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="font-heading font-black text-lg text-brand-charcoal">
+                              {formatCurrency(
+                                item.amount_paid > 0 ? item.amount_paid : (item.amount_due ?? item.amount ?? 0),
+                                item.currency
+                              )}
+                            </span>
+                            {(item.receipt_url || item.hosted_invoice_url) && (
+                              <a
+                                href={item.receipt_url || item.hosted_invoice_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-body font-bold text-sm text-brand-teal underline hover:text-brand-teal/80 transition-colors"
+                              >
+                                {item.receipt_url ? 'View Receipt' : 'View Invoice'}
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 )}
               </div>
+            )}
+          </section>
+        )}
+      </main>
 
-              {subscription.trial_end && new Date(subscription.trial_end) > new Date() && (
-                <div className="trial-banner">
-                  🎉 You're currently in your trial period. 
-                  Trial ends on {formatDate(subscription.trial_end)}
-                </div>
-              )}
-            </div>
-          )}
+      <Footer />
 
-          {activeTab === 'invoices' && (
-            <div className="invoices-tab">
-              {invoices.length === 0 && payments.length === 0 ? (
-                <p className="no-invoices">No payment history yet.</p>
-              ) : (
-                <div className="invoices-list">
-                  {[...invoices, ...payments]
-                    .sort((a, b) => (b.created || new Date(b.created_at).getTime() / 1000) - (a.created || new Date(a.created_at).getTime() / 1000))
-                    .map((item) => (
-                      <div key={item.id} className="invoice-item">
-                        <div className="invoice-info">
-                          <span className="invoice-date">
-                            {formatDate(item.created || item.created_at)}
-                          </span>
-                          <span className={`invoice-status ${item.status}`}>
-                            {item.status}
-                          </span>
-                        </div>
-                        <div className="invoice-amount">
-                          {formatCurrency(
-                            item.amount_paid || item.amount, 
-                            item.currency
-                          )}
-                        </div>
-                        {(item.hosted_invoice_url || item.receipt_url) && (
-                          <a 
-                            href={item.hosted_invoice_url || item.receipt_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="btn-view-invoice"
-                          >
-                            View Receipt
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
+      {/* Cancel confirmation modal */}
       {showCancelConfirm && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h2>Cancel Subscription?</h2>
-            <p>
-              Are you sure you want to cancel your subscription? 
-              You can choose to cancel immediately or at the end of your billing period.
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <h2 className="font-heading font-black text-2xl text-brand-charcoal mb-3">
+              Cancel Subscription?
+            </h2>
+            <p className="font-body text-base text-brand-gray-med mb-6">
+              Are you sure you want to cancel? You can cancel at the end of your billing period to keep
+              access until then, or cancel immediately.
             </p>
-            <div className="modal-actions">
-              <button 
-                className="btn-secondary"
+            <div className="flex flex-col gap-3">
+              <button
                 onClick={() => setShowCancelConfirm(false)}
+                className="h-[50px] bg-brand-teal text-white font-body font-bold text-base rounded-xl hover:bg-brand-teal/90 transition-colors"
               >
-                Keep Subscription
+                Keep My Subscription
               </button>
-              <button 
-                className="btn-warning"
+              <button
                 onClick={() => handleCancel(true)}
+                className="h-[50px] bg-white border border-yellow-400 text-yellow-700 font-body font-bold text-base rounded-xl hover:bg-yellow-50 transition-colors"
               >
                 Cancel at Period End
               </button>
-              <button 
-                className="btn-danger"
+              <button
                 onClick={() => handleCancel(false)}
+                className="h-[50px] bg-white border border-red-300 text-red-600 font-body font-bold text-base rounded-xl hover:bg-red-50 transition-colors"
               >
                 Cancel Immediately
               </button>

@@ -1,20 +1,25 @@
 """
 Dashboard API endpoints for user-facing dashboard features
 """
+import uuid
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Response, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 import csv
 import io
 
 from app.core.database import get_db
+from app.core.rate_limits import limiter, AUTHENTICATED_RATE
 from app.dependencies.auth import get_current_active_user
 from app.models.user import User
 from app.models.assessment import Assessment
 from app.models.assessment_result import AssessmentResult
+from app.models.myimpact_result import MyImpactResult
 from app.models.gifts_passion import GiftsPassion
 from app.models.organization import Organization
+from app.models.question import Question
+from app.models.answer import Answer
 from app.schemas.dashboard import (
     DashboardSummary,
     AssessmentHistoryItem,
@@ -30,7 +35,9 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
 @router.get("/summary", response_model=DashboardSummary)
+@limiter.limit(AUTHENTICATED_RATE)
 async def get_dashboard_summary(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -62,7 +69,8 @@ async def get_dashboard_summary(
             organization = {
                 "id": membership.organization.id,
                 "name": membership.organization.name,
-                "role": membership.role.name if membership.role else None
+                "role": membership.role.name if membership.role else None,
+                "is_primary_admin": membership.is_primary_admin if membership.role and membership.role.name == "admin" else False
             }
     
     return DashboardSummary(
@@ -87,46 +95,113 @@ async def get_dashboard_summary(
 
 
 @router.get("/assessments", response_model=List[AssessmentHistoryItem])
+@limiter.limit(AUTHENTICATED_RATE)
 async def get_assessment_history(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
+    instrument_type: Optional[str] = Query(None, description="Filter by instrument type: 'gps' or 'myimpact'"),
+    include_in_progress: bool = True,
     limit: int = 50,
     offset: int = 0
 ):
     """Get assessment history for current user"""
+
+    query = db.query(Assessment).filter(
+        Assessment.user_id == current_user.id
+    )
     
-    assessments = db.query(Assessment).filter(
-        Assessment.user_id == current_user.id,
-        Assessment.status == "completed"
-    ).order_by(Assessment.completed_at.desc()).offset(offset).limit(limit).all()
+    # Filter by instrument type if provided
+    if instrument_type:
+        query = query.filter(Assessment.instrument_type == instrument_type)
     
+    if include_in_progress:
+        query = query.filter(Assessment.status.in_(["completed", "in_progress"]))
+    else:
+        query = query.filter(Assessment.status == "completed")
+
+    assessments = query.order_by(Assessment.created_at.desc()).offset(offset).limit(limit).all()
+
     result = []
     for assessment in assessments:
-        assessment_result = db.query(AssessmentResult).filter(
-            AssessmentResult.assessment_id == assessment.id
-        ).first()
-        
-        result.append(AssessmentHistoryItem(
-            id=assessment.id,
-            completed_at=assessment.completed_at,
-            created_at=assessment.created_at,
-            top_gifts=_get_top_gifts_summary(db, assessment_result) if assessment_result else [],
-            top_passions=_get_top_passions_summary(db, assessment_result) if assessment_result else []
-        ))
-    
+        # Compute progress percentage based on instrument type
+        if assessment.status == "completed":
+            progress_percentage = 100
+        else:
+            # Get question count for this instrument type
+            question_count = db.query(Question).filter(
+                Question.instrument_type == assessment.instrument_type
+            ).count()
+            
+            if question_count > 0:
+                answer_count = db.query(Answer).filter(
+                    Answer.assessment_id == assessment.id
+                ).count()
+                progress_percentage = round((answer_count / question_count) * 100)
+            else:
+                progress_percentage = 0
+
+        # Get results based on instrument type
+        if assessment.instrument_type == "myimpact":
+            myimpact_result = db.query(MyImpactResult).filter(
+                MyImpactResult.assessment_id == assessment.id
+            ).first()
+            
+            result.append(AssessmentHistoryItem(
+                id=assessment.id,
+                status=assessment.status,
+                instrument_type=assessment.instrument_type,
+                completed_at=assessment.completed_at,
+                created_at=assessment.created_at,
+                progress_percentage=progress_percentage,
+                top_gifts=[],
+                top_passions=[],
+                myimpact_score=myimpact_result.myimpact_score if myimpact_result else None,
+                character_score=myimpact_result.character_score if myimpact_result else None,
+                calling_score=myimpact_result.calling_score if myimpact_result else None
+            ))
+        else:
+            # GPS assessment
+            assessment_result = db.query(AssessmentResult).filter(
+                AssessmentResult.assessment_id == assessment.id
+            ).first()
+
+            result.append(AssessmentHistoryItem(
+                id=assessment.id,
+                status=assessment.status,
+                instrument_type=assessment.instrument_type,
+                completed_at=assessment.completed_at,
+                created_at=assessment.created_at,
+                progress_percentage=progress_percentage,
+                top_gifts=_get_top_gifts_summary(db, assessment_result) if assessment_result else [],
+                top_passions=_get_top_passions_summary(db, assessment_result) if assessment_result else [],
+                myimpact_score=None,
+                character_score=None,
+                calling_score=None
+            ))
+
     return result
 
 
 @router.get("/assessments/{assessment_id}", response_model=AssessmentDetail)
+@limiter.limit(AUTHENTICATED_RATE)
 async def get_assessment_detail(
+    request: Request,
     assessment_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """Get detailed view of a specific assessment"""
+    try:
+        assessment_uuid = uuid.UUID(assessment_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid assessment ID format"
+        )
     
     assessment = db.query(Assessment).filter(
-        Assessment.id == assessment_id,
+        Assessment.id == assessment_uuid,
         Assessment.user_id == current_user.id
     ).first()
     
@@ -170,7 +245,9 @@ async def get_assessment_detail(
 
 
 @router.post("/compare", response_model=ComparisonResult)
+@limiter.limit(AUTHENTICATED_RATE)
 async def compare_assessments(
+    request: Request,
     comparison: ComparisonRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -221,7 +298,9 @@ async def compare_assessments(
 
 
 @router.get("/export/csv")
+@limiter.limit(AUTHENTICATED_RATE)
 async def export_assessments_csv(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -338,6 +417,7 @@ def _get_top_gifts_summary(db: Session, result: AssessmentResult):
             if gift:
                 gifts.append({
                     "name": gift.name,
+                    "short_code": gift.short_code,
                     "score": score
                 })
     return gifts
@@ -355,6 +435,7 @@ def _get_top_passions_summary(db: Session, result: AssessmentResult):
             if passion:
                 passions.append({
                     "name": passion.name,
+                    "short_code": passion.short_code,
                     "score": score
                 })
     return passions
@@ -401,18 +482,116 @@ def _get_all_passions_detail(db: Session, result: AssessmentResult):
     return passions
 
 
+# Admin Upgrade Endpoint
+
+@router.post("/upgrade-to-admin")
+@limiter.limit(AUTHENTICATED_RATE)
+async def upgrade_to_admin(
+    request: Request,
+    church_name: str,
+    city: str,
+    state: Optional[str] = None,
+    country: str = "USA",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Upgrade user to church admin by creating a new organization"""
+    
+    # Check if user is already associated with an organization
+    existing_membership = db.query(Membership).filter(
+        Membership.user_id == current_user.id,
+        Membership.organization_id != None
+    ).first()
+    
+    if existing_membership:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are already associated with an organization"
+        )
+    
+    # Generate unique key for the organization
+    import re
+    base_key = re.sub(r'[^a-zA-Z0-9]+', '-', church_name.lower()).strip('-')
+    key = base_key
+    counter = 1
+    
+    # Ensure key is unique
+    while db.query(Organization).filter(Organization.key == key).first():
+        key = f"{base_key}-{counter}"
+        counter += 1
+    
+    # Create new organization
+    organization = Organization(
+        name=church_name,
+        city=city,
+        state=state,
+        country=country,
+        key=key,
+    )
+    db.add(organization)
+    db.flush()  # Get organization ID
+    
+    # Get admin role
+    from app.models.role import Role
+    admin_role = db.query(Role).filter(Role.name == "admin").first()
+    
+    if not admin_role:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Admin role not found"
+        )
+    
+    # Create or update membership as primary admin
+    existing_user_membership = db.query(Membership).filter(
+        Membership.user_id == current_user.id
+    ).first()
+    
+    if existing_user_membership:
+        existing_user_membership.organization_id = organization.id
+        existing_user_membership.role_id = admin_role.id
+        existing_user_membership.is_primary_admin = True
+        existing_user_membership.status = "active"
+    else:
+        membership = Membership(
+            user_id=current_user.id,
+            organization_id=organization.id,
+            role_id=admin_role.id,
+            is_primary_admin=True,  # First admin is primary
+            status="active"
+        )
+        db.add(membership)
+    
+    db.commit()
+    
+    return {
+        "message": "Successfully upgraded to church admin",
+        "organization": {
+            "id": organization.id,
+            "name": organization.name,
+            "key": organization.key,
+            "city": organization.city,
+            "state": organization.state,
+            "country": organization.country,
+        },
+        "is_primary_admin": True
+    }
+
+
 # Church Linking Endpoints
 
 @router.get("/churches/search", response_model=List[ChurchSearchResult])
+@limiter.limit(AUTHENTICATED_RATE)
 async def search_churches(
+    request: Request,
     query: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """Search for churches to link to"""
     
+    search_pattern = f"%{query}%"
     churches = db.query(Organization).filter(
-        Organization.name.ilike(f"%{query}%")
+        Organization.name.ilike(search_pattern)
     ).limit(10).all()
     
     result = []
@@ -433,7 +612,9 @@ async def search_churches(
 
 
 @router.post("/link-request", response_model=LinkRequestResponse)
+@limiter.limit(AUTHENTICATED_RATE)
 async def request_church_link(
+    http_request: Request,
     request: LinkRequestCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -488,7 +669,9 @@ async def request_church_link(
 
 
 @router.post("/leave-organization")
+@limiter.limit(AUTHENTICATED_RATE)
 async def leave_organization(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):

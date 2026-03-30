@@ -1,5 +1,17 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { api } from './AuthContext';
+
+interface GiftSummary {
+  name: string;
+  short_code: string;
+  score: number;
+}
+
+interface PassionSummary {
+  name: string;
+  short_code: string;
+  score: number;
+}
 
 interface Member {
   id: string;
@@ -8,10 +20,19 @@ interface Member {
   email: string;
   status: string;
   role?: string;
+  is_admin: boolean;
+  is_primary_admin: boolean;
   joined_at: string;
   assessment_count: number;
   last_assessment_date?: string;
+  latest_gps_assessment_id?: string;
+  latest_myimpact_assessment_id?: string;
   phone_number?: string;
+  top_gifts: GiftSummary[];
+  top_passions: PassionSummary[];
+  myimpact_character_score?: number;
+  myimpact_calling_score?: number;
+  myimpact_score?: number;
 }
 
 interface Invite {
@@ -39,19 +60,24 @@ interface ChurchStats {
   total_assessments: number;
 }
 
-interface MemberListResponse {
-  members: Member[];
-  total: number;
-  page: number;
-  per_page: number;
-  total_pages: number;
+interface ChurchSettings {
+  id: string;
+  name: string;
+  key: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  preferred_instrument?: string;
 }
+
 
 interface AdminContextType {
   members: Member[];
   invites: Invite[];
   pending: PendingMember[];
   stats: ChurchStats | null;
+  churchSettings: ChurchSettings | null;
+  isSaving: boolean;
   isLoading: boolean;
   error: string | null;
   totalPages: number;
@@ -60,6 +86,8 @@ interface AdminContextType {
   fetchInvites: () => Promise<void>;
   fetchPending: () => Promise<void>;
   fetchStats: () => Promise<void>;
+  fetchSettings: () => Promise<void>;
+  updateSettings: (data: Partial<ChurchSettings>) => Promise<void>;
   updateMember: (id: string, data: { role?: string; status?: string }) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   createInvite: (email: string) => Promise<void>;
@@ -69,6 +97,7 @@ interface AdminContextType {
   cancelInvite: (id: string) => Promise<void>;
   approvePending: (id: string) => Promise<void>;
   declinePending: (id: string) => Promise<void>;
+  toggleAdmin: (id: string, currentRole: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -79,6 +108,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [pending, setPending] = useState<PendingMember[]>([]);
   const [stats, setStats] = useState<ChurchStats | null>(null);
+  const [churchSettings, setChurchSettings] = useState<ChurchSettings | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -181,6 +212,39 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     await api.post(`/admin/pending/${id}/decline`);
   }, []);
 
+  const toggleAdmin = useCallback(async (id: string, currentRole: string) => {
+    const newRole = currentRole === 'admin' ? 'member' : 'admin';
+    await api.put(`/admin/members/${id}`, { role: newRole });
+    await fetchMembers();
+  }, [fetchMembers]);
+
+  const fetchSettings = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.get('/admin/settings');
+      setChurchSettings(response.data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load church settings');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const updateSettings = useCallback(async (data: Partial<ChurchSettings>) => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await api.put('/admin/settings', data);
+      setChurchSettings(prev => prev ? { ...prev, ...data } : null);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update church settings');
+      throw err;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
 
   return (
@@ -190,6 +254,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         invites,
         pending,
         stats,
+        churchSettings,
+        isSaving,
         isLoading,
         error,
         totalPages,
@@ -198,6 +264,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         fetchInvites,
         fetchPending,
         fetchStats,
+        fetchSettings,
+        updateSettings,
         updateMember,
         removeMember,
         createInvite,
@@ -207,6 +275,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         cancelInvite,
         approvePending,
         declinePending,
+        toggleAdmin,
         clearError
       }}
     >

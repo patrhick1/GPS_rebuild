@@ -4,7 +4,7 @@ Handles subscriptions, payments, and webhook events
 """
 import stripe
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -49,6 +49,7 @@ class StripeService:
     def create_subscription(
         organization: Organization,
         price_id: str,
+        plan: str = "monthly",
         quantity: int = 1,
         payment_method_id: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -73,7 +74,7 @@ class StripeService:
             customer=customer.id,
             items=[{"price": price_id, "quantity": quantity}],
             payment_behavior="default_incomplete",
-            expand=["latest_invoice.payment_intent"],
+            expand=["latest_invoice.confirmation_secret"],
             metadata={
                 "organization_id": str(organization.id),
                 "organization_key": organization.key
@@ -87,10 +88,10 @@ class StripeService:
             stripe_subscription_id=subscription.id,
             stripe_price_id=price_id,
             status=subscription.status,
-            plan="monthly" if "month" in price_id else "yearly",
+            plan=plan,
             quantity=quantity,
-            current_period_start=datetime.fromtimestamp(subscription.current_period_start),
-            current_period_end=datetime.fromtimestamp(subscription.current_period_end),
+            current_period_start=datetime.fromtimestamp(subscription.current_period_start) if subscription.get("current_period_start") else None,
+            current_period_end=datetime.fromtimestamp(subscription.current_period_end) if subscription.get("current_period_end") else None,
             trial_start=datetime.fromtimestamp(subscription.trial_start) if subscription.trial_start else None,
             trial_end=datetime.fromtimestamp(subscription.trial_end) if subscription.trial_end else None,
         )
@@ -165,8 +166,8 @@ class StripeService:
             params = {"customer": customer_id}
             if subscription_id:
                 params["subscription"] = subscription_id
-            return stripe.Invoice.upcoming(**params)
-        except stripe.error.InvalidRequestError:
+            return stripe.Invoice.upcoming_preview(**params)
+        except Exception:
             return None
     
     @staticmethod
@@ -174,7 +175,8 @@ class StripeService:
         """Get recent invoices for a customer"""
         invoices = stripe.Invoice.list(
             customer=customer_id,
-            limit=limit
+            limit=limit,
+            expand=["data.charge"]
         )
         return invoices.data
     
@@ -201,7 +203,7 @@ class StripeService:
             db_subscription.current_period_end = datetime.fromtimestamp(subscription_data.current_period_end)
             db_subscription.cancel_at_period_end = subscription_data.cancel_at_period_end
             db_subscription.quantity = subscription_data.items.data[0].quantity if subscription_data.items.data else 1
-            db_subscription.updated_at = datetime.utcnow()
+            db_subscription.updated_at = datetime.now(timezone.utc)
             
             db.commit()
     

@@ -1,18 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.database import engine, Base
+from app.core.rate_limits import limiter
 from app.routers import health, auth, assessments, dashboard, admin, master, billing
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
-
-# Rate limiter
-limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -25,13 +22,29 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS middleware
+# CORS middleware setup
+allowed_origins = settings.CORS_ORIGINS
+
+# In production, validate that wildcards are not used with credentials
+if not settings.DEBUG:
+    if "*" in allowed_origins:
+        raise ValueError(
+            "Wildcard '*' not allowed in CORS_ORIGINS when allow_credentials=True in production. "
+            "Please specify explicit origins in your environment configuration."
+        )
+
+# Log CORS configuration in debug mode
+if settings.DEBUG:
+    print(f"DEBUG: CORS allowed origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"],
+    expose_headers=[],
+    max_age=600,
 )
 
 # Include routers

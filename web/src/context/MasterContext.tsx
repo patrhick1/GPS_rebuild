@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { api } from './AuthContext';
 
 interface SystemStats {
@@ -20,11 +20,24 @@ interface Church {
   city?: string;
   state?: string;
   country?: string;
+  status: string;
   member_count: number;
   assessment_count: number;
   admins: { id: string; email: string; name: string }[];
   last_activity?: string;
   created_at: string;
+}
+
+interface MonthlyData {
+  month: string;
+  count: number;
+}
+
+interface DashboardStats {
+  gps_assessments_monthly: MonthlyData[];
+  myimpact_assessments_monthly: MonthlyData[];
+  users_monthly: MonthlyData[];
+  orgs_monthly: MonthlyData[];
 }
 
 interface User {
@@ -52,6 +65,7 @@ interface AuditEntry {
 
 interface MasterContextType {
   stats: SystemStats | null;
+  dashboardStats: DashboardStats | null;
   churches: Church[];
   users: User[];
   auditLog: AuditEntry[];
@@ -61,9 +75,11 @@ interface MasterContextType {
   totalUserPages: number;
   totalAuditPages: number;
   fetchStats: () => Promise<void>;
+  fetchDashboardStats: () => Promise<void>;
   fetchChurches: (page?: number, search?: string) => Promise<void>;
   fetchUsers: (page?: number, search?: string) => Promise<void>;
   fetchAuditLog: (page?: number, filters?: any) => Promise<void>;
+  toggleChurchStatus: (churchId: string, status: string) => Promise<void>;
   addChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   removeChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   impersonateUser: (userId: string, reason: string) => Promise<string>;
@@ -75,6 +91,7 @@ const MasterContext = createContext<MasterContextType | undefined>(undefined);
 
 export function MasterProvider({ children }: { children: ReactNode }) {
   const [stats, setStats] = useState<SystemStats | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [churches, setChurches] = useState<Church[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
@@ -94,6 +111,30 @@ export function MasterProvider({ children }: { children: ReactNode }) {
       setError(err.response?.data?.detail || 'Failed to load stats');
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const fetchDashboardStats = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.get('/master/dashboard-stats');
+      setDashboardStats(response.data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load dashboard stats');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const toggleChurchStatus = useCallback(async (churchId: string, newStatus: string) => {
+    try {
+      await api.put(`/master/churches/${churchId}/status`, { status: newStatus });
+      setChurches(prev =>
+        prev.map(c => c.id === churchId ? { ...c, status: newStatus } : c)
+      );
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update church status');
     }
   }, []);
 
@@ -186,6 +227,7 @@ export function MasterProvider({ children }: { children: ReactNode }) {
     <MasterContext.Provider
       value={{
         stats,
+        dashboardStats,
         churches,
         users,
         auditLog,
@@ -195,9 +237,11 @@ export function MasterProvider({ children }: { children: ReactNode }) {
         totalUserPages,
         totalAuditPages,
         fetchStats,
+        fetchDashboardStats,
         fetchChurches,
         fetchUsers,
         fetchAuditLog,
+        toggleChurchStatus,
         addChurchAdmin,
         removeChurchAdmin,
         impersonateUser,

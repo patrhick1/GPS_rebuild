@@ -2,6 +2,7 @@
 GPS Assessment Scoring Service
 Ports the Laravel scoring algorithm to Python
 """
+import uuid as uuid_mod
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field
 from sqlalchemy.orm import Session
@@ -88,24 +89,33 @@ class ScoringService:
         graded.top_gifts = self._get_top_results(gift_results, 4, limit_top=2)
         graded.top_passions = self._get_top_results(passion_results, 3, limit_top=2)
         
-        # Get special answers
-        graded.abilities = self._get_checkbox_answers(assessment, self.ABILITY_QUESTION_ID)
-        graded.people = self._get_checkbox_answers(assessment, self.PEOPLE_QUESTION_ID)
-        graded.causes = self._get_checkbox_answers(assessment, self.CAUSE_QUESTION_ID)
+        # Get special answers (convert order numbers to UUIDs)
+        order_map = self._build_order_to_uuid_map()
+        graded.abilities = self._get_checkbox_answers(assessment, order_map.get(self.ABILITY_QUESTION_ID))
+        graded.people = self._get_checkbox_answers(assessment, order_map.get(self.PEOPLE_QUESTION_ID))
+        graded.causes = self._get_checkbox_answers(assessment, order_map.get(self.CAUSE_QUESTION_ID))
         graded.stories = self._get_stories(assessment)
         
         return graded
     
+    def _build_order_to_uuid_map(self) -> dict:
+        """Build a mapping from question order number to question UUID"""
+        questions = self.db.query(Question).all()
+        return {q.order: q.id for q in questions}
+
     def _calculate_gifts(self, assessment: Assessment, gifts: List[GiftsPassion]) -> List[GiftPassionResult]:
         """Calculate scores for all spiritual gifts"""
         results = []
-        
+        order_map = self._build_order_to_uuid_map()
+
         for gift in gifts:
-            # Parse question IDs from comma-separated string
-            question_ids = [int(q.strip()) for q in gift.questions.split(',') if q.strip()]
-            
+            # Parse question order numbers from comma-separated string
+            question_orders = [int(q.strip()) for q in gift.questions.split(',') if q.strip()]
+            # Convert order numbers to UUIDs
+            question_uuids = [order_map[o] for o in question_orders if o in order_map]
+
             # Sum the scores
-            score = self._sum_answer_values(assessment, question_ids)
+            score = self._sum_answer_values(assessment, question_uuids)
             
             results.append(GiftPassionResult(
                 id=str(gift.id),
@@ -122,27 +132,31 @@ class ScoringService:
     def _calculate_passions(self, assessment: Assessment, passions: List[GiftsPassion]) -> List[GiftPassionResult]:
         """Calculate scores for all influencing styles"""
         results = []
-        
+        order_map = self._build_order_to_uuid_map()
+
         # Get offset for passion questions (Laravel uses this)
         first_passion_question = self.db.query(Question).join(Type).filter(
             Type.name == "Influencing Style"
         ).order_by(Question.order).first()
-        
+
         offset = 0
         if first_passion_question:
             # Laravel calculates offset based on question ID difference
             offset = first_passion_question.order - 1
-        
+
         for passion in passions:
-            # Parse question IDs
-            question_ids = [int(q.strip()) for q in passion.questions.split(',') if q.strip()]
-            
+            # Parse question order numbers
+            question_orders = [int(q.strip()) for q in passion.questions.split(',') if q.strip()]
+
             # Apply offset (Laravel does this for passions)
             if offset > 0:
-                question_ids = [q + offset for q in question_ids]
-            
+                question_orders = [q + offset for q in question_orders]
+
+            # Convert order numbers to UUIDs
+            question_uuids = [order_map[o] for o in question_orders if o in order_map]
+
             # Sum the scores
-            score = self._sum_answer_values(assessment, question_ids)
+            score = self._sum_answer_values(assessment, question_uuids)
             
             results.append(GiftPassionResult(
                 id=str(passion.id),
@@ -156,7 +170,7 @@ class ScoringService:
         results.sort(key=lambda x: x.points, reverse=True)
         return results
     
-    def _sum_answer_values(self, assessment: Assessment, question_ids: List[int]) -> int:
+    def _sum_answer_values(self, assessment: Assessment, question_ids: List) -> int:
         """Sum numeric values for given question IDs"""
         total = 0
         
@@ -202,10 +216,13 @@ class ScoringService:
         
         return top_results
     
-    def _get_checkbox_answers(self, assessment: Assessment, question_id: int) -> List[str]:
+    def _get_checkbox_answers(self, assessment: Assessment, question_id: Optional[Any]) -> List[str]:
         """Get checkbox/multiple choice answers for a question"""
+        if question_id is None:
+            return []
+
         answers = []
-        
+
         for answer in assessment.answers:
             if answer.question_id == question_id:
                 value = answer.multiple_choice_answer
@@ -249,23 +266,29 @@ class ScoringService:
         """
         graded = self.grade_assessment(assessment)
         
+        # Helper to convert string IDs back to UUID objects for the ORM
+        def _to_uuid(val):
+            if val is None:
+                return None
+            return uuid_mod.UUID(val) if isinstance(val, str) else val
+
         # Build result data
         result_data = {
             'assessment_id': assessment.id,
             'user_id': assessment.user_id,
-            'gift_1_id': graded.top_gifts[0].id if len(graded.top_gifts) > 0 else None,
+            'gift_1_id': _to_uuid(graded.top_gifts[0].id) if len(graded.top_gifts) > 0 else None,
             'spiritual_gift_1_score': graded.top_gifts[0].points if len(graded.top_gifts) > 0 else None,
-            'gift_2_id': graded.top_gifts[1].id if len(graded.top_gifts) > 1 else None,
+            'gift_2_id': _to_uuid(graded.top_gifts[1].id) if len(graded.top_gifts) > 1 else None,
             'spiritual_gift_2_score': graded.top_gifts[1].points if len(graded.top_gifts) > 1 else None,
-            'gift_3_id': graded.top_gifts[2].id if len(graded.top_gifts) > 2 else None,
+            'gift_3_id': _to_uuid(graded.top_gifts[2].id) if len(graded.top_gifts) > 2 else None,
             'spiritual_gift_3_score': graded.top_gifts[2].points if len(graded.top_gifts) > 2 else None,
-            'gift_4_id': graded.top_gifts[3].id if len(graded.top_gifts) > 3 else None,
+            'gift_4_id': _to_uuid(graded.top_gifts[3].id) if len(graded.top_gifts) > 3 else None,
             'spiritual_gift_4_score': graded.top_gifts[3].points if len(graded.top_gifts) > 3 else None,
-            'passion_1_id': graded.top_passions[0].id if len(graded.top_passions) > 0 else None,
+            'passion_1_id': _to_uuid(graded.top_passions[0].id) if len(graded.top_passions) > 0 else None,
             'passion_1_score': graded.top_passions[0].points if len(graded.top_passions) > 0 else None,
-            'passion_2_id': graded.top_passions[1].id if len(graded.top_passions) > 1 else None,
+            'passion_2_id': _to_uuid(graded.top_passions[1].id) if len(graded.top_passions) > 1 else None,
             'passion_2_score': graded.top_passions[1].points if len(graded.top_passions) > 1 else None,
-            'passion_3_id': graded.top_passions[2].id if len(graded.top_passions) > 2 else None,
+            'passion_3_id': _to_uuid(graded.top_passions[2].id) if len(graded.top_passions) > 2 else None,
             'passion_3_score': graded.top_passions[2].points if len(graded.top_passions) > 2 else None,
             'people': ','.join(graded.people),
             'cause': ','.join(graded.causes),

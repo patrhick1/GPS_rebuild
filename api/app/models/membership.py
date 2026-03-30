@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -14,6 +14,7 @@ class Membership(Base):
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True)  # NULL if independent
     role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=False)
     status = Column(String(20), nullable=False, default="active")  # active, pending, removed
+    is_primary_admin = Column(Boolean, default=False, nullable=False)  # Only primary admin can manage billing
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

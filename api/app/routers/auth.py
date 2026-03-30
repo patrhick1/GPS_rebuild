@@ -1,31 +1,39 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Form
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.dependencies.auth import get_current_user, get_current_active_user
+from app.core.rate_limits import limiter, PUBLIC_AUTH_RATE, PASSWORD_RESET_RATE, AUTHENTICATED_RATE
+from app.core.audit import log_audit_event
+from app.dependencies.auth import get_current_user, get_current_active_user, get_current_active_user_no_impersonation
 from app.schemas.user import (
     UserCreate,
     UserLogin,
     UserResponse,
+    UserWithRole,
+    UserUpdate,
     PasswordResetRequest,
     PasswordResetConfirm,
     PasswordChange,
+    PasswordStrengthResponse,
+    ChurchAdminRegister,
+    ChurchUpgrade,
 )
+from app.core.password_policy import PasswordPolicy
 from app.schemas.token import Token, RefreshTokenRequest
 from app.services.auth_service import AuthService
+from app.services.email_service import send_password_reset_email
 from app.models.user import User
+from app.models.membership import Membership
+from app.models.organization import Organization
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()
-limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")
+@limiter.limit(PUBLIC_AUTH_RATE)
 async def register(
     request: Request,
     user_data: UserCreate,
@@ -40,8 +48,54 @@ async def register(
     return user
 
 
+@router.post("/upgrade/church", response_model=UserWithRole)
+@limiter.limit(AUTHENTICATED_RATE)
+async def upgrade_to_church_admin(
+    request: Request,
+    data: ChurchUpgrade,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Upgrade an existing logged-in user to church admin."""
+    auth_service = AuthService(db)
+    user = auth_service.upgrade_to_church_admin(current_user, data)
+
+    log_audit_event(
+        db=db,
+        user_id=user.id,
+        action="upgraded_to_church_admin",
+        target_type="user",
+        target_id=str(user.id),
+        details={"org_name": data.org_name}
+    )
+
+    # Return fresh user+role data so frontend can update immediately
+    membership = db.query(Membership).filter(Membership.user_id == user.id).first()
+    result = UserWithRole.model_validate(user)
+    if membership:
+        result.role = membership.role.name if membership.role else None
+        result.organization_id = membership.organization_id
+        result.is_primary_admin = membership.is_primary_admin
+        if membership.organization:
+            result.organization_name = membership.organization.name
+    return result
+
+
+@router.post("/register/church", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(PUBLIC_AUTH_RATE)
+async def register_church(
+    request: Request,
+    data: ChurchAdminRegister,
+    db: Session = Depends(get_db),
+):
+    """Register a new church admin account with organization."""
+    auth_service = AuthService(db)
+    user = auth_service.register_church_admin(data)
+    return user
+
+
 @router.post("/login", response_model=Token)
-@limiter.limit("5/minute")
+@limiter.limit(PUBLIC_AUTH_RATE)
 async def login(
     request: Request,
     response: Response,
@@ -53,6 +107,19 @@ async def login(
     user = auth_service.authenticate_user(login_data)
     
     if not user:
+        # Log failed login attempt
+        log_audit_event(
+            db=db,
+            user_id=None,
+            action="login_failed",
+            target_type="user",
+            target_id=None,
+            details={
+                "email": login_data.email,
+                "reason": "invalid_credentials",
+                "ip_address": request.client.host if request.client else None
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -60,10 +127,34 @@ async def login(
         )
     
     if user.status == "locked":
+        # Log failed login attempt for locked account
+        log_audit_event(
+            db=db,
+            user_id=user.id,
+            action="login_failed",
+            target_type="user",
+            target_id=str(user.id),
+            details={
+                "reason": "account_locked",
+                "ip_address": request.client.host if request.client else None
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is locked",
         )
+    
+    # Log successful login
+    log_audit_event(
+        db=db,
+        user_id=user.id,
+        action="login_success",
+        target_type="user",
+        target_id=str(user.id),
+        details={
+            "ip_address": request.client.host if request.client else None
+        }
+    )
     
     tokens = auth_service.create_tokens(user.id)
     
@@ -72,7 +163,7 @@ async def login(
         key="refresh_token",
         value=tokens["refresh_token"],
         httponly=True,
-        secure=True,  # Set to True in production with HTTPS
+        secure=not settings.DEBUG,  # Secure in production, allow HTTP in development
         samesite="lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
@@ -82,7 +173,7 @@ async def login(
         key="access_token",
         value=tokens["access_token"],
         httponly=True,
-        secure=True,
+        secure=not settings.DEBUG,  # Secure in production, allow HTTP in development
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
@@ -119,7 +210,7 @@ async def refresh_token(
         key="refresh_token",
         value=tokens["refresh_token"],
         httponly=True,
-        secure=True,
+        secure=not settings.DEBUG,  # Secure in production, allow HTTP in development
         samesite="lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
@@ -128,7 +219,7 @@ async def refresh_token(
         key="access_token",
         value=tokens["access_token"],
         httponly=True,
-        secure=True,
+        secure=not settings.DEBUG,  # Secure in production, allow HTTP in development
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
@@ -163,7 +254,7 @@ async def logout(
 
 
 @router.post("/password-reset-request")
-@limiter.limit("3/minute")
+@limiter.limit(PASSWORD_RESET_RATE)
 async def password_reset_request(
     request: Request,
     reset_request: PasswordResetRequest,
@@ -172,10 +263,11 @@ async def password_reset_request(
     """Request a password reset email."""
     auth_service = AuthService(db)
     token = auth_service.create_password_reset_token(reset_request.email)
-    
-    # TODO: Send email with reset link using Resend
-    # For now, just return success even if email doesn't exist (security)
-    
+
+    # Only send if user exists; always return same message (security)
+    if token:
+        send_password_reset_email(to_email=reset_request.email, reset_token=token)
+
     return {"message": "If the email exists, a reset link has been sent"}
 
 
@@ -200,10 +292,16 @@ async def password_reset(
 @router.post("/change-password")
 async def change_password(
     password_data: PasswordChange,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_no_impersonation),
     db: Session = Depends(get_db),
 ):
-    """Change password for authenticated user."""
+    """
+    Change password for authenticated user.
+    
+    Note: Impersonation tokens cannot be used to change passwords.
+    This prevents master admins from accidentally or maliciously changing
+    user passwords during impersonation sessions.
+    """
     auth_service = AuthService(db)
     success = auth_service.change_password(
         current_user.id,
@@ -217,10 +315,94 @@ async def change_password(
             detail="Current password is incorrect",
         )
     
+    # Log password change
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="password_changed",
+        target_type="user",
+        target_id=str(current_user.id)
+    )
+    
     return {"message": "Password changed successfully"}
 
 
-@router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_active_user)):
-    """Get current authenticated user."""
+@router.get("/me", response_model=UserWithRole)
+async def get_me(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Get current authenticated user with role information."""
+    membership = current_user.memberships[0] if current_user.memberships else None
+
+    result = UserWithRole.model_validate(current_user)
+    if membership:
+        result.role = membership.role.name if membership.role else None
+        result.organization_id = membership.organization_id
+        result.is_primary_admin = membership.is_primary_admin
+        if membership.organization:
+            result.organization_name = membership.organization.name
+    return result
+
+
+@router.put("/profile", response_model=UserResponse)
+@limiter.limit(AUTHENTICATED_RATE)
+async def update_profile(
+    request: Request,
+    user_data: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Update profile for the current authenticated user."""
+    update_fields = user_data.model_dump(exclude_none=True)
+
+    for field, value in update_fields.items():
+        setattr(current_user, field, value)
+
+    db.commit()
+    db.refresh(current_user)
     return current_user
+
+
+@router.get("/org/{org_key}")
+async def get_org_by_key(org_key: str, db: Session = Depends(get_db)):
+    """Return public org info for the registration page church-link flow."""
+    org = db.query(Organization).filter(
+        Organization.key == org_key,
+        Organization.status == "active",
+    ).first()
+    if not org:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+    return {"name": org.name, "city": org.city, "state": org.state}
+
+
+@router.post("/password-strength", response_model=PasswordStrengthResponse)
+async def check_password_strength(
+    password: str = Form(...),
+    email: str = Form(""),
+    first_name: str = Form(""),
+    last_name: str = Form("")
+):
+    """
+    Check password strength and validate against policy.
+    
+    This endpoint is public and can be called during registration
+    to provide real-time password strength feedback.
+    """
+    score = PasswordPolicy.calculate_strength(password)
+    label, color = PasswordPolicy.get_strength_label(score)
+    is_valid, errors = PasswordPolicy.validate(
+        password=password,
+        email=email if email else None,
+        first_name=first_name if first_name else None,
+        last_name=last_name if last_name else None
+    )
+    
+    return PasswordStrengthResponse(
+        score=score,
+        strength_label=label,
+        color=color,
+        is_valid=is_valid,
+        errors=errors,
+        requirements=PasswordPolicy.get_requirements_description()
+    )

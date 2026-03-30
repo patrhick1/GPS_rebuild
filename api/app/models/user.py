@@ -31,6 +31,7 @@ class User(Base):
     invitations = relationship("Invitation", back_populates="user", foreign_keys="Invitation.created_by")
     audit_logs = relationship("AuditLog", back_populates="user")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    myimpact_results = relationship("MyImpactResult", back_populates="user")
 
     @property
     def full_name(self):

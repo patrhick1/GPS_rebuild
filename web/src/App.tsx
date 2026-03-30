@@ -6,21 +6,23 @@ import { AdminProvider } from './context/AdminContext';
 import { MasterProvider } from './context/MasterContext';
 import { BillingProvider } from './context/BillingContext';
 import { PrivateRoute } from './components/PrivateRoute';
-import { AdminLayout } from './components/AdminLayout';
-import { MasterLayout } from './components/MasterLayout';
+
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ForgotPassword } from './pages/ForgotPassword';
+import { ResetPassword } from './pages/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
 import { AssessmentWizard } from './pages/AssessmentWizard';
 import { AssessmentResults } from './pages/AssessmentResults';
+import { MyImpactWizard } from './pages/MyImpactWizard';
+import { MyImpactResults } from './pages/MyImpactResults';
+import { Account } from './pages/Account';
+import { Upgrade } from './pages/Upgrade';
+import { ChurchRegister } from './pages/ChurchRegister';
+import { ChurchUpgrade } from './pages/ChurchUpgrade';
 import { AdminDashboard } from './pages/AdminDashboard';
-import { MembersManagement } from './pages/MembersManagement';
-import { InvitesManagement } from './pages/InvitesManagement';
+
 import { MasterDashboard } from './pages/MasterDashboard';
-import { ChurchesManagement } from './pages/ChurchesManagement';
-import { AuditLog } from './pages/AuditLog';
-import { SystemExport } from './pages/SystemExport';
 import { BillingDashboard } from './pages/BillingDashboard';
 import './App.css';
 
@@ -33,7 +35,18 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/upgrade" element={<Upgrade />} />
+          <Route path="/register/church" element={<ChurchRegister />} />
+          <Route
+            path="/upgrade/church"
+            element={
+              <PrivateRoute>
+                <ChurchUpgrade />
+              </PrivateRoute>
+            }
+          />
+
           {/* Protected routes */}
           <Route
             path="/dashboard"
@@ -68,101 +81,59 @@ function App() {
             }
           />
           
+          {/* MyImpact Routes */}
+          <Route
+            path="/myimpact"
+            element={
+              <PrivateRoute>
+                <AssessmentProvider>
+                  <MyImpactWizard />
+                </AssessmentProvider>
+              </PrivateRoute>
+            }
+          />
+          
+          <Route
+            path="/myimpact-results"
+            element={
+              <PrivateRoute>
+                <AssessmentProvider>
+                  <MyImpactResults />
+                </AssessmentProvider>
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/account"
+            element={
+              <PrivateRoute>
+                <DashboardProvider>
+                  <Account />
+                </DashboardProvider>
+              </PrivateRoute>
+            }
+          />
+
           {/* Admin Routes */}
           <Route
             path="/admin"
             element={
               <PrivateRoute>
                 <AdminProvider>
-                  <AdminLayout>
-                    <AdminDashboard />
-                  </AdminLayout>
+                  <AdminDashboard />
                 </AdminProvider>
               </PrivateRoute>
             }
           />
-          <Route
-            path="/admin/members"
-            element={
-              <PrivateRoute>
-                <AdminProvider>
-                  <AdminLayout>
-                    <MembersManagement />
-                  </AdminLayout>
-                </AdminProvider>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin/invites"
-            element={
-              <PrivateRoute>
-                <AdminProvider>
-                  <AdminLayout>
-                    <InvitesManagement />
-                  </AdminLayout>
-                </AdminProvider>
-              </PrivateRoute>
-            }
-          />
-          
+
           {/* Master Admin Routes */}
           <Route
             path="/master"
             element={
               <PrivateRoute>
                 <MasterProvider>
-                  <MasterLayout>
-                    <MasterDashboard />
-                  </MasterLayout>
-                </MasterProvider>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/master/churches"
-            element={
-              <PrivateRoute>
-                <MasterProvider>
-                  <MasterLayout>
-                    <ChurchesManagement />
-                  </MasterLayout>
-                </MasterProvider>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/master/users"
-            element={
-              <PrivateRoute>
-                <MasterProvider>
-                  <MasterLayout>
-                    <div>Users Management (Coming Soon)</div>
-                  </MasterLayout>
-                </MasterProvider>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/master/audit"
-            element={
-              <PrivateRoute>
-                <MasterProvider>
-                  <MasterLayout>
-                    <AuditLog />
-                  </MasterLayout>
-                </MasterProvider>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/master/export"
-            element={
-              <PrivateRoute>
-                <MasterProvider>
-                  <MasterLayout>
-                    <SystemExport />
-                  </MasterLayout>
+                  <MasterDashboard />
                 </MasterProvider>
               </PrivateRoute>
             }
@@ -174,9 +145,7 @@ function App() {
             element={
               <PrivateRoute>
                 <BillingProvider>
-                  <AdminLayout>
-                    <BillingDashboard />
-                  </AdminLayout>
+                  <BillingDashboard />
                 </BillingProvider>
               </PrivateRoute>
             }

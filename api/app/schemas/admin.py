@@ -7,6 +7,19 @@ from pydantic import BaseModel
 import uuid
 
 
+# Assessment summary schemas for member table pills
+class GiftSummary(BaseModel):
+    name: str
+    short_code: str
+    score: int
+
+
+class PassionSummary(BaseModel):
+    name: str
+    short_code: str
+    score: int
+
+
 # Member schemas
 class MemberDetail(BaseModel):
     id: uuid.UUID
@@ -15,10 +28,19 @@ class MemberDetail(BaseModel):
     email: str
     status: str
     role: Optional[str] = None
+    is_admin: bool = False
+    is_primary_admin: bool = False
     joined_at: datetime
     assessment_count: int
     last_assessment_date: Optional[datetime] = None
+    latest_gps_assessment_id: Optional[uuid.UUID] = None
+    latest_myimpact_assessment_id: Optional[uuid.UUID] = None
     phone_number: Optional[str] = None
+    top_gifts: List[GiftSummary] = []
+    top_passions: List[PassionSummary] = []
+    myimpact_character_score: Optional[float] = None
+    myimpact_calling_score: Optional[float] = None
+    myimpact_score: Optional[float] = None
 
     class Config:
         from_attributes = True

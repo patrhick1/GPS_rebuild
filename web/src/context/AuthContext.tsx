@@ -1,7 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// Track refresh promise to prevent multiple simultaneous refresh attempts
+let refreshPromise: Promise<string> | null = null;
 
 // Create axios instance
 const api = axios.create({
@@ -9,16 +12,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
-});
-
-// Add interceptor to include token in requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+  withCredentials: true, // Important: sends httpOnly cookies
 });
 
 interface User {
@@ -27,14 +21,39 @@ interface User {
   first_name?: string;
   last_name?: string;
   status: string;
+  role?: string;
+  organization_id?: string;
+  organization_name?: string;
+  is_primary_admin?: boolean;
+}
+
+interface ChurchRegisterData {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  org_name: string;
+  org_city?: string;
+  org_state?: string;
+  org_country?: string;
+}
+
+interface ChurchUpgradeData {
+  org_name: string;
+  org_city?: string;
+  org_state?: string;
+  org_country?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  accessToken: string | null;
+  login: (email: string, password: string) => Promise<User>;
   register: (data: RegisterData) => Promise<void>;
+  registerChurch: (data: ChurchRegisterData) => Promise<User>;
+  upgradeToChurchAdmin: (data: ChurchUpgradeData) => Promise<User>;
   logout: () => Promise<void>;
   error: string | null;
   clearError: () => void;
@@ -53,39 +72,153 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(
+    () => localStorage.getItem('access_token')
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if user is already logged in on mount
+  // Check if user is already logged in on mount using refresh token
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      fetchUser();
-    } else {
-      setIsLoading(false);
-    }
+    checkAuthStatus();
   }, []);
 
-  const fetchUser = async () => {
+  // Sync localStorage and axios Authorization header whenever accessToken changes
+  useEffect(() => {
+    if (accessToken) {
+      localStorage.setItem('access_token', accessToken);
+      api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+    } else {
+      localStorage.removeItem('access_token');
+      delete api.defaults.headers.common['Authorization'];
+    }
+  }, [accessToken]);
+
+  const checkAuthStatus = async () => {
+    const stored = localStorage.getItem('access_token');
+
+    // Apply stored token to header immediately — can't wait for useEffect
+    if (stored) {
+      api.defaults.headers.common['Authorization'] = `Bearer ${stored}`;
+    }
+
     try {
+      if (!stored) {
+        // No local token — try refresh cookie path
+        const newToken = await refreshAccessToken();
+        setAccessToken(newToken);
+        api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      }
       const response = await api.get('/auth/me');
       setUser(response.data);
-    } catch (err) {
-      // Token might be expired, clear it
-      localStorage.removeItem('access_token');
+    } catch {
+      if (stored) {
+        // Stored token rejected (expired) — fall back to refresh cookie
+        try {
+          const newToken = await refreshAccessToken();
+          setAccessToken(newToken);
+          api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+          const response = await api.get('/auth/me');
+          setUser(response.data);
+        } catch {
+          setAccessToken(null);
+          setUser(null);
+        }
+      } else {
+        setAccessToken(null);
+        setUser(null);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const refreshAccessToken = async (): Promise<string> => {
+    // If a refresh is already in progress, wait for it
+    if (refreshPromise) {
+      return refreshPromise;
+    }
+
+    // Create new refresh promise
+    refreshPromise = (async () => {
+      try {
+        const response = await axios.post(
+          `${API_URL}/auth/refresh`,
+          {},
+          { withCredentials: true }
+        );
+        return response.data.access_token;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+
+    return refreshPromise;
+  };
+
+  // Add response interceptor for automatic token refresh
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        // If 402, subscription is inactive — redirect to billing
+        if (error.response?.status === 402) {
+          window.location.href = '/admin/billing';
+          return Promise.reject(error);
+        }
+
+        // If 401 and not already retrying
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          try {
+            const newToken = await refreshAccessToken();
+            setAccessToken(newToken);
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return api(originalRequest);
+          } catch (refreshError) {
+            // Refresh failed, logout user
+            setAccessToken(null);
+            setUser(null);
+            window.location.href = '/login';
+            return Promise.reject(refreshError);
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      api.interceptors.response.eject(interceptor);
+    };
+  }, []);
+
+  const fetchUser = async (): Promise<User> => {
+    try {
+      const response = await api.get('/auth/me');
+      setUser(response.data);
+      return response.data;
+    } catch (err) {
+      setAccessToken(null);
+      setUser(null);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const login = async (email: string, password: string): Promise<User> => {
     setError(null);
     setIsLoading(true);
     try {
       const response = await api.post('/auth/login', { email, password });
       const { access_token } = response.data;
-      localStorage.setItem('access_token', access_token);
-      await fetchUser();
+      // Store in memory only - NOT localStorage
+      setAccessToken(access_token);
+      return await fetchUser();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed');
       throw err;
@@ -99,9 +232,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const response = await api.post('/auth/register', data);
-      // Optionally auto-login after registration
+      // Auto-login after registration
       await login(data.email, data.password);
       return response.data;
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Registration failed');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const upgradeToChurchAdmin = async (data: ChurchUpgradeData): Promise<User> => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      const response = await api.post('/auth/upgrade/church', data);
+      // Update user in context with fresh role/org data returned by the endpoint
+      setUser(response.data);
+      return response.data;
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Upgrade failed');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const registerChurch = async (data: ChurchRegisterData): Promise<User> => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      await api.post('/auth/register/church', data);
+      return await login(data.email, data.password);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Registration failed');
       throw err;
@@ -117,7 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       // Ignore error
     } finally {
-      localStorage.removeItem('access_token');
+      setAccessToken(null);
       setUser(null);
       setIsLoading(false);
     }
@@ -131,8 +294,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
+        accessToken,
         login,
         register,
+        registerChurch,
+        upgradeToChurchAdmin,
         logout,
         error,
         clearError,

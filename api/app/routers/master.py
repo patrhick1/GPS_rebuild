@@ -3,14 +3,15 @@ Master Admin API endpoints
 Full system access for master administrators
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import csv
 import io
 
 from app.core.database import get_db
+from app.core.rate_limits import limiter, MASTER_RATE, EXPORT_RATE
 from app.dependencies.auth import get_current_active_user, require_master
 from app.models.user import User
 from app.models.organization import Organization
@@ -20,6 +21,7 @@ from app.models.assessment import Assessment
 from app.models.assessment_result import AssessmentResult
 from app.models.audit_log import AuditLog
 from app.models.gifts_passion import GiftsPassion
+from pydantic import BaseModel
 from app.schemas.master import (
     SystemStats,
     ChurchListResponse,
@@ -37,7 +39,9 @@ router = APIRouter(prefix="/master", tags=["Master Admin"])
 
 
 @router.get("/stats", response_model=SystemStats)
+@limiter.limit(MASTER_RATE)
 async def get_system_stats(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_master)
 ):
@@ -51,7 +55,7 @@ async def get_system_stats(
     ).count()
     
     # Time-based stats
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     
     # Last 30 days
     thirty_days_ago = now - timedelta(days=30)
@@ -78,7 +82,9 @@ async def get_system_stats(
     ).count()
     
     # Active churches (have had activity in last 90 days)
-    active_churches = db.query(Organization).join(Membership).join(User).join(Assessment).filter(
+    active_churches = db.query(Organization).join(Membership).join(User).join(
+        Assessment, Assessment.user_id == User.id
+    ).filter(
         Assessment.status == "completed",
         Assessment.completed_at >= ninety_days_ago
     ).distinct().count()
@@ -106,7 +112,9 @@ async def get_system_stats(
 
 
 @router.get("/churches", response_model=ChurchListResponse)
+@limiter.limit(MASTER_RATE)
 async def get_all_churches(
+    request: Request,
     search: Optional[str] = None,
     page: int = 1,
     per_page: int = 50,
@@ -118,9 +126,10 @@ async def get_all_churches(
     query = db.query(Organization)
     
     if search:
+        search_pattern = f"%{search}%"
         query = query.filter(
-            (Organization.name.ilike(f"%{search}%")) |
-            (Organization.city.ilike(f"%{search}%"))
+            (Organization.name.ilike(search_pattern)) |
+            (Organization.city.ilike(search_pattern))
         )
     
     total = query.count()
@@ -134,7 +143,9 @@ async def get_all_churches(
         ).count()
         
         # Get assessment count
-        assessment_count = db.query(Assessment).join(Membership).filter(
+        assessment_count = db.query(Assessment).join(
+            Membership, Assessment.user_id == Membership.user_id
+        ).filter(
             Membership.organization_id == church.id,
             Assessment.status == "completed"
         ).count()
@@ -146,7 +157,9 @@ async def get_all_churches(
         ).all()
         
         # Last activity
-        last_activity = db.query(Assessment.completed_at).join(Membership).filter(
+        last_activity = db.query(Assessment.completed_at).join(
+            Membership, Assessment.user_id == Membership.user_id
+        ).filter(
             Membership.organization_id == church.id,
             Assessment.status == "completed"
         ).order_by(Assessment.completed_at.desc()).first()
@@ -158,6 +171,7 @@ async def get_all_churches(
             city=church.city,
             state=church.state,
             country=church.country,
+            status=church.status or "active",
             member_count=member_count,
             assessment_count=assessment_count,
             admins=[{"id": a.id, "email": a.email, "name": f"{a.first_name} {a.last_name}"} for a in admins],
@@ -175,7 +189,9 @@ async def get_all_churches(
 
 
 @router.get("/churches/{church_id}", response_model=ChurchDetail)
+@limiter.limit(MASTER_RATE)
 async def get_church_detail(
+    request: Request,
     church_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_master)
@@ -194,17 +210,21 @@ async def get_church_detail(
         Membership.organization_id == church.id
     ).count()
     
-    assessment_count = db.query(Assessment).join(Membership).filter(
+    assessment_count = db.query(Assessment).join(
+        Membership, Assessment.user_id == Membership.user_id
+    ).filter(
         Membership.organization_id == church.id,
         Assessment.status == "completed"
     ).count()
-    
+
     admins = db.query(User).join(Membership).join(Role).filter(
         Membership.organization_id == church.id,
         Role.name == "admin"
     ).all()
-    
-    last_activity = db.query(Assessment.completed_at).join(Membership).filter(
+
+    last_activity = db.query(Assessment.completed_at).join(
+        Membership, Assessment.user_id == Membership.user_id
+    ).filter(
         Membership.organization_id == church.id,
         Assessment.status == "completed"
     ).order_by(Assessment.completed_at.desc()).first()
@@ -225,7 +245,9 @@ async def get_church_detail(
 
 
 @router.post("/churches/{church_id}/admins/{user_id}")
+@limiter.limit(MASTER_RATE)
 async def add_church_admin(
+    request: Request,
     church_id: str,
     user_id: str,
     db: Session = Depends(get_db),
@@ -257,12 +279,14 @@ async def add_church_admin(
     
     if membership:
         membership.role_id = admin_role.id
+        membership.is_primary_admin = False  # Master admin adds secondary admins only
     else:
         membership = Membership(
             user_id=user_id,
             organization_id=church_id,
             role_id=admin_role.id,
-            status="active"
+            status="active",
+            is_primary_admin=False  # Master admin adds secondary admins only
         )
         db.add(membership)
     
@@ -287,7 +311,9 @@ async def add_church_admin(
 
 
 @router.delete("/churches/{church_id}/admins/{user_id}")
+@limiter.limit(MASTER_RATE)
 async def remove_church_admin(
+    request: Request,
     church_id: str,
     user_id: str,
     db: Session = Depends(get_db),
@@ -330,7 +356,9 @@ async def remove_church_admin(
 
 
 @router.get("/users", response_model=UserListResponse)
+@limiter.limit(MASTER_RATE)
 async def get_all_users(
+    request: Request,
     search: Optional[str] = None,
     page: int = 1,
     per_page: int = 50,
@@ -342,10 +370,11 @@ async def get_all_users(
     query = db.query(User)
     
     if search:
+        search_pattern = f"%{search}%"
         query = query.filter(
-            (User.first_name.ilike(f"%{search}%")) |
-            (User.last_name.ilike(f"%{search}%")) |
-            (User.email.ilike(f"%{search}%"))
+            (User.first_name.ilike(search_pattern)) |
+            (User.last_name.ilike(search_pattern)) |
+            (User.email.ilike(search_pattern))
         )
     
     total = query.count()
@@ -394,7 +423,9 @@ async def get_all_users(
 
 
 @router.get("/users/{user_id}", response_model=UserDetail)
+@limiter.limit(MASTER_RATE)
 async def get_user_detail(
+    request: Request,
     user_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_master)
@@ -440,12 +471,22 @@ async def get_user_detail(
 
 
 @router.post("/impersonate", response_model=ImpersonateResponse)
+@limiter.limit(MASTER_RATE)
 async def impersonate_user(
+    http_request: Request,
     request: ImpersonateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_master)
 ):
-    """Start impersonating a user"""
+    """
+    Start impersonating a user.
+    
+    Creates a special impersonation token that:
+    - Has a shorter expiration time (15 minutes)
+    - Is explicitly marked as an impersonation token
+    - Cannot be used for sensitive operations (password changes, billing, etc.)
+    - Logs all actions with impersonation context
+    """
     
     from app.core.security import create_access_token
     
@@ -457,39 +498,55 @@ async def impersonate_user(
             detail="User not found"
         )
     
+    # Prevent impersonating master admins (additional safety)
+    target_membership = db.query(Membership).join(Role).filter(
+        Membership.user_id == target_user.id,
+        Role.name == "master"
+    ).first()
+    
+    if target_membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot impersonate master administrators"
+        )
+    
     # Log the impersonation
     audit_log = AuditLog(
         user_id=current_user.id,
-        action="impersonate",
+        action="impersonate_start",
         target_type="user",
         target_id=request.user_id,
         details={
             "reason": request.reason,
-            "target_email": target_user.email
+            "target_email": target_user.email,
+            "impersonator_email": current_user.email
         }
     )
     db.add(audit_log)
     db.commit()
     
-    # Create a special token for impersonation
+    # Create a special token for impersonation with explicit flag
     token = create_access_token(
         data={
             "sub": str(target_user.id),
             "impersonated_by": str(current_user.id),
             "impersonation_reason": request.reason
-        }
+        },
+        is_impersonation=True  # Explicitly mark as impersonation token
     )
     
     return ImpersonateResponse(
         token=token,
         user_id=target_user.id,
         email=target_user.email,
-        message=f"Impersonating {target_user.email}"
+        message=f"Impersonating {target_user.email} (token expires in 15 minutes)"
     )
 
 
 @router.get("/audit-log", response_model=AuditLogListResponse)
+@limiter.limit(MASTER_RATE)
 async def get_audit_log(
+    request: Request,
     action: Optional[str] = None,
     user_id: Optional[str] = None,
     target_type: Optional[str] = None,
@@ -542,7 +599,9 @@ async def get_audit_log(
 
 
 @router.get("/export/{export_type}")
+@limiter.limit(EXPORT_RATE)
 async def system_export(
+    request: Request,
     export_type: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_master)
@@ -717,10 +776,128 @@ async def system_export(
             ])
     
     output.seek(0)
-    
+
     from fastapi import Response
     return Response(
         content=output.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=export_{export_type}_{datetime.utcnow().strftime('%Y%m%d')}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=export_{export_type}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"}
     )
+
+
+class ChurchStatusUpdate(BaseModel):
+    status: str  # "active" or "paused"
+
+
+@router.put("/churches/{church_id}/status")
+@limiter.limit(MASTER_RATE)
+async def update_church_status(
+    church_id: str,
+    payload: ChurchStatusUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_master)
+):
+    """Pause or restore a church"""
+
+    if payload.status not in ("active", "paused"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status must be 'active' or 'paused'"
+        )
+
+    org = db.query(Organization).filter(Organization.id == church_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Church not found"
+        )
+
+    org.status = payload.status
+    db.commit()
+
+    # Audit log
+    audit = AuditLog(
+        user_id=current_user.id,
+        action=f"church_{payload.status}",
+        target_type="organization",
+        target_id=org.id,
+        details={"church_name": org.name, "new_status": payload.status}
+    )
+    db.add(audit)
+    db.commit()
+
+    return {"message": f"Church {payload.status}", "status": payload.status}
+
+
+@router.get("/dashboard-stats")
+@limiter.limit(MASTER_RATE)
+async def get_dashboard_stats(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_master)
+):
+    """Get monthly aggregated stats for dashboard charts"""
+
+    now = datetime.now(timezone.utc)
+    current_year = now.year
+    year_start = datetime(current_year, 1, 1, tzinfo=timezone.utc)
+
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    # GPS Completed Assessments by month
+    gps_monthly = []
+    for month_idx in range(1, 13):
+        month_start = datetime(current_year, month_idx, 1, tzinfo=timezone.utc)
+        if month_idx < 12:
+            month_end = datetime(current_year, month_idx + 1, 1, tzinfo=timezone.utc)
+        else:
+            month_end = datetime(current_year + 1, 1, 1, tzinfo=timezone.utc)
+
+        count = db.query(Assessment).filter(
+            Assessment.status == "completed",
+            Assessment.completed_at >= month_start,
+            Assessment.completed_at < month_end
+        ).count()
+
+        gps_monthly.append({"month": months[month_idx - 1], "count": count})
+
+    # Total Users by month (created_at)
+    users_monthly = []
+    for month_idx in range(1, 13):
+        month_start = datetime(current_year, month_idx, 1, tzinfo=timezone.utc)
+        if month_idx < 12:
+            month_end = datetime(current_year, month_idx + 1, 1, tzinfo=timezone.utc)
+        else:
+            month_end = datetime(current_year + 1, 1, 1, tzinfo=timezone.utc)
+
+        count = db.query(User).filter(
+            User.created_at >= month_start,
+            User.created_at < month_end
+        ).count()
+
+        users_monthly.append({"month": months[month_idx - 1], "count": count})
+
+    # Total Organizations by month (created_at)
+    orgs_monthly = []
+    for month_idx in range(1, 13):
+        month_start = datetime(current_year, month_idx, 1, tzinfo=timezone.utc)
+        if month_idx < 12:
+            month_end = datetime(current_year, month_idx + 1, 1, tzinfo=timezone.utc)
+        else:
+            month_end = datetime(current_year + 1, 1, 1, tzinfo=timezone.utc)
+
+        count = db.query(Organization).filter(
+            Organization.created_at >= month_start,
+            Organization.created_at < month_end
+        ).count()
+
+        orgs_monthly.append({"month": months[month_idx - 1], "count": count})
+
+    return {
+        "gps_assessments_monthly": gps_monthly,
+        "myimpact_assessments_monthly": [],  # Not yet implemented
+        "users_monthly": users_monthly,
+        "orgs_monthly": orgs_monthly
+    }

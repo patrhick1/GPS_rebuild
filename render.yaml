@@ -2,12 +2,10 @@ services:
   # FastAPI Backend
   - type: web
     name: gps-api
-    runtime: python
-    buildCommand: cd api && pip install -r requirements.txt
-    startCommand: cd api && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    runtime: docker
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.0
       - key: DATABASE_URL
         fromDatabase:
           name: gps-postgres

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { api } from './AuthContext';
 
 interface Gift {
@@ -47,10 +47,16 @@ interface DashboardSummary {
 
 interface AssessmentHistoryItem {
   id: string;
+  status: string;
+  instrument_type: string;
   completed_at?: string;
   created_at: string;
-  top_gifts: { name: string; score: number }[];
-  top_passions: { name: string; score: number }[];
+  progress_percentage: number;
+  top_gifts: { name: string; short_code: string; score: number }[];
+  top_passions: { name: string; short_code: string; score: number }[];
+  myimpact_score?: number;
+  character_score?: number;
+  calling_score?: number;
 }
 
 interface AssessmentDetail {
@@ -101,10 +107,12 @@ interface ChurchSearchResult {
 interface DashboardContextType {
   summary: DashboardSummary | null;
   history: AssessmentHistoryItem[];
+  myimpactHistory: AssessmentHistoryItem[];
   isLoading: boolean;
   error: string | null;
   fetchSummary: () => Promise<void>;
   fetchHistory: () => Promise<void>;
+  fetchMyImpactHistory: () => Promise<void>;
   getAssessmentDetail: (id: string) => Promise<AssessmentDetail>;
   compareAssessments: (id1: string, id2: string) => Promise<ComparisonResult>;
   exportCSV: () => Promise<void>;
@@ -119,6 +127,7 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [history, setHistory] = useState<AssessmentHistoryItem[]>([]);
+  const [myimpactHistory, setMyImpactHistory] = useState<AssessmentHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,10 +148,23 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.get('/dashboard/assessments');
+      const response = await api.get('/dashboard/assessments?instrument_type=gps');
       setHistory(response.data);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load history');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const fetchMyImpactHistory = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.get('/dashboard/assessments?instrument_type=myimpact');
+      setMyImpactHistory(response.data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load MyImpact history');
     } finally {
       setIsLoading(false);
     }
@@ -204,10 +226,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       value={{
         summary,
         history,
+        myimpactHistory,
         isLoading,
         error,
         fetchSummary,
         fetchHistory,
+        fetchMyImpactHistory,
         getAssessmentDetail,
         compareAssessments,
         exportCSV,

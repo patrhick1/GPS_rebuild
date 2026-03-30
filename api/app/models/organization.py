@@ -21,6 +21,7 @@ class Organization(Base):
     card_last_four = Column(String(4), nullable=True)
     trial_ends_at = Column(DateTime, nullable=True)
     preferred_instrument = Column(String(50), nullable=True)
+    status = Column(String(20), nullable=False, default="active")  # active, paused
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

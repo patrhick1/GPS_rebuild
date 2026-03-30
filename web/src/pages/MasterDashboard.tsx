@@ -1,132 +1,471 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { useMaster } from '../context/MasterContext';
-import './MasterDashboard.css';
+import { Navbar } from '../components/Navbar';
+import { Footer } from '../components/Footer';
+import {
+  LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
+import goldMenuIcon from '../../Graphics for Dev/Icons/Gold Menu Icon.svg';
+import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
+import tealArrowIcon from '../../Graphics for Dev/Icons/Dark Teal Arrow Circle Icon.svg';
+import searchIcon from '../../Graphics for Dev/Icons/Charcoal Search Icon.svg';
+
+type Tab = 'dashboard' | 'churches';
 
 export function MasterDashboard() {
-  const { stats, fetchStats, isLoading } = useMaster();
+  const { user, logout } = useAuth();
+  const {
+    dashboardStats, fetchDashboardStats,
+    churches, fetchChurches, toggleChurchStatus,
+    totalChurchPages,
+    isLoading, error, clearError,
+  } = useMaster();
   const navigate = useNavigate();
 
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Churches tab state
+  const [churchSearch, setChurchSearch] = useState('');
+  const [churchPage, setChurchPage] = useState(1);
+
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    fetchDashboardStats();
+    fetchChurches();
+  }, [fetchDashboardStats, fetchChurches]);
+
+  // Close menu on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const firstName = user?.first_name || 'Admin';
+
+  const handleChurchSearch = () => {
+    setChurchPage(1);
+    fetchChurches(1, churchSearch);
+  };
+
+  const handleChurchPageChange = (page: number) => {
+    setChurchPage(page);
+    fetchChurches(page, churchSearch);
+  };
+
+  const handleToggleStatus = (churchId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'paused' ? 'active' : 'paused';
+    toggleChurchStatus(churchId, newStatus);
+  };
+
+  const handleLogout = () => {
+    setMenuOpen(false);
+    logout();
+  };
+
+  // Chart data
+  const gpsData = dashboardStats?.gps_assessments_monthly || [];
+  const myimpactData = dashboardStats?.myimpact_assessments_monthly || [];
+  const usersData = dashboardStats?.users_monthly || [];
+  const orgsData = dashboardStats?.orgs_monthly || [];
+
+  const sidebarItems: { key: Tab; label: string }[] = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'churches', label: 'Churches' },
+  ];
+
+  // Pagination
+  const renderPagination = () => {
+    if (totalChurchPages <= 1) return null;
+    const pages = [];
+    const maxVisible = 5;
+    const start = Math.max(1, churchPage - Math.floor(maxVisible / 2));
+    const end = Math.min(totalChurchPages, start + maxVisible - 1);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return (
+      <div className="flex items-center justify-center gap-2 mt-6">
+        {pages.map((p) => (
+          <button
+            key={p}
+            onClick={() => handleChurchPageChange(p)}
+            className={`w-10 h-10 rounded-lg font-body font-bold text-base transition-colors ${
+              p === churchPage
+                ? 'bg-brand-teal text-white'
+                : 'bg-white text-brand-charcoal border border-brand-gray-light hover:bg-brand-gray-lightest'
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+        {churchPage < totalChurchPages && (
+          <>
+            <button
+              onClick={() => handleChurchPageChange(churchPage + 1)}
+              className="px-3 h-10 rounded-lg font-body font-bold text-base text-brand-charcoal border border-brand-gray-light hover:bg-brand-gray-lightest transition-colors"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => handleChurchPageChange(totalChurchPages)}
+              className="px-3 h-10 rounded-lg font-body font-bold text-base text-brand-charcoal border border-brand-gray-light hover:bg-brand-gray-lightest transition-colors"
+            >
+              Last
+            </button>
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="master-dashboard">
-      <header className="page-header">
-        <h1>System Overview</h1>
-      </header>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
 
-      {isLoading ? (
-        <p>Loading...</p>
-      ) : (
-        <>
-          {/* Main Stats */}
-          <div className="stats-grid main-stats">
-            <div className="stat-card large">
-              <div className="stat-icon">👤</div>
-              <div className="stat-content">
-                <span className="stat-value">{stats?.total_users || 0}</span>
-                <span className="stat-label">Total Users</span>
-              </div>
-            </div>
+      <main className="flex-1 bg-white">
+        {/* Header */}
+        <section className="max-w-[1230px] mx-auto px-6 pt-12 pb-6">
+          <div className="flex justify-between items-start">
+            <h1 className="font-heading text-3xl md:text-[48px] md:leading-[55px] text-brand-charcoal">
+              <span className="font-medium">Welcome to Your Super Admin Account,</span>
+              <br />
+              <span className="font-black">{firstName}</span>
+            </h1>
 
-            <div className="stat-card large">
-              <div className="stat-icon">⛪</div>
-              <div className="stat-content">
-                <span className="stat-value">{stats?.total_churches || 0}</span>
-                <span className="stat-label">Total Churches</span>
-              </div>
-            </div>
+            {/* Gold hamburger menu */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-2 hover:opacity-80 transition-opacity"
+                aria-label="Menu"
+              >
+                <img
+                  src={menuOpen ? goldXIcon : goldMenuIcon}
+                  alt=""
+                  className="w-[50px] h-auto"
+                />
+              </button>
 
-            <div className="stat-card large">
-              <div className="stat-icon">📝</div>
-              <div className="stat-content">
-                <span className="stat-value">{stats?.total_assessments || 0}</span>
-                <span className="stat-label">Total Assessments</span>
-              </div>
-            </div>
-
-            <div className="stat-card large">
-              <div className="stat-icon">✅</div>
-              <div className="stat-content">
-                <span className="stat-value">{stats?.active_churches || 0}</span>
-                <span className="stat-label">Active Churches</span>
-              </div>
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-[307px] bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] z-50">
+                  <nav className="py-1">
+                    <button
+                      onClick={() => { setMenuOpen(false); navigate('/dashboard'); }}
+                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
+                    >
+                      GPS Assessments
+                    </button>
+                    <hr className="border-brand-gray-light mx-4" />
+                    <button
+                      onClick={() => { setMenuOpen(false); }}
+                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
+                    >
+                      MyImpact Assessments
+                    </button>
+                    <hr className="border-brand-gray-light mx-4" />
+                    <button
+                      onClick={() => { setMenuOpen(false); navigate('/account'); }}
+                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
+                    >
+                      Account
+                    </button>
+                    <hr className="border-brand-gray-light mx-4" />
+                    <button
+                      onClick={() => { setMenuOpen(false); navigate('/update-password'); }}
+                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
+                    >
+                      Update Password
+                    </button>
+                    <hr className="border-brand-gray-light mx-4" />
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest rounded-b-xl transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </nav>
+                </div>
+              )}
             </div>
           </div>
+        </section>
 
-          {/* Recent Activity Stats */}
-          <div className="recent-stats">
-            <h2>Recent Activity</h2>
-            <div className="stats-grid">
-              <div className="stat-card">
-                <h3>Last 30 Days</h3>
-                <div className="stat-row">
-                  <span>New Users:</span>
-                  <strong>{stats?.recent_stats?.["30_days"]?.new_users || 0}</strong>
+        {/* Body: Sidebar + Content */}
+        <section className="max-w-[1230px] mx-auto px-6 pb-16 flex flex-col md:flex-row gap-8">
+          {/* Left Sidebar Nav */}
+          <aside className="w-full md:w-[280px] shrink-0">
+            <nav className="space-y-2">
+              {sidebarItems.map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => setActiveTab(item.key)}
+                  className={`flex items-center gap-3 w-full text-left py-2 px-1 transition-colors ${
+                    activeTab === item.key
+                      ? 'font-heading font-black text-brand-teal text-2xl'
+                      : 'font-heading font-medium text-brand-charcoal text-2xl hover:text-brand-teal'
+                  }`}
+                >
+                  {activeTab === item.key && (
+                    <img src={tealArrowIcon} alt="" className="w-[34px] h-[34px]" />
+                  )}
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          </aside>
+
+          {/* Right Content Area */}
+          <div className="flex-1 min-w-0">
+            {/* ── Dashboard Tab ── */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-8">
+                {/* MyImpact Average Score Card */}
+                <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-8">
+                  <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal text-center mb-8">
+                    MyImpact Average Score
+                  </h2>
+                  <div className="flex items-center justify-center gap-4 flex-wrap">
+                    {/* Character */}
+                    <div className="text-center">
+                      <div className="bg-brand-gray-lightest border-4 border-brand-teal-light rounded-md h-[54px] w-[156px] flex items-center justify-center">
+                        <span className="font-heading font-medium text-2xl text-brand-teal">6.8</span>
+                      </div>
+                      <p className="font-heading font-medium text-base text-brand-charcoal uppercase mt-2">Character</p>
+                    </div>
+                    <span className="font-heading font-medium text-[32px] text-brand-charcoal">&times;</span>
+                    {/* Calling */}
+                    <div className="text-center">
+                      <div className="bg-brand-gray-lightest border-4 border-brand-teal-light rounded-md h-[54px] w-[156px] flex items-center justify-center">
+                        <span className="font-heading font-medium text-2xl text-brand-teal">5.5</span>
+                      </div>
+                      <p className="font-heading font-medium text-base text-brand-charcoal uppercase mt-2">Calling</p>
+                    </div>
+                    <span className="font-heading font-medium text-[32px] text-brand-charcoal">=</span>
+                    {/* Impact */}
+                    <div className="text-center">
+                      <div className="bg-brand-gray-lightest border-4 border-brand-teal-light rounded-md h-[54px] w-[156px] flex items-center justify-center">
+                        <span className="font-heading font-medium text-2xl text-brand-teal">37.4</span>
+                      </div>
+                      <p className="font-heading font-medium text-base text-brand-charcoal uppercase mt-2">Impact</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="stat-row">
-                  <span>Assessments:</span>
-                  <strong>{stats?.recent_stats?.["30_days"]?.assessments || 0}</strong>
+
+                {/* Charts 2×2 Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* GPS Completed Assessments */}
+                  <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
+                    <h3 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-4">
+                      GPS Completed Assessments
+                    </h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={gpsData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e3e3e3" />
+                        <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#3f4644' }} />
+                        <YAxis tick={{ fontSize: 12, fill: '#3f4644' }} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          stroke="#f7a824"
+                          strokeWidth={2}
+                          dot={{ fill: '#f7a824', r: 3.5 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* MyImpact Completed Assessments */}
+                  <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
+                    <h3 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-4">
+                      MyImpact Completed Assessments
+                    </h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={myimpactData.length > 0 ? myimpactData : gpsData.map(d => ({ ...d, count: 0 }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e3e3e3" />
+                        <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#3f4644' }} />
+                        <YAxis tick={{ fontSize: 12, fill: '#3f4644' }} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          stroke="#88c0c3"
+                          strokeWidth={2}
+                          dot={{ fill: '#88c0c3', r: 3.5 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Total Users */}
+                  <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
+                    <h3 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-4">
+                      Total Users
+                    </h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={usersData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e3e3e3" />
+                        <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#3f4644' }} />
+                        <YAxis tick={{ fontSize: 12, fill: '#3f4644' }} />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="#a7b9d3" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Total Organizations */}
+                  <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
+                    <h3 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-4">
+                      Total Organizations
+                    </h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={orgsData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e3e3e3" />
+                        <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#3f4644' }} />
+                        <YAxis tick={{ fontSize: 12, fill: '#3f4644' }} />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="#e3a2a2" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
+            )}
 
-              <div className="stat-card">
-                <h3>Last 90 Days</h3>
-                <div className="stat-row">
-                  <span>New Users:</span>
-                  <strong>{stats?.recent_stats?.["90_days"]?.new_users || 0}</strong>
-                </div>
-                <div className="stat-row">
-                  <span>Assessments:</span>
-                  <strong>{stats?.recent_stats?.["90_days"]?.assessments || 0}</strong>
+            {/* ── Churches Tab ── */}
+            {activeTab === 'churches' && (
+              <div>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 flex justify-between items-center">
+                    <span className="font-body">{error}</span>
+                    <button onClick={clearError} className="text-red-500 hover:text-red-700 font-bold text-xl">&times;</button>
+                  </div>
+                )}
+
+                {/* Single card wrapping title + search + table + pagination */}
+                <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-8">
+                  {/* Title */}
+                  <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-6">
+                    Churches
+                  </h2>
+
+                  {/* Search Bar */}
+                  <div className="flex gap-3 mb-8">
+                    <div className="relative flex-1 max-w-[484px]">
+                      <img
+                        src={searchIcon}
+                        alt=""
+                        className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 opacity-60"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Search Church"
+                        value={churchSearch}
+                        onChange={(e) => setChurchSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleChurchSearch()}
+                        className="w-full h-[50px] pl-6 pr-12 bg-[rgba(136,192,195,0.17)] border border-brand-teal-light rounded-xl font-body font-bold text-lg text-brand-charcoal placeholder:text-[rgba(63,70,68,0.66)] focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
+                      />
+                    </div>
+                    <button
+                      onClick={handleChurchSearch}
+                      className="h-[50px] w-[119px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
+                    >
+                      Search
+                    </button>
+                  </div>
+
+                  {/* Table */}
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <p className="font-body text-lg text-brand-gray-med">Loading churches...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[700px]">
+                        <thead>
+                          <tr className="border-b border-brand-gray-light">
+                            <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-0 py-4">
+                              Church Name
+                            </th>
+                            <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
+                              # of Users
+                            </th>
+                            <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
+                              Location
+                            </th>
+                            <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
+                              Admin
+                            </th>
+                            <th className="px-4 py-4" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {churches.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-0 py-12 text-center font-body text-lg text-brand-gray-med">
+                                No churches found
+                              </td>
+                            </tr>
+                          ) : (
+                            churches.map((church) => (
+                              <tr key={church.id} className="border-b border-brand-gray-light last:border-b-0">
+                                <td className="px-0 py-5 font-body font-bold text-lg text-brand-charcoal">
+                                  {church.name}
+                                </td>
+                                <td className="px-4 py-5 font-body font-bold text-lg text-brand-charcoal">
+                                  {church.member_count}
+                                </td>
+                                <td className="px-4 py-5 font-body font-bold text-lg text-brand-charcoal">
+                                  {[church.city, church.state].filter(Boolean).join(', ') || '—'}
+                                </td>
+                                <td className="px-4 py-5 font-body font-bold text-lg text-brand-charcoal">
+                                  {church.admins.map((a: any) => a.name).join(', ') || '—'}
+                                </td>
+                                <td className="px-4 py-5">
+                                  {church.status === 'paused' ? (
+                                    <button
+                                      onClick={() => handleToggleStatus(church.id, church.status)}
+                                      className="w-[129px] h-[50px] bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
+                                    >
+                                      Restore
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleToggleStatus(church.id, church.status)}
+                                      className="w-[129px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
+                                    >
+                                      Pause
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {renderPagination()}
                 </div>
               </div>
-
-              <div className="stat-card">
-                <h3>Last 365 Days</h3>
-                <div className="stat-row">
-                  <span>New Users:</span>
-                  <strong>{stats?.recent_stats?.["365_days"]?.new_users || 0}</strong>
-                </div>
-                <div className="stat-row">
-                  <span>Assessments:</span>
-                  <strong>{stats?.recent_stats?.["365_days"]?.assessments || 0}</strong>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
+        </section>
+      </main>
 
-          {/* Quick Actions */}
-          <div className="quick-actions">
-            <h2>Quick Actions</h2>
-            <div className="action-buttons">
-              <button
-                className="action-btn"
-                onClick={() => navigate('/master/churches')}
-              >
-                <span className="icon">⛪</span>
-                Manage Churches
-              </button>
-              <button
-                className="action-btn"
-                onClick={() => navigate('/master/users')}
-              >
-                <span className="icon">👤</span>
-                Manage Users
-              </button>
-              <button
-                className="action-btn"
-                onClick={() => navigate('/master/audit')}
-              >
-                <span className="icon">📋</span>
-                View Audit Log
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <Footer />
     </div>
   );
 }

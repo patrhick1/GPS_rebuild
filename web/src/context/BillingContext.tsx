@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { api } from './AuthContext';
 
 interface Subscription {
   id: string;
@@ -92,23 +93,14 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getToken = () => localStorage.getItem('access_token');
-
   const fetchSubscription = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const response = await fetch('/api/billing/subscription', {
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch subscription');
-      
-      const data = await response.json();
+      const { data } = await api.get('/billing/subscription');
       setSubscription(data.status === 'none' ? null : data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to fetch subscription');
     } finally {
       setIsLoading(false);
     }
@@ -117,19 +109,12 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const response = await fetch('/api/billing/invoices', {
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch invoices');
-      
-      const data = await response.json();
+      const { data } = await api.get('/billing/invoices');
       setInvoices(data.stripe_invoices || []);
       setPayments(data.payments || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to fetch invoices');
     } finally {
       setIsLoading(false);
     }
@@ -137,13 +122,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const fetchConfig = useCallback(async () => {
     try {
-      const response = await fetch('/api/billing/config', {
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch config');
-      
-      const data = await response.json();
+      const { data } = await api.get('/billing/config');
       setConfig(data);
     } catch (err) {
       console.error('Failed to fetch billing config:', err);
@@ -153,24 +132,16 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const subscribe = useCallback(async (plan: string, paymentMethodId: string, quantity = 1) => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const response = await fetch(`/api/billing/subscribe?plan=${plan}&payment_method_id=${paymentMethodId}&quantity=${quantity}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
-      
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || 'Failed to create subscription');
-      }
-      
-      const data = await response.json();
+      const { data } = await api.post(
+        `/billing/subscribe?plan=${plan}&payment_method_id=${paymentMethodId}&quantity=${quantity}`
+      );
       await fetchSubscription();
       return data;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      throw err;
+    } catch (err: any) {
+      const message = err.response?.data?.detail || 'Failed to create subscription';
+      setError(message);
+      throw new Error(message);
     } finally {
       setIsLoading(false);
     }
@@ -179,18 +150,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const cancelSubscription = useCallback(async (atPeriodEnd = true) => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const response = await fetch(`/api/billing/subscription/cancel?at_period_end=${atPeriodEnd}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
-      
-      if (!response.ok) throw new Error('Failed to cancel subscription');
-      
+      await api.post(`/billing/subscription/cancel?at_period_end=${atPeriodEnd}`);
       await fetchSubscription();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to cancel subscription');
       throw err;
     } finally {
       setIsLoading(false);
@@ -200,18 +164,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const reactivateSubscription = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const response = await fetch('/api/billing/subscription/reactivate', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
-      
-      if (!response.ok) throw new Error('Failed to reactivate subscription');
-      
+      await api.post('/billing/subscription/reactivate');
       await fetchSubscription();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to reactivate subscription');
       throw err;
     } finally {
       setIsLoading(false);
@@ -221,18 +178,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const addPaymentMethod = useCallback(async (paymentMethodId: string) => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const response = await fetch(`/api/billing/payment-method?payment_method_id=${paymentMethodId}&set_default=true`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
-      
-      if (!response.ok) throw new Error('Failed to add payment method');
-      
+      await api.post(`/billing/payment-method?payment_method_id=${paymentMethodId}&set_default=true`);
       await fetchSubscription();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to add payment method');
       throw err;
     } finally {
       setIsLoading(false);
@@ -242,18 +192,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const removePaymentMethod = useCallback(async (paymentMethodId: string) => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const response = await fetch(`/api/billing/payment-method/${paymentMethodId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${getToken()}` }
-      });
-      
-      if (!response.ok) throw new Error('Failed to remove payment method');
-      
+      await api.delete(`/billing/payment-method/${paymentMethodId}`);
       await fetchSubscription();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to remove payment method');
       throw err;
     } finally {
       setIsLoading(false);

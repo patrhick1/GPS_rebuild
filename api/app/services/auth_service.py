@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
@@ -9,6 +9,7 @@ from app.core.security import (
     get_password_hash,
     create_access_token,
     create_refresh_token,
+    get_token_hash,
 )
 from app.core.config import settings
 from app.models.user import User
@@ -16,9 +17,10 @@ from app.models.role import Role
 from app.models.membership import Membership
 from app.models.refresh_token import RefreshToken
 from app.models.password_reset import PasswordResetToken
-from app.schemas.user import UserCreate, UserLogin
+from app.schemas.user import UserCreate, UserLogin, ChurchAdminRegister, ChurchUpgrade
 import secrets
 import string
+import re
 
 
 class AuthService:
@@ -87,6 +89,120 @@ class AuthService:
         
         return db_user
 
+    def register_church_admin(self, data: ChurchAdminRegister) -> User:
+        """Register a new church admin, creating the organization in one transaction."""
+        from app.models.organization import Organization
+
+        # Check email uniqueness
+        existing = self.db.query(User).filter(User.email == data.email.lower()).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered",
+            )
+
+        if not data.org_name.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Church name is required",
+            )
+
+        # Generate unique org key from church name
+        base_key = re.sub(r'[^a-z0-9]+', '-', data.org_name.lower().strip()).strip('-')
+        org_key = base_key
+        counter = 1
+        while self.db.query(Organization).filter(Organization.key == org_key).first():
+            org_key = f"{base_key}-{counter}"
+            counter += 1
+
+        # Create user
+        db_user = User(
+            email=data.email.lower(),
+            password_hash=get_password_hash(data.password),
+            first_name=data.first_name,
+            last_name=data.last_name,
+            city=data.org_city,
+            state=data.org_state,
+            country=data.org_country,
+            status="active",
+        )
+        self.db.add(db_user)
+        self.db.flush()
+
+        # Create organization
+        org = Organization(
+            name=data.org_name.strip(),
+            key=org_key,
+            city=data.org_city,
+            state=data.org_state,
+            country=data.org_country,
+            status="active",
+        )
+        self.db.add(org)
+        self.db.flush()
+
+        # Create membership as primary admin with admin role
+        role = self.db.query(Role).filter(Role.name == "admin").first()
+        membership = Membership(
+            user_id=db_user.id,
+            organization_id=org.id,
+            role_id=role.id if role else None,
+            is_primary_admin=True,
+        )
+        self.db.add(membership)
+        self.db.commit()
+        self.db.refresh(db_user)
+
+        return db_user
+
+    def upgrade_to_church_admin(self, user: User, data: ChurchUpgrade) -> User:
+        """Upgrade an existing logged-in user to church admin by creating their organization."""
+        from app.models.organization import Organization
+
+        if not data.org_name.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Church name is required",
+            )
+
+        # Generate unique org key from church name
+        base_key = re.sub(r'[^a-z0-9]+', '-', data.org_name.lower().strip()).strip('-')
+        org_key = base_key
+        counter = 1
+        while self.db.query(Organization).filter(Organization.key == org_key).first():
+            org_key = f"{base_key}-{counter}"
+            counter += 1
+
+        # Create organization
+        org = Organization(
+            name=data.org_name.strip(),
+            key=org_key,
+            city=data.org_city,
+            state=data.org_state,
+            country=data.org_country,
+            status="active",
+        )
+        self.db.add(org)
+        self.db.flush()
+
+        # Get admin role
+        role = self.db.query(Role).filter(Role.name == "admin").first()
+
+        # Always create a new membership for the new org.
+        # Never mutate an existing membership — the user may already belong to
+        # another church as a regular member and that relationship must be preserved.
+        membership = Membership(
+            user_id=user.id,
+            organization_id=org.id,
+            role_id=role.id if role else None,
+            is_primary_admin=True,
+        )
+        self.db.add(membership)
+
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
     def authenticate_user(self, login_data: UserLogin) -> Optional[User]:
         """Authenticate a user with email and password."""
         user = self.db.query(User).filter(User.email == login_data.email.lower()).first()
@@ -101,11 +217,11 @@ class AuthService:
         access_token = create_access_token(data={"sub": str(user_id)})
         refresh_token_str = create_refresh_token(data={"sub": str(user_id)})
         
-        # Store refresh token in database
-        expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        # Store refresh token hash in database (never store plaintext tokens)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         db_refresh_token = RefreshToken(
             user_id=user_id,
-            token=refresh_token_str,
+            token_hash=get_token_hash(refresh_token_str),
             expires_at=expires_at,
         )
         self.db.add(db_refresh_token)
@@ -129,11 +245,11 @@ class AuthService:
                 detail="Invalid refresh token",
             )
         
-        # Check if refresh token exists and is valid
+        # Check if refresh token hash exists and is valid
         db_token = self.db.query(RefreshToken).filter(
-            RefreshToken.token == refresh_token_str,
+            RefreshToken.token_hash == get_token_hash(refresh_token_str),
             RefreshToken.revoked == False,
-            RefreshToken.expires_at > datetime.utcnow(),
+            RefreshToken.expires_at > datetime.now(timezone.utc),
         ).first()
         
         if not db_token:
@@ -156,7 +272,7 @@ class AuthService:
     def revoke_refresh_token(self, refresh_token_str: str):
         """Revoke a refresh token (logout)."""
         db_token = self.db.query(RefreshToken).filter(
-            RefreshToken.token == refresh_token_str
+            RefreshToken.token_hash == get_token_hash(refresh_token_str)
         ).first()
         
         if db_token:
@@ -173,7 +289,7 @@ class AuthService:
         token = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(64))
         
         # Store token
-        expires_at = datetime.utcnow() + timedelta(hours=24)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
         reset_token = PasswordResetToken(
             user_id=user.id,
             token=token,
@@ -189,7 +305,7 @@ class AuthService:
         reset_token = self.db.query(PasswordResetToken).filter(
             PasswordResetToken.token == token,
             PasswordResetToken.used == "N",
-            PasswordResetToken.expires_at > datetime.utcnow(),
+            PasswordResetToken.expires_at > datetime.now(timezone.utc),
         ).first()
         
         if not reset_token:

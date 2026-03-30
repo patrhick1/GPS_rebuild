@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Numeric
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Numeric, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -22,7 +22,7 @@ class Subscription(Base):
     trial_start = Column(DateTime, nullable=True)
     trial_end = Column(DateTime, nullable=True)
     canceled_at = Column(DateTime, nullable=True)
-    cancel_at_period_end = Column(DateTime, nullable=True)
+    cancel_at_period_end = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

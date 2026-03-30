@@ -41,6 +41,7 @@ class AssessmentUpdate(BaseModel):
 class AssessmentResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
+    instrument_type: str = "gps"
     status: str
     completed_at: Optional[datetime] = None
     created_at: datetime
@@ -170,9 +171,89 @@ class QuestionForAssessment(BaseModel):
     passion_type: Optional[str] = None
     default_text: Optional[str] = None
     summary: Optional[str] = None
+    section: Optional[str] = None  # For MyImpact: Character, Calling
+    question_type_name: Optional[str] = None  # "likert", "multiple_choice", "text"
+    type_name: Optional[str] = None  # "Spiritual Gift", "Influencing Style", "Story"
 
 
 class AssessmentFormData(BaseModel):
     assessment_id: uuid.UUID
+    instrument_type: str
     questions: List[QuestionForAssessment]
     progress: Dict[str, Any]
+    saved_answers: Optional[List[AnswerResponse]] = None  # For continue assessment
+
+
+# MyImpact Schemas
+
+class CharacterScoresDetail(BaseModel):
+    """Detailed character section scores"""
+    loving: int
+    joyful: int
+    peaceful: int
+    patient: int
+    kind: int
+    good: int
+    faithful: int
+    gentle: int
+    self_controlled: int
+    average: float
+
+
+class CallingScoresDetail(BaseModel):
+    """Detailed calling section scores"""
+    know_gifts: int
+    know_people: int
+    using_gifts: int
+    see_impact: int
+    experience_joy: int
+    pray_regularly: int
+    see_movement: int
+    receive_support: int
+    average: float
+
+
+class MyImpactResultResponse(BaseModel):
+    """MyImpact assessment result"""
+    id: uuid.UUID
+    assessment_id: uuid.UUID
+    user_id: Optional[uuid.UUID] = None
+    
+    # Character scores
+    character_score: Optional[float] = None
+    c1_loving: Optional[int] = None
+    c2_joyful: Optional[int] = None
+    c3_peaceful: Optional[int] = None
+    c4_patient: Optional[int] = None
+    c5_kind: Optional[int] = None
+    c6_good: Optional[int] = None
+    c7_faithful: Optional[int] = None
+    c8_gentle: Optional[int] = None
+    c9_self_controlled: Optional[int] = None
+    
+    # Calling scores
+    calling_score: Optional[float] = None
+    cl1_know_gifts: Optional[int] = None
+    cl2_know_people: Optional[int] = None
+    cl3_using_gifts: Optional[int] = None
+    cl4_see_impact: Optional[int] = None
+    cl5_experience_joy: Optional[int] = None
+    cl6_pray_regularly: Optional[int] = None
+    cl7_see_movement: Optional[int] = None
+    cl8_receive_support: Optional[int] = None
+    
+    # Final score
+    myimpact_score: Optional[float] = None
+    
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class GradedMyImpactResponse(BaseModel):
+    """Graded MyImpact response for preview endpoint"""
+    character: CharacterScoresDetail
+    calling: CallingScoresDetail
+    myimpact_score: float

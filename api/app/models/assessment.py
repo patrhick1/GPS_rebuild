@@ -11,6 +11,7 @@ class Assessment(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    instrument_type = Column(String(20), nullable=False, default="gps")  # gps, myimpact
     status = Column(String(20), nullable=False, default="in_progress")  # in_progress, completed, abandoned
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -20,3 +21,4 @@ class Assessment(Base):
     user = relationship("User", back_populates="assessments")
     answers = relationship("Answer", back_populates="assessment", cascade="all, delete-orphan")
     results = relationship("AssessmentResult", back_populates="assessment", uselist=False, cascade="all, delete-orphan")
+    myimpact_results = relationship("MyImpactResult", back_populates="assessment", uselist=False, cascade="all, delete-orphan")

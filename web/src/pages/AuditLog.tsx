@@ -3,7 +3,7 @@ import { useMaster } from '../context/MasterContext';
 import './AuditLog.css';
 
 export function AuditLog() {
-  const { auditLog, fetchAuditLog, isLoading, error, clearError, totalAuditPages } = useMaster();
+  const { auditLog, fetchAuditLog, error, clearError, totalAuditPages } = useMaster();
   const [filters, setFilters] = useState({ action: '', target_type: '' });
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [showDetail, setShowDetail] = useState(false);

@@ -1,0 +1,354 @@
+/* MyImpact Results Page Styles */
+
+.myimpact-results {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* Header */
+.myimpact-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.myimpact-header h1 {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+.results-subtitle {
+  color: #718096;
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Hero Section */
+.myimpact-hero {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  color: white;
+  text-align: center;
+}
+
+.myimpact-score-card {
+  margin-bottom: 2rem;
+}
+
+.score-label {
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+.score-value {
+  font-size: 5rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.score-value.high { color: #48bb78; }
+.score-value.medium { color: #ecc94b; }
+.score-value.low { color: #ed8936; }
+.score-value.very-low { color: #fc8181; }
+
+.score-range {
+  font-size: 1rem;
+  opacity: 0.8;
+  margin-bottom: 0.5rem;
+}
+
+.score-interpretation {
+  display: inline-block;
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.score-interpretation.high { background: #48bb78; }
+.score-interpretation.medium { background: #ecc94b; color: #744210; }
+.score-interpretation.low { background: #ed8936; }
+.score-interpretation.very-low { background: #fc8181; }
+
+.score-note {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  max-width: 500px;
+  margin: 0 auto;
+  font-style: italic;
+}
+
+/* Formula Display */
+.score-formula {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.formula-item {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.formula-item.result {
+  background: rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+}
+
+.formula-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.formula-label {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-top: 0.25rem;
+}
+
+.formula-operator {
+  font-size: 2rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+/* Results Sections */
+.results-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.results-section h2 {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.section-icon {
+  font-size: 2rem;
+}
+
+.section-header h2 {
+  margin: 0;
+  flex: 1;
+}
+
+.section-subtitle {
+  color: #718096;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.section-score {
+  text-align: right;
+}
+
+.score-number {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #667eea;
+  line-height: 1;
+}
+
+.score-denominator {
+  font-size: 1.2rem;
+  color: #a0aec0;
+}
+
+.section-description {
+  color: #4a5568;
+  margin-bottom: 1.5rem;
+  font-style: italic;
+}
+
+/* Character Section - Red/Orange theme */
+.character-section {
+  border-left: 4px solid #e53e3e;
+}
+
+.character-section .section-icon {
+  color: #e53e3e;
+}
+
+/* Calling Section - Blue theme */
+.calling-section {
+  border-left: 4px solid #3182ce;
+}
+
+.calling-section .section-icon {
+  color: #3182ce;
+}
+
+/* Dimensions Grid */
+.dimensions-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.dimension-card {
+  background: #f7fafc;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.dimension-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.dimension-name {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.dimension-score {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.dimension-bar {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dimension-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.dimension-fill.high { background: #48bb78; }
+.dimension-fill.medium { background: #ecc94b; }
+.dimension-fill.low { background: #ed8936; }
+
+/* Calling Dimension Cards */
+.calling-dimension {
+  background: #ebf8ff;
+}
+
+.calling-dimension .dimension-score {
+  color: #3182ce;
+}
+
+/* Growth Tips */
+.growth-tips {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+}
+
+.growth-tips h2 {
+  margin-bottom: 1rem;
+}
+
+.tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.tip-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tip-card h3 {
+  color: #2d3748;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.tip-card p {
+  color: #718096;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Footer */
+.results-footer {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+/* Print Styles */
+@media print {
+  .myimpact-results {
+    padding: 0;
+  }
+  
+  .myimpact-hero {
+    page-break-inside: avoid;
+  }
+  
+  .results-section {
+    page-break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .score-value {
+    font-size: 3.5rem;
+  }
+  
+  .formula-value {
+    font-size: 1.5rem;
+  }
+  
+  .score-formula {
+    gap: 0.5rem;
+  }
+  
+  .formula-item {
+    padding: 0.75rem 1rem;
+  }
+  
+  .section-header {
+    flex-wrap: wrap;
+  }
+  
+  .section-score {
+    width: 100%;
+    text-align: left;
+    margin-top: 0.5rem;
+  }
+}

@@ -44,9 +44,33 @@ web/*.local
 .pytest_cache/
 htmlcov/
 
+generate_secrets.py
+
 # Alembic
 api/alembic/versions/*.pyc
 api/alembic/versions/__pycache__/
+
+# Internal notes and documentation
+questions-for-product-owner.md
+DEPLOYMENT_GUIDE.md
+GAP_ANALYSIS.md
+GPS_LoginPage_ComponentBreakdown.md
+GPS_PRD_v2.md
+GPS_Rebuild_Phased_Plan.md
+GPS_UseCases_v1.md
+SECURITY_ASSESSMENT.md
+STRIPE_SETUP.md
+AGENTS.md
+
+# Word documents
+*.docx
+*.doc
+
+# AI assistant memory
+.claude/
+
+# Design assets (binary files)
+web/Graphics for Dev/
 
 # Build artifacts
 build/

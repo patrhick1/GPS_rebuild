@@ -2,13 +2,22 @@
 Billing API endpoints for Stripe integration
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from datetime import datetime, timezone
+import stripe
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.dependencies.auth import get_current_active_user, require_admin
+from app.core.rate_limits import limiter, ADMIN_RATE
+from app.core.exceptions import handle_exception, handle_stripe_exception
+from app.dependencies.auth import (
+    get_current_active_user,
+    require_admin,
+    require_primary_admin,
+    require_primary_admin_no_impersonation
+)
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.subscription import Subscription, Payment
@@ -20,12 +29,14 @@ router = APIRouter(prefix="/billing", tags=["Billing"])
 
 
 @router.get("/config")
+@limiter.limit(ADMIN_RATE)
 async def get_billing_config(
+    request: Request,
     current_user: User = Depends(get_current_active_user)
 ):
     """Get public Stripe configuration"""
     return {
-        "publishable_key": settings.STRIPE_SECRET_KEY.replace("sk_", "pk_") if settings.STRIPE_SECRET_KEY else None,
+        "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
         "prices": {
             "monthly": settings.STRIPE_PRICE_MONTHLY,
             "yearly": settings.STRIPE_PRICE_YEARLY
@@ -34,15 +45,18 @@ async def get_billing_config(
 
 
 @router.get("/subscription")
+@limiter.limit(ADMIN_RATE)
 async def get_subscription(
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_primary_admin)
 ):
     """Get current subscription for the organization"""
     
     # Get user's organization
     membership = db.query(Membership).filter(
-        Membership.user_id == current_user.id
+        Membership.user_id == current_user.id,
+        Membership.is_primary_admin == True
     ).first()
     
     if not membership:
@@ -68,6 +82,20 @@ async def get_subscription(
             }
         }
     
+    # If still incomplete, re-sync from Stripe (webhooks may not have fired in dev)
+    if subscription.status == "incomplete" and subscription.stripe_subscription_id:
+        try:
+            stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+            if stripe_sub.status != subscription.status:
+                subscription.status = stripe_sub.status
+                if stripe_sub.get("current_period_start"):
+                    subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
+                if stripe_sub.get("current_period_end"):
+                    subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
+                db.commit()
+        except Exception:
+            pass
+
     # Get upcoming invoice if subscription is active
     upcoming_invoice = None
     if subscription.stripe_customer_id:
@@ -121,12 +149,14 @@ async def get_subscription(
 
 
 @router.post("/subscribe")
+@limiter.limit(ADMIN_RATE)
 async def create_subscription(
+    request: Request,
     plan: str,  # "monthly" or "yearly"
     payment_method_id: str,
     quantity: int = 1,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_primary_admin_no_impersonation)
 ):
     """Create a new subscription"""
     
@@ -141,7 +171,8 @@ async def create_subscription(
     
     # Get user's organization
     membership = db.query(Membership).filter(
-        Membership.user_id == current_user.id
+        Membership.user_id == current_user.id,
+        Membership.is_primary_admin == True
     ).first()
     
     if not membership:
@@ -156,6 +187,7 @@ async def create_subscription(
         result = stripe_service.create_subscription(
             organization=organization,
             price_id=price_id,
+            plan=plan,
             quantity=quantity,
             payment_method_id=payment_method_id
         )
@@ -164,6 +196,12 @@ async def create_subscription(
         db.add(result["db_subscription"])
         db.commit()
         
+        # Save card info to organization so it shows on the billing page
+        pm = stripe.PaymentMethod.retrieve(payment_method_id)
+        organization.card_brand = pm.card.brand
+        organization.card_last_four = pm.card.last4
+        db.commit()
+
         # Log to audit
         audit_log = AuditLog(
             user_id=current_user.id,
@@ -179,11 +217,14 @@ async def create_subscription(
         db.add(audit_log)
         db.commit()
         
-        # Get client secret for payment if needed
+        # Get client secret for payment confirmation.
+        # Stripe API 2026-02-25+ removed payment_intent from Invoice; use confirmation_secret instead.
         client_secret = None
-        if hasattr(result["subscription"], 'latest_invoice') and result["subscription"].latest_invoice:
-            if hasattr(result["subscription"].latest_invoice, 'payment_intent') and result["subscription"].latest_invoice.payment_intent:
-                client_secret = result["subscription"].latest_invoice.payment_intent.client_secret
+        inv = result["subscription"].get("latest_invoice")
+        if inv:
+            cs = inv.get("confirmation_secret")
+            if cs:
+                client_secret = cs.get("client_secret")
         
         return {
             "subscription_id": result["subscription"].id,
@@ -193,22 +234,22 @@ async def create_subscription(
         }
         
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise handle_stripe_exception(e)
 
 
 @router.post("/subscription/cancel")
+@limiter.limit(ADMIN_RATE)
 async def cancel_subscription(
+    request: Request,
     at_period_end: bool = True,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_primary_admin_no_impersonation)
 ):
     """Cancel the current subscription"""
     
     membership = db.query(Membership).filter(
-        Membership.user_id == current_user.id
+        Membership.user_id == current_user.id,
+        Membership.is_primary_admin == True
     ).first()
     
     if not membership:
@@ -235,7 +276,7 @@ async def cancel_subscription(
         
         # Update local record
         subscription.status = result.status
-        subscription.canceled_at = datetime.utcnow() if not at_period_end else None
+        subscription.canceled_at = datetime.now(timezone.utc) if not at_period_end else None
         subscription.cancel_at_period_end = result.cancel_at_period_end
         
         # Log to audit
@@ -255,22 +296,43 @@ async def cancel_subscription(
             "cancel_at_period_end": result.cancel_at_period_end
         }
         
+    except stripe.error.InvalidRequestError as e:
+        if e.code == "resource_missing":
+            # Subscription no longer exists in Stripe — mark cancelled locally
+            subscription.status = "canceled"
+            subscription.canceled_at = datetime.now(timezone.utc)
+            subscription.cancel_at_period_end = False
+            audit_log = AuditLog(
+                user_id=current_user.id,
+                action="subscription_canceled",
+                target_type="organization",
+                target_id=membership.organization_id,
+                details={"at_period_end": at_period_end, "note": "subscription not found in Stripe, marked cancelled locally"}
+            )
+            db.add(audit_log)
+            db.commit()
+            return {
+                "message": "Subscription canceled",
+                "status": "canceled",
+                "cancel_at_period_end": False
+            }
+        raise handle_stripe_exception(e)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise handle_stripe_exception(e)
 
 
 @router.post("/subscription/reactivate")
+@limiter.limit(ADMIN_RATE)
 async def reactivate_subscription(
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_primary_admin_no_impersonation)
 ):
     """Reactivate a subscription that was set to cancel at period end"""
     
     membership = db.query(Membership).filter(
-        Membership.user_id == current_user.id
+        Membership.user_id == current_user.id,
+        Membership.is_primary_admin == True
     ).first()
     
     if not membership:
@@ -311,23 +373,23 @@ async def reactivate_subscription(
         }
         
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise handle_stripe_exception(e)
 
 
 @router.post("/payment-method")
+@limiter.limit(ADMIN_RATE)
 async def add_payment_method(
+    request: Request,
     payment_method_id: str,
     set_default: bool = True,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_primary_admin_no_impersonation)
 ):
     """Add a new payment method"""
     
     membership = db.query(Membership).filter(
-        Membership.user_id == current_user.id
+        Membership.user_id == current_user.id,
+        Membership.is_primary_admin == True
     ).first()
     
     if not membership:
@@ -361,17 +423,16 @@ async def add_payment_method(
         return {"message": "Payment method added successfully"}
         
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise handle_stripe_exception(e)
 
 
 @router.delete("/payment-method/{payment_method_id}")
+@limiter.limit(ADMIN_RATE)
 async def remove_payment_method(
+    request: Request,
     payment_method_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_primary_admin_no_impersonation)
 ):
     """Remove a payment method"""
     
@@ -379,22 +440,22 @@ async def remove_payment_method(
         stripe_service.detach_payment_method(payment_method_id)
         return {"message": "Payment method removed"}
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise handle_stripe_exception(e)
 
 
 @router.get("/invoices")
+@limiter.limit(ADMIN_RATE)
 async def get_invoices(
+    request: Request,
     limit: int = 10,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_primary_admin)
 ):
     """Get payment history / invoices"""
     
     membership = db.query(Membership).filter(
-        Membership.user_id == current_user.id
+        Membership.user_id == current_user.id,
+        Membership.is_primary_admin == True
     ).first()
     
     if not membership:
@@ -433,8 +494,10 @@ async def get_invoices(
         "stripe_invoices": [{
             "id": inv.id,
             "amount_paid": inv.amount_paid / 100,
+            "amount_due": inv.amount_due / 100,
             "currency": inv.currency,
             "status": inv.status,
+            "receipt_url": (inv.charge.receipt_url if inv.get("charge") and hasattr(inv.charge, "receipt_url") else None) or inv.hosted_invoice_url,
             "hosted_invoice_url": inv.hosted_invoice_url,
             "invoice_pdf": inv.invoice_pdf,
             "created": inv.created
@@ -482,6 +545,3 @@ async def stripe_webhook(
         stripe_service.handle_invoice_payment_failed(event, db)
     
     return {"status": "success"}
-
-
-from datetime import datetime

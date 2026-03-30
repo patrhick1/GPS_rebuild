@@ -59,20 +59,31 @@ class DashboardSummary(BaseModel):
 # History schemas
 class GiftHistoryItem(BaseModel):
     name: str
+    short_code: str
     score: int
 
 
 class PassionHistoryItem(BaseModel):
     name: str
+    short_code: str
     score: int
 
 
 class AssessmentHistoryItem(BaseModel):
+    model_config = {"from_attributes": True}
+    
     id: uuid.UUID
+    status: str
+    instrument_type: str = "gps"
     completed_at: Optional[datetime] = None
     created_at: datetime
+    progress_percentage: int
     top_gifts: List[GiftHistoryItem] = []
     top_passions: List[PassionHistoryItem] = []
+    # MyImpact fields
+    myimpact_score: Optional[float] = None
+    character_score: Optional[float] = None
+    calling_score: Optional[float] = None
 
 
 # Detail schemas
