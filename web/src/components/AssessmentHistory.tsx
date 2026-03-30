@@ -96,60 +96,83 @@ export function AssessmentHistory() {
       )}
 
       {/* Comparison View */}
-      {comparisonResult && (
-        <div className="comparison-view">
-          <h3>Assessment Comparison</h3>
-          <div className="comparison-grid">
-            <div className="comparison-column">
-              <h4>
-                {new Date(comparisonResult.assessment_1.completed_at).toLocaleDateString()}
-              </h4>
-              <div className="comparison-gifts">
-                <h5>Spiritual Gifts</h5>
-                {comparisonResult.assessment_1.gifts.map((gift: any) => (
-                  <div key={gift.id} className="comparison-item">
-                    <span>{gift.name}</span>
-                    <span className="score">{gift.score}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="comparison-passions">
-                <h5>Influencing Styles</h5>
-                {comparisonResult.assessment_1.passions.map((passion: any) => (
-                  <div key={passion.id} className="comparison-item">
-                    <span>{passion.name}</span>
-                    <span className="score">{passion.score}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+      {comparisonResult && (() => {
+        const date1 = comparisonResult.assessment_1.completed_at
+          ? new Date(comparisonResult.assessment_1.completed_at).toLocaleDateString()
+          : 'In Progress';
+        const date2 = comparisonResult.assessment_2.completed_at
+          ? new Date(comparisonResult.assessment_2.completed_at).toLocaleDateString()
+          : 'In Progress';
 
-            <div className="comparison-column">
-              <h4>
-                {new Date(comparisonResult.assessment_2.completed_at).toLocaleDateString()}
-              </h4>
-              <div className="comparison-gifts">
-                <h5>Spiritual Gifts</h5>
-                {comparisonResult.assessment_2.gifts.map((gift: any) => (
-                  <div key={gift.id} className="comparison-item">
-                    <span>{gift.name}</span>
-                    <span className="score">{gift.score}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="comparison-passions">
-                <h5>Influencing Styles</h5>
-                {comparisonResult.assessment_2.passions.map((passion: any) => (
-                  <div key={passion.id} className="comparison-item">
-                    <span>{passion.name}</span>
-                    <span className="score">{passion.score}</span>
-                  </div>
-                ))}
+        const renderDeltaTable = (
+          label: string,
+          items1: { name: string; score: number }[],
+          items2: { name: string; score: number }[]
+        ) => {
+          const map2 = new Map(items2.map(i => [i.name, i.score]));
+          return (
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">{label}</h4>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-400 border-b border-gray-200">
+                    <th className="pb-1 font-medium w-1/2">Gift</th>
+                    <th className="pb-1 font-medium text-center">{date1}</th>
+                    <th className="pb-1 font-medium text-center">Change</th>
+                    <th className="pb-1 font-medium text-center">{date2}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items1.map((item) => {
+                    const score2 = map2.get(item.name) ?? item.score;
+                    const delta = score2 - item.score;
+                    const improved = delta > 0;
+                    const declined = delta < 0;
+                    const rowBg = improved
+                      ? 'bg-green-50'
+                      : declined
+                      ? 'bg-red-50'
+                      : '';
+                    const deltaLabel = improved
+                      ? `▲ +${delta}`
+                      : declined
+                      ? `▼ ${delta}`
+                      : '—';
+                    const deltaColor = improved
+                      ? 'text-green-600 font-semibold'
+                      : declined
+                      ? 'text-red-500 font-semibold'
+                      : 'text-gray-400';
+                    return (
+                      <tr key={item.name} className={`border-b border-gray-100 ${rowBg}`}>
+                        <td className="py-1.5 pr-2 font-medium text-gray-700">{item.name}</td>
+                        <td className="py-1.5 text-center text-gray-500">{item.score}</td>
+                        <td className={`py-1.5 text-center text-xs ${deltaColor}`}>{deltaLabel}</td>
+                        <td className="py-1.5 text-center text-gray-700 font-medium">{score2}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        };
+
+        return (
+          <div className="my-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-800">Assessment Comparison</h3>
+              <div className="flex gap-4 text-xs text-gray-500">
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-green-400"></span> Improved</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-red-400"></span> Declined</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-gray-300"></span> Unchanged</span>
               </div>
             </div>
+            {renderDeltaTable('Spiritual Gifts', comparisonResult.assessment_1.gifts, comparisonResult.assessment_2.gifts)}
+            {renderDeltaTable('Influencing Styles', comparisonResult.assessment_1.passions, comparisonResult.assessment_2.passions)}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Detail View */}
       {detailView && (
