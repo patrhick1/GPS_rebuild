@@ -15,9 +15,10 @@ services:
       - key: CORS_ORIGINS
         value: "https://gps-web.onrender.com,https://assessments.giftpassionstory.com"
 
-staticSites:
-  # React Frontend
-  - name: gps-web
+  # React Frontend (static site)
+  - type: web
+    name: gps-web
+    env: static
     buildCommand: cd web && npm install && npm run build
     staticPublishPath: web/dist
     envVars:
