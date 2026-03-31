@@ -70,9 +70,6 @@ AGENTS.md
 # AI assistant memory
 .claude/
 
-# Design assets (binary files)
-web/Graphics for Dev/
-
 # Build artifacts
 build/
 dist/
