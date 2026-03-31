@@ -185,16 +185,10 @@ async def login(
 async def refresh_token(
     request: Request,
     response: Response,
-    token_data: RefreshTokenRequest | None = None,
     db: Session = Depends(get_db),
 ):
-    """Refresh access token using refresh token."""
-    # Try to get refresh token from body or cookie
-    refresh_token_str = None
-    if token_data:
-        refresh_token_str = token_data.refresh_token
-    if not refresh_token_str:
-        refresh_token_str = request.cookies.get("refresh_token")
+    """Refresh access token using httpOnly refresh_token cookie."""
+    refresh_token_str = request.cookies.get("refresh_token")
     
     if not refresh_token_str:
         raise HTTPException(

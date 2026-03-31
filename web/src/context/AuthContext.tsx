@@ -175,8 +175,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return Promise.reject(error);
         }
 
-        // If 401 and not already retrying
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // If 401 and not already retrying (skip for login endpoint — let it surface its own error)
+        if (
+          error.response?.status === 401 &&
+          !originalRequest._retry &&
+          !originalRequest.url?.endsWith('/auth/login')
+        ) {
           originalRequest._retry = true;
 
           try {
