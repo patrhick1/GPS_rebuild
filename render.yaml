@@ -21,7 +21,7 @@ services:
     staticPublishPath: web/dist
     envVars:
       - key: VITE_API_URL
-        value: "https://gps-api.onrender.com"
+        value: "https://gps-api-4q4m.onrender.com"
     routes:
       - type: rewrite
         source: /(.*)
