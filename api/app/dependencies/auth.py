@@ -12,8 +12,11 @@ from app.models.role import Role
 from app.models.membership import Membership
 from app.models.subscription import Subscription
 
-# Statuses that grant admin dashboard access
+# Statuses that grant full admin dashboard access (write operations)
 _ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing", "past_due"}
+
+# Statuses that grant read-only admin view (expired but can still see historical data)
+_VIEW_ALLOWED_STATUSES = {"active", "trialing", "past_due", "canceled", "unpaid"}
 
 security = HTTPBearer(auto_error=False)
 
@@ -278,6 +281,38 @@ async def require_active_subscription(
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="Active subscription required to access the admin dashboard",
+        )
+
+    return current_user
+
+
+async def require_view_subscription(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    Allow admin GET (read-only) endpoints for canceled/unpaid subscriptions.
+    Only blocks when no subscription record exists at all (admin never subscribed).
+    Returns 402 with detail='no_subscription' so the frontend redirects to billing.
+    """
+    membership = db.query(Membership).filter(
+        Membership.user_id == current_user.id,
+    ).first()
+
+    if not membership or not membership.organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="no_subscription",
+        )
+
+    sub = db.query(Subscription).filter(
+        Subscription.organization_id == membership.organization_id
+    ).order_by(desc(Subscription.created_at)).first()
+
+    if not sub or sub.status not in _VIEW_ALLOWED_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="no_subscription",
         )
 
     return current_user

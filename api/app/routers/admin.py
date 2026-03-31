@@ -15,7 +15,7 @@ import string
 from app.core.database import get_db
 from app.core.rate_limits import limiter, ADMIN_RATE
 from app.core.audit import audit_action
-from app.dependencies.auth import get_current_active_user, require_admin, require_active_subscription
+from app.dependencies.auth import get_current_active_user, require_admin, require_active_subscription, require_view_subscription
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.membership import Membership
@@ -71,7 +71,7 @@ async def get_members(
     page: int = 1,
     per_page: int = 50,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(require_view_subscription)
 ):
     """Get members of the admin's organization"""
     
@@ -195,7 +195,7 @@ async def get_member_detail(
     request: Request,
     member_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(require_view_subscription)
 ):
     """Get detailed info about a specific member"""
     
@@ -264,7 +264,7 @@ async def get_member_results(
     request: Request,
     member_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(require_view_subscription)
 ):
     """Get full graded assessment results for a member"""
     import uuid as uuid_mod
@@ -429,7 +429,7 @@ async def get_invites(
     request: Request,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(require_view_subscription)
 ):
     """Get list of invitations"""
     
@@ -705,7 +705,7 @@ async def cancel_invite(
 async def get_pending_members(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(require_view_subscription)
 ):
     """Get pending membership requests"""
     
@@ -794,7 +794,7 @@ async def decline_pending(
 async def get_settings(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(require_view_subscription)
 ):
     """Get church settings"""
     
@@ -844,7 +844,7 @@ async def update_settings(
 async def get_stats(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(require_view_subscription)
 ):
     """Get church statistics"""
     

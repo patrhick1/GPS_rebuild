@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, api } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -65,6 +65,7 @@ export function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AdminTab>('gps');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [search, setSearch] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -79,6 +80,17 @@ export function AdminDashboard() {
     fetchPending();
     fetchSettings();
   }, [fetchMembers, fetchPending, fetchSettings]);
+
+  useEffect(() => {
+    api.get('/billing/subscription').then((res) => {
+      const status = res.data?.status;
+      if (status && !['active', 'trialing', 'past_due'].includes(status)) {
+        setIsReadOnly(true);
+      }
+    }).catch(() => {
+      // 402 with detail='no_subscription' is handled by the global interceptor (redirects to billing)
+    });
+  }, []);
 
   // Sync church settings form
   useEffect(() => {
@@ -169,6 +181,28 @@ export function AdminDashboard() {
       <Navbar />
 
       <main className="flex-1 bg-white">
+        {isReadOnly && (
+          <div className="max-w-[1400px] mx-auto px-6 md:px-10 pt-6">
+            <div className="bg-amber-50 border border-amber-300 text-amber-800 px-5 py-4 rounded-xl font-body text-base flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <span className="font-bold">Your subscription has expired.</span>
+                {' '}You can view existing member data, but inviting, approving, and editing are disabled.
+                {!user?.is_primary_admin && (
+                  <span> Contact your organization's primary admin to renew.</span>
+                )}
+              </div>
+              {user?.is_primary_admin && (
+                <button
+                  onClick={() => navigate('/admin/billing')}
+                  className="shrink-0 h-[40px] px-5 bg-amber-600 text-white font-body font-bold text-base rounded-xl hover:bg-amber-700 transition-colors whitespace-nowrap"
+                >
+                  Renew Now →
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="max-w-[1400px] mx-auto px-6 md:px-10 pt-6">
             <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-3 rounded-xl font-body text-base flex items-center justify-between">
@@ -274,20 +308,24 @@ export function AdminDashboard() {
                           <span className="font-body font-bold text-lg text-brand-charcoal">
                             {req.first_name} {req.last_name}
                           </span>
-                          <div className="flex gap-3">
-                            <button
-                              onClick={async () => { await approvePending(req.membership_id); fetchPending(); fetchMembers(); }}
-                              className="h-[50px] w-[133px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
-                            >
-                              Accept
-                            </button>
-                            <button
-                              onClick={async () => { await declinePending(req.membership_id); fetchPending(); }}
-                              className="h-[50px] w-[133px] bg-[#E3E3E3] text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-[#d5d5d5] transition-colors"
-                            >
-                              Decline
-                            </button>
-                          </div>
+                          {!isReadOnly ? (
+                            <div className="flex gap-3">
+                              <button
+                                onClick={async () => { await approvePending(req.membership_id); fetchPending(); fetchMembers(); }}
+                                className="h-[50px] w-[133px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={async () => { await declinePending(req.membership_id); fetchPending(); }}
+                                className="h-[50px] w-[133px] bg-[#E3E3E3] text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-[#d5d5d5] transition-colors"
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="font-body text-sm text-amber-700 italic">Subscription required</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -401,7 +439,7 @@ export function AdminDashboard() {
                               >
                                 Results
                               </button>
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <button
                                   onClick={() => toggleAdmin(member.id, member.role || 'member')}
                                   className={`h-[50px] w-[175px] font-body font-bold text-lg text-brand-charcoal rounded-xl transition-colors ${
@@ -413,7 +451,7 @@ export function AdminDashboard() {
                                   {member.is_admin ? 'Remove Admin' : 'Make Admin'}
                                 </button>
                               )}
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <button
                                   onClick={() => handleRemoveMember(member)}
                                   className="p-2 hover:opacity-70 transition-opacity"
@@ -495,7 +533,7 @@ export function AdminDashboard() {
                               >
                                 View Results
                               </button>
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <button
                                   onClick={() => toggleAdmin(member.id, member.role || 'member')}
                                   className={`h-[50px] flex-1 font-body font-bold text-lg text-brand-charcoal rounded-xl transition-colors ${
@@ -507,7 +545,7 @@ export function AdminDashboard() {
                                   {member.is_admin ? 'Remove Admin' : 'Make Admin'}
                                 </button>
                               )}
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <button
                                   onClick={() => handleRemoveMember(member)}
                                   className="p-2 hover:opacity-70 transition-opacity shrink-0"
@@ -531,7 +569,7 @@ export function AdminDashboard() {
                               >
                                 Results
                               </button>
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <div className="flex items-center justify-end gap-2">
                                   <button
                                     onClick={() => toggleAdmin(member.id, member.role || 'member')}
@@ -696,7 +734,7 @@ export function AdminDashboard() {
                               >
                                 Results
                               </button>
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <button
                                   onClick={() => toggleAdmin(member.id, member.role || 'member')}
                                   className={`h-[50px] w-[175px] font-body font-bold text-lg text-brand-charcoal rounded-xl transition-colors ${
@@ -708,7 +746,7 @@ export function AdminDashboard() {
                                   {member.is_admin ? 'Remove Admin' : 'Make Admin'}
                                 </button>
                               )}
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <button
                                   onClick={() => handleRemoveMember(member)}
                                   className="p-2 hover:opacity-70 transition-opacity"
@@ -790,7 +828,7 @@ export function AdminDashboard() {
                               >
                                 View Results
                               </button>
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <button
                                   onClick={() => toggleAdmin(member.id, member.role || 'member')}
                                   className={`h-[50px] flex-1 font-body font-bold text-lg text-brand-charcoal rounded-xl transition-colors ${
@@ -802,7 +840,7 @@ export function AdminDashboard() {
                                   {member.is_admin ? 'Remove Admin' : 'Make Admin'}
                                 </button>
                               )}
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <button
                                   onClick={() => handleRemoveMember(member)}
                                   className="p-2 hover:opacity-70 transition-opacity shrink-0"
@@ -830,7 +868,7 @@ export function AdminDashboard() {
                               >
                                 Results
                               </button>
-                              {!member.is_primary_admin && (
+                              {!member.is_primary_admin && !isReadOnly && (
                                 <div className="flex items-center justify-end gap-2">
                                   <button
                                     onClick={() => toggleAdmin(member.id, member.role || 'member')}
@@ -965,7 +1003,7 @@ export function AdminDashboard() {
                               <span className="ml-2 text-sm text-brand-gray-med">(Primary)</span>
                             )}
                           </span>
-                          {!admin.is_primary_admin && (
+                          {!admin.is_primary_admin && !isReadOnly && (
                             <button
                               onClick={() => toggleAdmin(admin.id, admin.role || 'admin')}
                               className="p-1 hover:opacity-70 transition-opacity"
@@ -1012,7 +1050,7 @@ export function AdminDashboard() {
                   <div className="flex justify-end">
                     <button
                       onClick={handleSaveSettings}
-                      disabled={isSaving}
+                      disabled={isSaving || isReadOnly}
                       className="h-[50px] w-[219px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors disabled:opacity-50"
                     >
                       {isSaving ? 'Saving...' : 'Save Changes'}

@@ -163,9 +163,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (error) => {
         const originalRequest = error.config;
 
-        // If 402, subscription is inactive — redirect to billing
+        // If 402, check detail to distinguish no subscription vs expired/readonly
         if (error.response?.status === 402) {
-          window.location.href = '/admin/billing';
+          const detail = error.response?.data?.detail;
+          if (detail === 'no_subscription') {
+            // Admin never subscribed — must go through billing to unlock
+            window.location.href = '/admin/billing';
+          }
+          // For other 402s (write blocked due to expired subscription in readonly mode),
+          // let the error propagate so the component can handle it gracefully
           return Promise.reject(error);
         }
 
