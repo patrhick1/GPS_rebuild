@@ -24,6 +24,6 @@ services:
         value: "https://gps-api-4q4m.onrender.com"
     routes:
       - type: rewrite
-        source: /(.*)
+        source: /*
         destination: /index.html
 
