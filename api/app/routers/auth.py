@@ -157,27 +157,33 @@ async def login(
     )
     
     tokens = auth_service.create_tokens(user.id)
-    
+
+    # In production the frontend and API are on different onrender.com subdomains
+    # (cross-site per Public Suffix List), so cookies must be SameSite=None;Secure.
+    # In local dev both run on localhost (same-site), so Lax + non-Secure is fine.
+    cookie_samesite = "lax" if settings.DEBUG else "none"
+    cookie_secure = not settings.DEBUG
+
     # Set refresh token as httpOnly cookie
     response.set_cookie(
         key="refresh_token",
         value=tokens["refresh_token"],
         httponly=True,
-        secure=not settings.DEBUG,  # Secure in production, allow HTTP in development
-        samesite="lax",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
-    
+
     # Also set access token cookie for convenience
     response.set_cookie(
         key="access_token",
         value=tokens["access_token"],
         httponly=True,
-        secure=not settings.DEBUG,  # Secure in production, allow HTTP in development
-        samesite="lax",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
-    
+
     return Token(**tokens)
 
 
@@ -199,25 +205,28 @@ async def refresh_token(
     auth_service = AuthService(db)
     tokens = auth_service.refresh_access_token(refresh_token_str)
     
+    cookie_samesite = "lax" if settings.DEBUG else "none"
+    cookie_secure = not settings.DEBUG
+
     # Update cookies
     response.set_cookie(
         key="refresh_token",
         value=tokens["refresh_token"],
         httponly=True,
-        secure=not settings.DEBUG,  # Secure in production, allow HTTP in development
-        samesite="lax",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
-    
+
     response.set_cookie(
         key="access_token",
         value=tokens["access_token"],
         httponly=True,
-        secure=not settings.DEBUG,  # Secure in production, allow HTTP in development
-        samesite="lax",
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
-    
+
     return Token(**tokens)
 
 
@@ -240,9 +249,12 @@ async def logout(
         auth_service = AuthService(db)
         auth_service.revoke_refresh_token(refresh_token_str)
     
-    # Clear cookies
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
+    cookie_samesite = "lax" if settings.DEBUG else "none"
+    cookie_secure = not settings.DEBUG
+
+    # Clear cookies — must match the same Secure/SameSite attributes used when setting them
+    response.delete_cookie("access_token", secure=cookie_secure, samesite=cookie_samesite)
+    response.delete_cookie("refresh_token", secure=cookie_secure, samesite=cookie_samesite)
     
     return {"message": "Successfully logged out"}
 
