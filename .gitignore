@@ -44,6 +44,8 @@ web/.env
 .coverage
 .pytest_cache/
 htmlcov/
+e2e/
+api/tests/
 
 generate_secrets.py
 
