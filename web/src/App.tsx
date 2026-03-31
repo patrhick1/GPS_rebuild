@@ -119,7 +119,7 @@ function App() {
           <Route
             path="/admin"
             element={
-              <PrivateRoute>
+              <PrivateRoute requiredRole="admin_or_master">
                 <AdminProvider>
                   <AdminDashboard />
                 </AdminProvider>
@@ -131,19 +131,19 @@ function App() {
           <Route
             path="/master"
             element={
-              <PrivateRoute>
+              <PrivateRoute requiredRole="master">
                 <MasterProvider>
                   <MasterDashboard />
                 </MasterProvider>
               </PrivateRoute>
             }
           />
-          
+
           {/* Billing Route */}
           <Route
             path="/admin/billing"
             element={
-              <PrivateRoute>
+              <PrivateRoute requiredRole="admin_or_master">
                 <BillingProvider>
                   <BillingDashboard />
                 </BillingProvider>
