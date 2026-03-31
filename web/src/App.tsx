@@ -21,6 +21,7 @@ import { Upgrade } from './pages/Upgrade';
 import { ChurchRegister } from './pages/ChurchRegister';
 import { ChurchUpgrade } from './pages/ChurchUpgrade';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { UpdatePassword } from './pages/UpdatePassword';
 
 import { MasterDashboard } from './pages/MasterDashboard';
 import { BillingDashboard } from './pages/BillingDashboard';
@@ -111,6 +112,15 @@ function App() {
                 <DashboardProvider>
                   <Account />
                 </DashboardProvider>
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/update-password"
+            element={
+              <PrivateRoute>
+                <UpdatePassword />
               </PrivateRoute>
             }
           />
