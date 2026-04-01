@@ -1,5 +1,8 @@
+import logging
 import uuid
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, Response
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timezone
@@ -18,6 +21,13 @@ from app.models.myimpact_result import MyImpactResult
 from app.models.gifts_passion import GiftsPassion
 from app.services.scoring_service import ScoringService
 from app.services.myimpact_scoring_service import MyImpactScoringService
+from app.services.email_service import (
+    send_assessment_notification_email,
+    send_gps_result_email,
+    send_myimpact_result_email,
+)
+from app.models.membership import Membership
+from app.core.config import settings
 from app.schemas.assessment import (
     AssessmentCreate,
     AssessmentResponse,
@@ -32,6 +42,41 @@ from app.schemas.assessment import (
 )
 
 router = APIRouter(prefix="/assessments", tags=["Assessments"])
+
+
+def _notify_org_admins(db: Session, current_user: User, assessment: Assessment) -> None:
+    """Send assessment completion notification to all admins in the user's org (non-fatal)."""
+    try:
+        member_membership = db.query(Membership).filter(
+            Membership.user_id == current_user.id,
+            Membership.status == "active",
+        ).first()
+        if not member_membership or not member_membership.organization_id:
+            return
+        admin_memberships = (
+            db.query(Membership)
+            .filter(
+                Membership.organization_id == member_membership.organization_id,
+                Membership.status == "active",
+                Membership.role.has(name="admin"),
+            )
+            .options(joinedload(Membership.user))
+            .all()
+        )
+        member_name = f"{current_user.first_name} {current_user.last_name}".strip()
+        org_name = member_membership.organization.name
+        dashboard_url = f"{settings.FRONTEND_URL}/admin"
+        for am in admin_memberships:
+            send_assessment_notification_email(
+                to_email=am.user.email,
+                admin_name=am.user.first_name,
+                member_name=member_name,
+                org_name=org_name,
+                instrument_type=assessment.instrument_type,
+                dashboard_url=dashboard_url,
+            )
+    except Exception as exc:
+        logger.error("Failed to notify org admins: %s", exc)
 
 
 @router.post("/start", response_model=AssessmentFormData, status_code=status.HTTP_201_CREATED)
@@ -279,7 +324,18 @@ async def submit_assessment(
         assessment.completed_at = datetime.now(timezone.utc)
         db.commit()
 
-        return build_myimpact_result_response(result)
+        response = build_myimpact_result_response(result)
+        _notify_org_admins(db, current_user, assessment)
+        try:
+            send_myimpact_result_email(
+                current_user.email,
+                current_user.first_name,
+                response,
+                results_url=f"{settings.FRONTEND_URL}/myimpact-results?id={assessment.id}",
+            )
+        except Exception as exc:
+            logger.error("Failed to send MyImpact result email to %s: %s", current_user.email, exc)
+        return response
     else:
         # GPS assessment
         scoring_service = ScoringService(db)
@@ -297,7 +353,18 @@ async def submit_assessment(
         assessment.completed_at = datetime.now(timezone.utc)
         db.commit()
 
-        return build_result_with_details(db, result)
+        response = build_result_with_details(db, result)
+        _notify_org_admins(db, current_user, assessment)
+        try:
+            send_gps_result_email(
+                current_user.email,
+                current_user.first_name,
+                response,
+                results_url=f"{settings.FRONTEND_URL}/assessment-results?id={assessment.id}",
+            )
+        except Exception as exc:
+            logger.error("Failed to send GPS result email to %s: %s", current_user.email, exc)
+        return response
 
 
 @router.get("/{assessment_id}/results")

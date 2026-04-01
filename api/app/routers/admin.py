@@ -180,6 +180,11 @@ async def get_members(
             myimpact_score=myimpact_score_val,
         ))
     
+    member_list.sort(
+        key=lambda m: m.last_assessment_date or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+
     return MemberListResponse(
         members=member_list,
         total=total,
