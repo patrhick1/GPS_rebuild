@@ -253,28 +253,52 @@ def seed_questions(db: Session):
         print(f"GPS questions already seeded ({existing_gps} found)")
 
     # Load Spanish translations for GPS questions
+    # Match by section + per-section question number (robust against text differences)
     spanish_csv_path = os.path.join(os.path.dirname(__file__), '..', '..', 'gps_questions_spanish.csv')
     if not os.path.exists(spanish_csv_path):
         spanish_csv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'gps_questions_spanish.csv')
 
     if os.path.exists(spanish_csv_path):
-        updated = 0
+        # Build ordered maps: section name → {per-section number → Question}
+        gift_qs = (
+            db.query(Question)
+            .filter(Question.instrument_type == "gps", Question.type_id == spiritual_gift_type.id)
+            .order_by(Question.order)
+            .all()
+        )
+        infl_qs = (
+            db.query(Question)
+            .filter(Question.instrument_type == "gps", Question.type_id == influencing_style_type.id)
+            .order_by(Question.order)
+            .all()
+        )
+        section_map = {
+            "Gifts":             {i + 1: q for i, q in enumerate(gift_qs)},
+            "Influencing Style": {i + 1: q for i, q in enumerate(infl_qs)},
+        }
+
+        updated = skipped = 0
         with open(spanish_csv_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                english_text = row['English'].strip()
+                section = row['Section'].strip()
                 spanish_text = row['Spanish'].strip()
-                if not english_text or not spanish_text:
+                if not spanish_text:
                     continue
-                q = db.query(Question).filter(
-                    Question.question == english_text,
-                    Question.instrument_type == "gps",
-                ).first()
-                if q and not q.question_es:
+                try:
+                    num = int(row['Question'])
+                except (ValueError, KeyError):
+                    skipped += 1
+                    continue
+                q = section_map.get(section, {}).get(num)
+                if q:
                     q.question_es = spanish_text
                     updated += 1
+                else:
+                    skipped += 1
+
         db.commit()
-        print(f"Updated {updated} GPS questions with Spanish translations")
+        print(f"Updated {updated} GPS questions with Spanish translations ({skipped} skipped)")
     else:
         print(f"Warning: gps_questions_spanish.csv not found at {spanish_csv_path}")
     
