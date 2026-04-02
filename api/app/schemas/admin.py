@@ -59,6 +59,10 @@ class MemberUpdate(BaseModel):
     status: Optional[str] = None
 
 
+class TransferPrimaryAdminRequest(BaseModel):
+    target_member_id: str
+
+
 # Invite schemas
 class InviteCreate(BaseModel):
     email: str

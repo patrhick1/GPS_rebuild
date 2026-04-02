@@ -44,6 +44,32 @@ async def get_billing_config(
     }
 
 
+@router.get("/subscription/status")
+@limiter.limit(ADMIN_RATE)
+async def get_subscription_status(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Get subscription status for the organization — accessible to all admins (primary and secondary)."""
+    membership = current_user.memberships[0] if current_user.memberships else None
+
+    if not membership or not membership.organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No organization found"
+        )
+
+    subscription = db.query(Subscription).filter(
+        Subscription.organization_id == membership.organization_id
+    ).order_by(desc(Subscription.created_at)).first()
+
+    if not subscription:
+        return {"status": "no_subscription"}
+
+    return {"status": subscription.status}
+
+
 @router.get("/subscription")
 @limiter.limit(ADMIN_RATE)
 async def get_subscription(

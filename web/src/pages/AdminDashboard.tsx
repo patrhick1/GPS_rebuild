@@ -58,6 +58,7 @@ export function AdminDashboard() {
     approvePending,
     declinePending,
     toggleAdmin,
+    transferPrimaryAdmin,
     removeMember,
     clearError,
   } = useAdmin();
@@ -66,6 +67,9 @@ export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>('gps');
   const [menuOpen, setMenuOpen] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [noSubscription, setNoSubscription] = useState(false);
+  const [transferTarget, setTransferTarget] = useState<typeof members[0] | null>(null);
+  const [isTransferring, setIsTransferring] = useState(false);
   const [search, setSearch] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -82,15 +86,21 @@ export function AdminDashboard() {
   }, [fetchMembers, fetchPending, fetchSettings]);
 
   useEffect(() => {
-    api.get('/billing/subscription').then((res) => {
-      const status = res.data?.status;
-      if (status && !['active', 'trialing', 'past_due'].includes(status)) {
+    api.get('/billing/subscription/status').then((res) => {
+      const subStatus = res.data?.status;
+      if (subStatus === 'no_subscription') {
+        // Primary admins will be redirected by the global interceptor when member fetches fail.
+        // Secondary admins see a dedicated banner instead.
+        if (!user?.is_primary_admin) {
+          setNoSubscription(true);
+        }
+      } else if (subStatus && !['active', 'trialing', 'past_due'].includes(subStatus)) {
         setIsReadOnly(true);
       }
     }).catch(() => {
-      // 402 with detail='no_subscription' is handled by the global interceptor (redirects to billing)
+      // Ignore — member fetch 402s are handled by the global interceptor
     });
-  }, []);
+  }, [user?.is_primary_admin]);
 
   // Sync church settings form
   useEffect(() => {
@@ -176,11 +186,33 @@ export function AdminDashboard() {
   const hasResults = (member: typeof members[0]) =>
     !!(member.latest_gps_assessment_id || member.latest_myimpact_assessment_id);
 
+  const handleConfirmTransfer = async () => {
+    if (!transferTarget) return;
+    setIsTransferring(true);
+    try {
+      await transferPrimaryAdmin(transferTarget.id.toString());
+      setTransferTarget(null);
+    } catch {
+      // error surfaced via AdminContext
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
       <main className="flex-1 bg-white">
+        {noSubscription && (
+          <div className="max-w-[1400px] mx-auto px-6 md:px-10 pt-6">
+            <div className="bg-amber-50 border border-amber-300 text-amber-800 px-5 py-4 rounded-xl font-body text-base">
+              <span className="font-bold">No active subscription.</span>
+              {' '}Your church hasn't set up a subscription yet. Contact the primary administrator to get started.
+            </div>
+          </div>
+        )}
+
         {isReadOnly && (
           <div className="max-w-[1400px] mx-auto px-6 md:px-10 pt-6">
             <div className="bg-amber-50 border border-amber-300 text-amber-800 px-5 py-4 rounded-xl font-body text-base flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -1004,13 +1036,24 @@ export function AdminDashboard() {
                             )}
                           </span>
                           {!admin.is_primary_admin && !isReadOnly && (
-                            <button
-                              onClick={() => toggleAdmin(admin.id, admin.role || 'admin')}
-                              className="p-1 hover:opacity-70 transition-opacity"
-                              title="Remove admin"
-                            >
-                              <img src={trashIcon} alt="Remove" className="w-[18px] h-[22px]" />
-                            </button>
+                            <div className="flex items-center gap-3">
+                              {user?.is_primary_admin && (
+                                <button
+                                  onClick={() => setTransferTarget(admin)}
+                                  className="font-body text-sm font-bold text-brand-teal hover:underline"
+                                  title="Transfer primary admin status"
+                                >
+                                  Make Primary
+                                </button>
+                              )}
+                              <button
+                                onClick={() => toggleAdmin(admin.id.toString(), admin.role || 'admin')}
+                                className="p-1 hover:opacity-70 transition-opacity"
+                                title="Remove admin"
+                              >
+                                <img src={trashIcon} alt="Remove" className="w-[18px] h-[22px]" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -1064,6 +1107,60 @@ export function AdminDashboard() {
       </main>
 
       <Footer />
+
+      {/* Transfer Primary Admin confirmation modal */}
+      {transferTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <h2 className="font-heading font-bold text-2xl text-brand-charcoal mb-2">
+              Transfer Primary Admin
+            </h2>
+            <p className="font-body text-brand-gray-med text-sm mb-6">
+              You are about to make <strong>{transferTarget.first_name} {transferTarget.last_name}</strong> the
+              primary administrator of <strong>{churchSettings?.name}</strong>.
+            </p>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 font-body text-sm text-amber-800 space-y-3">
+              <div>
+                <p className="font-bold mb-1">What changes for you:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>You become a secondary administrator</li>
+                  <li>You lose access to billing and subscription management</li>
+                  <li>You can no longer transfer primary status without their cooperation</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-bold mb-1">What changes for {transferTarget.first_name}:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>They gain full billing and subscription access</li>
+                  <li>They can transfer primary status or cancel the subscription</li>
+                </ul>
+              </div>
+            </div>
+
+            <p className="font-body text-sm text-brand-gray-med mb-6">
+              This requires <strong>{transferTarget.first_name}'s</strong> cooperation to reverse.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setTransferTarget(null)}
+                className="flex-1 h-[48px] border border-brand-gray-light rounded-xl font-body font-bold text-brand-charcoal hover:bg-gray-50 transition-colors"
+                disabled={isTransferring}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmTransfer}
+                disabled={isTransferring}
+                className="flex-1 h-[48px] bg-brand-teal text-white rounded-xl font-body font-bold hover:bg-brand-teal/90 disabled:opacity-50 transition-colors"
+              >
+                {isTransferring ? 'Transferring...' : 'Confirm Transfer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

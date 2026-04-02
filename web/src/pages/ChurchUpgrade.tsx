@@ -32,6 +32,7 @@ export function ChurchUpgrade() {
   });
   const { upgradeToChurchAdmin, error, clearError, isLoading, user } = useAuth();
   const navigate = useNavigate();
+  const [warningDismissed, setWarningDismissed] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -75,6 +76,34 @@ export function ChurchUpgrade() {
               $10/month or $100/year. You'll set up billing on the next step.
             </p>
           </div>
+
+          {/* Existing church warning */}
+          {user?.organization_id && user.is_primary_admin && (
+            <div className="w-full max-w-[520px] mb-6 bg-red-50 border border-red-300 text-red-800 px-5 py-4 rounded-xl font-body text-base">
+              <span className="font-bold">Action required before continuing:</span>
+              {' '}You are the <strong>primary administrator</strong> of <strong>{user.organization_name || 'your current church'}</strong>.
+              You must transfer primary admin status to another administrator before creating a new church.
+              {' '}Go to your <strong>Admin Dashboard → Settings → Administrators</strong> to transfer.
+            </div>
+          )}
+
+          {user?.organization_id && !user.is_primary_admin && !warningDismissed && (
+            <div className="w-full max-w-[520px] mb-6 bg-amber-50 border border-amber-300 text-amber-800 px-5 py-4 rounded-xl font-body text-base flex items-start justify-between gap-4">
+              <div>
+                <span className="font-bold">Heads up:</span>
+                {' '}You are currently associated with <strong>{user.organization_name || 'a church'}</strong>.
+                Creating a new church will <strong>remove you from {user.organization_name || 'your current church'}</strong>.
+                Your assessment history will be preserved.
+              </div>
+              <button
+                onClick={() => setWarningDismissed(true)}
+                className="shrink-0 text-amber-600 hover:text-amber-800 font-bold text-lg leading-none"
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* Form card */}
           <div className="w-full max-w-[520px] bg-white border border-brand-gray-light rounded-xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] px-[50px] py-12">

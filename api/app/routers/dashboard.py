@@ -686,10 +686,53 @@ async def leave_organization(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You are not linked to any organization"
         )
-    
+
+    if membership.is_primary_admin:
+        from app.models.membership import Membership as MembershipModel
+        from app.models.role import Role as RoleModel
+
+        other_admins = db.query(MembershipModel).filter(
+            MembershipModel.organization_id == membership.organization_id,
+            MembershipModel.user_id != current_user.id,
+            MembershipModel.role.has(name="admin"),
+            MembershipModel.status == "active",
+        ).count()
+
+        if other_admins > 0:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must transfer primary admin status to another administrator before leaving."
+            )
+
+        other_members = db.query(MembershipModel).filter(
+            MembershipModel.organization_id == membership.organization_id,
+            MembershipModel.user_id != current_user.id,
+            MembershipModel.status == "active",
+        ).count()
+
+        if other_members > 0:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must promote a member to administrator and transfer primary status before leaving."
+            )
+
+        # Alone — cancel the Stripe subscription before leaving
+        from app.models.subscription import Subscription
+        from app.services.stripe_service import stripe_service
+        old_sub = db.query(Subscription).filter(
+            Subscription.organization_id == membership.organization_id
+        ).order_by(Subscription.created_at.desc()).first()
+        if old_sub and old_sub.stripe_subscription_id and old_sub.status not in ("canceled", "incomplete_expired"):
+            try:
+                stripe_service.cancel_subscription(old_sub.stripe_subscription_id, at_period_end=False)
+                old_sub.status = "canceled"
+                db.flush()
+            except Exception:
+                pass
+
     # Set organization to null (become independent)
     membership.organization_id = None
     membership.status = "active"
     db.commit()
-    
+
     return {"message": "Successfully left organization"}

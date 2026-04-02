@@ -98,6 +98,7 @@ interface AdminContextType {
   approvePending: (id: string) => Promise<void>;
   declinePending: (id: string) => Promise<void>;
   toggleAdmin: (id: string, currentRole: string) => Promise<void>;
+  transferPrimaryAdmin: (targetMemberId: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -218,6 +219,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     await fetchMembers();
   }, [fetchMembers]);
 
+  const transferPrimaryAdmin = useCallback(async (targetMemberId: string) => {
+    await api.post('/admin/transfer-primary-admin', { target_member_id: targetMemberId });
+    await fetchMembers();
+  }, [fetchMembers]);
+
   const fetchSettings = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -276,6 +282,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         approvePending,
         declinePending,
         toggleAdmin,
+        transferPrimaryAdmin,
         clearError
       }}
     >

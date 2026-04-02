@@ -188,9 +188,58 @@ class AuthService:
         # Get admin role
         role = self.db.query(Role).filter(Role.name == "admin").first()
 
-        # Always create a new membership for the new org.
-        # Never mutate an existing membership — the user may already belong to
-        # another church as a regular member and that relationship must be preserved.
+        # Check if user already belongs to a church
+        existing_membership = next(
+            (m for m in user.memberships if m.organization_id is not None), None
+        )
+
+        if existing_membership:
+            if existing_membership.is_primary_admin:
+                # Primary admins cannot leave without addressing their church first
+                other_admins = self.db.query(Membership).filter(
+                    Membership.organization_id == existing_membership.organization_id,
+                    Membership.user_id != user.id,
+                    Membership.role.has(name="admin"),
+                    Membership.status == "active",
+                ).count()
+
+                if other_admins > 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You must transfer primary admin status to another administrator before creating a new church."
+                    )
+
+                other_members = self.db.query(Membership).filter(
+                    Membership.organization_id == existing_membership.organization_id,
+                    Membership.user_id != user.id,
+                    Membership.status == "active",
+                ).count()
+
+                if other_members > 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You must promote a member to administrator and transfer primary status before creating a new church."
+                    )
+
+                # Alone in the church — cancel its Stripe subscription then detach
+                from app.models.subscription import Subscription
+                from app.services.stripe_service import stripe_service
+                old_sub = self.db.query(Subscription).filter(
+                    Subscription.organization_id == existing_membership.organization_id
+                ).order_by(Subscription.created_at.desc()).first()
+                if old_sub and old_sub.stripe_subscription_id and old_sub.status not in ("canceled", "incomplete_expired"):
+                    try:
+                        stripe_service.cancel_subscription(old_sub.stripe_subscription_id, at_period_end=False)
+                        old_sub.status = "canceled"
+                        self.db.flush()
+                    except Exception:
+                        pass  # Don't block the flow if Stripe cancel fails
+            else:
+                # Secondary admin or regular member — detach from old church
+                existing_membership.organization_id = None
+                self.db.flush()
+
+        # Create new membership for the new org (user is now primary admin)
         membership = Membership(
             user_id=user.id,
             organization_id=org.id,

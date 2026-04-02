@@ -15,7 +15,7 @@ import string
 from app.core.database import get_db
 from app.core.rate_limits import limiter, ADMIN_RATE
 from app.core.audit import audit_action
-from app.dependencies.auth import get_current_active_user, require_admin, require_active_subscription, require_view_subscription
+from app.dependencies.auth import get_current_active_user, require_admin, require_active_subscription, require_view_subscription, require_primary_admin
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.membership import Membership
@@ -29,6 +29,7 @@ from app.schemas.admin import (
     MemberListResponse,
     MemberDetail,
     MemberUpdate,
+    TransferPrimaryAdminRequest,
     InviteCreate,
     InviteResponse,
     InviteListResponse,
@@ -426,6 +427,74 @@ async def remove_member(
     db.commit()
     
     return {"message": "Member removed from organization"}
+
+
+@router.post("/transfer-primary-admin")
+@limiter.limit(ADMIN_RATE)
+async def transfer_primary_admin(
+    request: Request,
+    body: TransferPrimaryAdminRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_primary_admin)
+):
+    """Transfer primary admin status to another admin in the organization.
+    The current primary admin becomes a secondary admin."""
+
+    org = get_admin_organization(db, current_user)
+
+    # Verify target is a different active admin (not primary) in the same org
+    target_membership = db.query(Membership).filter(
+        Membership.user_id == body.target_member_id,
+        Membership.organization_id == org.id,
+        Membership.is_primary_admin == False,
+        Membership.status == "active",
+    ).first()
+
+    if not target_membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Target member not found or is not an active secondary administrator in this organization"
+        )
+
+    if target_membership.role and target_membership.role.name not in ("admin", "master"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Primary admin status can only be transferred to an existing administrator"
+        )
+
+    # Get current primary admin's membership
+    current_membership = db.query(Membership).filter(
+        Membership.user_id == current_user.id,
+        Membership.is_primary_admin == True
+    ).first()
+
+    if not current_membership:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Current primary admin membership not found"
+        )
+
+    # Atomic swap — both happen or neither does
+    current_membership.is_primary_admin = False
+    target_membership.is_primary_admin = True
+    db.commit()
+
+    # Audit log
+    from app.core.audit import log_audit_event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="primary_admin_transferred",
+        target_type="user",
+        target_id=str(target_membership.user_id),
+        details={
+            "previous_primary_id": str(current_user.id),
+            "new_primary_id": str(target_membership.user_id),
+            "organization_id": str(org.id),
+        }
+    )
+
+    return {"message": "Primary admin status transferred successfully"}
 
 
 @router.get("/invites", response_model=InviteListResponse)

@@ -13,6 +13,17 @@ from app.models.membership import Membership
 from app.models.organization import Organization
 from app.models.subscription import Subscription
 
+def _get_active_membership(user: "User"):
+    """Return the most recently created membership with an active org association.
+    Falls back to any membership if none with an org exists (e.g. master admins)."""
+    org_memberships = sorted(
+        [m for m in user.memberships if m.organization_id is not None],
+        key=lambda m: m.created_at,
+        reverse=True,
+    )
+    return org_memberships[0] if org_memberships else (user.memberships[0] if user.memberships else None)
+
+
 # Statuses that grant full admin dashboard access (write operations)
 _ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing", "past_due"}
 
@@ -161,8 +172,7 @@ async def get_current_active_user_no_impersonation(
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Dependency to require admin or master role."""
-    # Check user's role through membership
-    membership = current_user.memberships[0] if current_user.memberships else None
+    membership = _get_active_membership(current_user)
     if membership:
         role_name = membership.role.name if membership.role else None
         if role_name in ["admin", "master"]:
@@ -178,7 +188,7 @@ def require_admin_no_impersonation(
     current_user: User = Depends(get_current_user_no_impersonation)
 ) -> User:
     """Require admin role, rejecting impersonation tokens."""
-    membership = current_user.memberships[0] if current_user.memberships else None
+    membership = _get_active_membership(current_user)
     if membership:
         role_name = membership.role.name if membership.role else None
         if role_name in ["admin", "master"]:

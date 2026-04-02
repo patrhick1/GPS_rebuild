@@ -70,7 +70,11 @@ async def upgrade_to_church_admin(
     )
 
     # Return fresh user+role data so frontend can update immediately
-    membership = db.query(Membership).filter(Membership.user_id == user.id).first()
+    # Use the new admin membership (is_primary_admin=True on the just-created org)
+    membership = db.query(Membership).filter(
+        Membership.user_id == user.id,
+        Membership.is_primary_admin == True
+    ).first()
     result = UserWithRole.model_validate(user)
     if membership:
         result.role = membership.role.name if membership.role else None
@@ -339,7 +343,15 @@ async def get_me(
     db: Session = Depends(get_db),
 ):
     """Get current authenticated user with role information."""
-    membership = current_user.memberships[0] if current_user.memberships else None
+    # Prefer the most recently created membership that has an active org association
+    org_memberships = sorted(
+        [m for m in current_user.memberships if m.organization_id is not None],
+        key=lambda m: m.created_at,
+        reverse=True,
+    )
+    membership = org_memberships[0] if org_memberships else (
+        current_user.memberships[0] if current_user.memberships else None
+    )
 
     result = UserWithRole.model_validate(current_user)
     if membership:

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -72,6 +72,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const userRef = useRef<User | null>(null);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
   const [accessToken, setAccessToken] = useState<string | null>(
     () => localStorage.getItem('access_token')
   );
@@ -166,12 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // If 402, check detail to distinguish no subscription vs expired/readonly
         if (error.response?.status === 402) {
           const detail = error.response?.data?.detail;
-          if (detail === 'no_subscription') {
-            // Admin never subscribed — must go through billing to unlock
+          if (detail === 'no_subscription' && userRef.current?.is_primary_admin) {
+            // Only primary admins are redirected to billing — they're the ones who can subscribe
             window.location.href = '/admin/billing';
           }
-          // For other 402s (write blocked due to expired subscription in readonly mode),
-          // let the error propagate so the component can handle it gracefully
+          // For secondary admins or other 402s, let the error propagate so the component can handle it
           return Promise.reject(error);
         }
 
