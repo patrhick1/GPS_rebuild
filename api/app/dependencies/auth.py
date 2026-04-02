@@ -10,6 +10,7 @@ from app.core.security import decode_token, verify_token_not_impersonation
 from app.models.user import User
 from app.models.role import Role
 from app.models.membership import Membership
+from app.models.organization import Organization
 from app.models.subscription import Subscription
 
 # Statuses that grant full admin dashboard access (write operations)
@@ -273,6 +274,10 @@ async def require_active_subscription(
             detail="Active subscription required to access the admin dashboard",
         )
 
+    org = db.query(Organization).filter(Organization.id == membership.organization_id).first()
+    if org and org.is_comped:
+        return current_user
+
     sub = db.query(Subscription).filter(
         Subscription.organization_id == membership.organization_id
     ).order_by(desc(Subscription.created_at)).first()
@@ -304,6 +309,10 @@ async def require_view_subscription(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="no_subscription",
         )
+
+    org = db.query(Organization).filter(Organization.id == membership.organization_id).first()
+    if org and org.is_comped:
+        return current_user
 
     sub = db.query(Subscription).filter(
         Subscription.organization_id == membership.organization_id

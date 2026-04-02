@@ -172,6 +172,7 @@ async def get_all_churches(
             state=church.state,
             country=church.country,
             status=church.status or "active",
+            is_comped=church.is_comped,
             member_count=member_count,
             assessment_count=assessment_count,
             admins=[{"id": a.id, "email": a.email, "name": f"{a.first_name} {a.last_name}"} for a in admins],
@@ -236,6 +237,8 @@ async def get_church_detail(
         city=church.city,
         state=church.state,
         country=church.country,
+        status=church.status or "active",
+        is_comped=church.is_comped,
         member_count=member_count,
         assessment_count=assessment_count,
         admins=[{"id": a.id, "email": a.email, "name": f"{a.first_name} {a.last_name}"} for a in admins],
@@ -828,6 +831,50 @@ async def update_church_status(
     db.commit()
 
     return {"message": f"Church {payload.status}", "status": payload.status}
+
+
+class ChurchCompUpdate(BaseModel):
+    is_comped: bool
+
+
+@router.put("/churches/{church_id}/comp")
+@limiter.limit(MASTER_RATE)
+async def update_church_comp(
+    church_id: str,
+    payload: ChurchCompUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_master)
+):
+    """Grant or revoke comped access for a church (billed elsewhere, bypasses Stripe)"""
+
+    org = db.query(Organization).filter(Organization.id == church_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Church not found"
+        )
+
+    old_value = org.is_comped
+    org.is_comped = payload.is_comped
+    db.commit()
+
+    audit = AuditLog(
+        user_id=current_user.id,
+        action="church_comp_toggle",
+        target_type="organization",
+        target_id=org.id,
+        details={
+            "church_name": org.name,
+            "is_comped_before": old_value,
+            "is_comped_after": payload.is_comped,
+        }
+    )
+    db.add(audit)
+    db.commit()
+
+    action = "granted" if payload.is_comped else "revoked"
+    return {"is_comped": payload.is_comped, "message": f"Comped access {action} for {org.name}"}
 
 
 @router.get("/dashboard-stats")

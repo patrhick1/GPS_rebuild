@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -22,6 +22,7 @@ class Organization(Base):
     trial_ends_at = Column(DateTime, nullable=True)
     preferred_instrument = Column(String(50), nullable=True)
     status = Column(String(20), nullable=False, default="active")  # active, paused
+    is_comped = Column(Boolean, nullable=False, default=False)  # True = billed elsewhere, bypass Stripe check
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
