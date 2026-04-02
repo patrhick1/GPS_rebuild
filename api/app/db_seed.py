@@ -251,6 +251,32 @@ def seed_questions(db: Session):
             print(f"Warning: gps_questions.csv not found at {csv_path}")
     else:
         print(f"GPS questions already seeded ({existing_gps} found)")
+
+    # Load Spanish translations for GPS questions
+    spanish_csv_path = os.path.join(os.path.dirname(__file__), '..', '..', 'gps_questions_spanish.csv')
+    if not os.path.exists(spanish_csv_path):
+        spanish_csv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'gps_questions_spanish.csv')
+
+    if os.path.exists(spanish_csv_path):
+        updated = 0
+        with open(spanish_csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                english_text = row['English'].strip()
+                spanish_text = row['Spanish'].strip()
+                if not english_text or not spanish_text:
+                    continue
+                q = db.query(Question).filter(
+                    Question.question == english_text,
+                    Question.instrument_type == "gps",
+                ).first()
+                if q and not q.question_es:
+                    q.question_es = spanish_text
+                    updated += 1
+        db.commit()
+        print(f"Updated {updated} GPS questions with Spanish translations")
+    else:
+        print(f"Warning: gps_questions_spanish.csv not found at {spanish_csv_path}")
     
     # Seed MyImpact questions if not already present
     existing_myimpact = db.query(Question).filter(Question.instrument_type == "myimpact").count()

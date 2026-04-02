@@ -54,6 +54,9 @@ generate_secrets.py
 api/alembic/versions/*.pyc
 api/alembic/versions/__pycache__/
 
+# Migration scripts (contain DB credentials / internal tooling)
+api/scripts/migrate_from_laravel.py
+
 # Internal notes and documentation
 questions-for-product-owner.md
 DEPLOYMENT_GUIDE.md
