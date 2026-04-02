@@ -1,9 +1,11 @@
 import logging
 import uuid
 from typing import List, Optional
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timezone
 
@@ -21,6 +23,7 @@ from app.models.myimpact_result import MyImpactResult
 from app.models.gifts_passion import GiftsPassion
 from app.services.scoring_service import ScoringService
 from app.services.myimpact_scoring_service import MyImpactScoringService
+from app.services.pdf_service import generate_pdf
 from app.services.email_service import (
     send_assessment_notification_email,
     send_gps_result_email,
@@ -543,6 +546,88 @@ async def grade_assessment_preview(
                 for s in graded.stories
             ]
         )
+
+
+@router.get("/{assessment_id}/pdf")
+@limiter.limit(AUTHENTICATED_RATE)
+async def download_assessment_pdf(
+    request: Request,
+    assessment_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Download a completed GPS assessment as a PDF report."""
+    try:
+        assessment_uuid = uuid.UUID(assessment_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid assessment ID format"
+        )
+
+    # First try: user's own assessment
+    assessment = db.query(Assessment).filter(
+        Assessment.id == assessment_uuid,
+        Assessment.user_id == current_user.id
+    ).first()
+
+    # Second try: admin viewing a member's assessment
+    if not assessment:
+        from app.models.membership import Membership as _Membership
+        admin_membership = db.query(_Membership).filter(
+            _Membership.user_id == current_user.id,
+            _Membership.role.has(name="admin")
+        ).first()
+        if admin_membership:
+            assessment = db.query(Assessment).filter(
+                Assessment.id == assessment_uuid
+            ).first()
+            if assessment:
+                member_membership = db.query(_Membership).filter(
+                    _Membership.user_id == assessment.user_id,
+                    _Membership.organization_id == admin_membership.organization_id
+                ).first()
+                if not member_membership:
+                    assessment = None
+
+    if not assessment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assessment not found"
+        )
+
+    if assessment.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Assessment is not yet completed"
+        )
+
+    if assessment.instrument_type == "myimpact":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PDF download is only available for GPS assessments"
+        )
+
+    scoring_service = ScoringService(db)
+    graded = scoring_service.grade_assessment(assessment)
+
+    owner = db.query(User).filter(User.id == assessment.user_id).first()
+    user_name = f"{owner.first_name or ''} {owner.last_name or ''}".strip() if owner else "Unknown"
+
+    pdf_buffer = generate_pdf(
+        graded=graded,
+        user_name=user_name,
+        completed_at=assessment.completed_at,
+    )
+
+    safe_name = user_name.replace(" ", "_") or "gps"
+    filename = f"gps-results-{safe_name}.pdf"
+
+    return StreamingResponse(
+        iter([pdf_buffer.read()]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{assessment_id}/continue", response_model=AssessmentFormData)

@@ -55,6 +55,25 @@ export function AssessmentResults() {
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const fetchedRef = useRef<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!assessmentId) return;
+    setPdfLoading(true);
+    try {
+      const res = await api.get(`/assessments/${assessmentId}/pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'gps-results.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently ignore — user can use Print as fallback
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   // Use context results if available (e.g. after submit), otherwise use locally fetched
   const results = contextResults || localResults;
@@ -318,12 +337,23 @@ export function AssessmentResults() {
               <span className="text-xl">&larr;</span> Back
             </button>
 
-            <button
-              onClick={() => window.print()}
-              className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors flex items-center gap-2"
-            >
-              Print <span className="text-xl">&rarr;</span>
-            </button>
+            <div className="flex items-center gap-3">
+              {assessmentId && (
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={pdfLoading}
+                  className="h-[50px] px-8 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-lg rounded-xl hover:bg-brand-teal/10 transition-colors disabled:opacity-50"
+                >
+                  {pdfLoading ? 'Generating…' : 'Download PDF'}
+                </button>
+              )}
+              <button
+                onClick={() => window.print()}
+                className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors flex items-center gap-2"
+              >
+                Print <span className="text-xl">&rarr;</span>
+              </button>
+            </div>
           </div>
         </div>
       </main>
