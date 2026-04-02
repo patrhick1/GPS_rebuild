@@ -64,10 +64,25 @@ async def get_subscription_status(
         Subscription.organization_id == membership.organization_id
     ).order_by(desc(Subscription.created_at)).first()
 
-    if not subscription:
-        return {"status": "no_subscription"}
+    sub_status = subscription.status if subscription else "no_subscription"
 
-    return {"status": subscription.status}
+    result = {"status": sub_status}
+
+    # For secondary admins, include the primary admin's name/email so the
+    # frontend can tell them who to contact about subscription issues.
+    if not membership.is_primary_admin:
+        primary_mem = db.query(Membership).filter(
+            Membership.organization_id == membership.organization_id,
+            Membership.is_primary_admin == True,
+        ).first()
+        if primary_mem:
+            primary_user = db.query(User).filter(User.id == primary_mem.user_id).first()
+            if primary_user:
+                name_parts = [primary_user.first_name, primary_user.last_name]
+                result["primary_admin_name"] = " ".join(p for p in name_parts if p)
+                result["primary_admin_email"] = primary_user.email
+
+    return result
 
 
 @router.get("/subscription")

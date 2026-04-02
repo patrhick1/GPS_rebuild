@@ -68,6 +68,7 @@ export function AdminDashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [noSubscription, setNoSubscription] = useState(false);
+  const [primaryAdminInfo, setPrimaryAdminInfo] = useState<{ name: string; email: string } | null>(null);
   const [transferTarget, setTransferTarget] = useState<typeof members[0] | null>(null);
   const [isTransferring, setIsTransferring] = useState(false);
   const [search, setSearch] = useState('');
@@ -88,11 +89,15 @@ export function AdminDashboard() {
   useEffect(() => {
     api.get('/billing/subscription/status').then((res) => {
       const subStatus = res.data?.status;
+      if (res.data?.primary_admin_name) {
+        setPrimaryAdminInfo({ name: res.data.primary_admin_name, email: res.data.primary_admin_email });
+      }
       if (subStatus === 'no_subscription') {
         // Primary admins will be redirected by the global interceptor when member fetches fail.
-        // Secondary admins see a dedicated banner instead.
+        // Secondary admins see a dedicated banner and all write actions are disabled.
         if (!user?.is_primary_admin) {
           setNoSubscription(true);
+          setIsReadOnly(true);
         }
       } else if (subStatus && !['active', 'trialing', 'past_due'].includes(subStatus)) {
         setIsReadOnly(true);
@@ -208,7 +213,10 @@ export function AdminDashboard() {
           <div className="max-w-[1400px] mx-auto px-6 md:px-10 pt-6">
             <div className="bg-amber-50 border border-amber-300 text-amber-800 px-5 py-4 rounded-xl font-body text-base">
               <span className="font-bold">No active subscription.</span>
-              {' '}Your church hasn't set up a subscription yet. Contact the primary administrator to get started.
+              {' '}Your church hasn't set up a subscription yet.
+              {primaryAdminInfo
+                ? <> Contact <span className="font-bold">{primaryAdminInfo.name}</span> ({primaryAdminInfo.email}), the primary administrator, to get started.</>
+                : ' Contact the primary administrator to get started.'}
             </div>
           </div>
         )}
@@ -220,7 +228,9 @@ export function AdminDashboard() {
                 <span className="font-bold">Your subscription has expired.</span>
                 {' '}You can view existing member data, but inviting, approving, and editing are disabled.
                 {!user?.is_primary_admin && (
-                  <span> Contact your organization's primary admin to renew.</span>
+                  primaryAdminInfo
+                    ? <span> Contact <span className="font-bold">{primaryAdminInfo.name}</span> ({primaryAdminInfo.email}), the primary administrator, to renew.</span>
+                    : <span> Contact your organization's primary admin to renew.</span>
                 )}
               </div>
               {user?.is_primary_admin && (
@@ -235,7 +245,7 @@ export function AdminDashboard() {
           </div>
         )}
 
-        {error && (
+        {error && error !== 'no_subscription' && (
           <div className="max-w-[1400px] mx-auto px-6 md:px-10 pt-6">
             <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-3 rounded-xl font-body text-base flex items-center justify-between">
               <span>{error}</span>
@@ -1074,17 +1084,19 @@ export function AdminDashboard() {
                         Manage Connections
                       </button>
                     </div>
-                    <div>
-                      <h3 className="font-body font-bold text-lg text-brand-charcoal mb-2">
-                        Subscription &amp; Billing
-                      </h3>
-                      <button
-                        onClick={() => navigate('/admin/billing')}
-                        className="h-[44px] px-5 bg-brand-teal-light text-brand-charcoal font-body font-bold text-base rounded-xl hover:bg-brand-teal-light/80 transition-colors"
-                      >
-                        Manage Payment Method
-                      </button>
-                    </div>
+                    {user?.is_primary_admin && (
+                      <div>
+                        <h3 className="font-body font-bold text-lg text-brand-charcoal mb-2">
+                          Subscription &amp; Billing
+                        </h3>
+                        <button
+                          onClick={() => navigate('/admin/billing')}
+                          className="h-[44px] px-5 bg-brand-teal-light text-brand-charcoal font-body font-bold text-base rounded-xl hover:bg-brand-teal-light/80 transition-colors"
+                        >
+                          Manage Payment Method
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <hr className="border-brand-gray-light my-6" />
