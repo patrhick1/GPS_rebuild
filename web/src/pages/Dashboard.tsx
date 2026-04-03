@@ -205,7 +205,7 @@ export function Dashboard() {
           {user?.role === 'admin' || user?.role === 'master' ? (
             <p className="font-body font-bold text-base md:text-xl text-brand-charcoal mt-8">
               <Link
-                to="/admin"
+                to={user?.role === 'master' ? '/master' : '/admin'}
                 className="font-black text-brand-teal underline hover:text-brand-teal/80 transition-colors"
               >
                 Go to Admin Dashboard
