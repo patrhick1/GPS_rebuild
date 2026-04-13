@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from 'react';
 import { api } from './AuthContext';
 
 interface Question {
@@ -315,6 +315,37 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Auto-save: debounced save after each answer change
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+
+  const triggerAutoSave = useCallback(() => {
+    if (!assessmentId) return;
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const answersArray = Object.values(answersRef.current);
+        await api.post(`/assessments/${assessmentId}/save-progress`, {
+          answers: answersArray
+        });
+      } catch {
+        // Silent fail for auto-save — don't disrupt the user
+      }
+    }, 2000); // 2-second debounce
+  }, [assessmentId]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, []);
+
   const saveAnswer = useCallback((questionId: string, answer: Partial<Answer>) => {
     setAnswers(prev => ({
       ...prev,
@@ -324,7 +355,8 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
         ...answer
       }
     }));
-  }, []);
+    triggerAutoSave();
+  }, [triggerAutoSave]);
 
   // MyImpact question-level navigation (kept for compatibility)
   const goToNext = useCallback(() => {

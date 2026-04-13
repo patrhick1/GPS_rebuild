@@ -82,6 +82,7 @@ interface MasterContextType {
   toggleChurchStatus: (churchId: string, status: string) => Promise<void>;
   addChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   removeChurchAdmin: (churchId: string, userId: string) => Promise<void>;
+  transferPrimaryAdmin: (churchId: string, userId: string) => Promise<void>;
   impersonateUser: (userId: string, reason: string) => Promise<string>;
   exportData: (type: string, filters?: any) => Promise<void>;
   clearError: () => void;
@@ -196,6 +197,12 @@ export function MasterProvider({ children }: { children: ReactNode }) {
     await api.delete(`/master/churches/${churchId}/admins/${userId}`);
   }, []);
 
+  const transferPrimaryAdmin = useCallback(async (churchId: string, userId: string) => {
+    await api.post(`/master/churches/${churchId}/transfer-primary-admin`, {
+      new_primary_user_id: userId
+    });
+  }, []);
+
   const impersonateUser = useCallback(async (userId: string, reason: string): Promise<string> => {
     const response = await api.post('/master/impersonate', {
       user_id: userId,
@@ -244,6 +251,7 @@ export function MasterProvider({ children }: { children: ReactNode }) {
         toggleChurchStatus,
         addChurchAdmin,
         removeChurchAdmin,
+        transferPrimaryAdmin,
         impersonateUser,
         exportData,
         clearError

@@ -27,15 +27,9 @@ const US_STATES = [
 
 function MyImpactScoreBadge({ score }: { score?: number | null }) {
   if (score == null) return <span className="font-body font-bold text-lg text-brand-charcoal">—</span>;
-  let label: string;
-  let colorClass: string;
-  if (score >= 70) { label = 'Mature'; colorClass = 'bg-green-100 text-green-800'; }
-  else if (score >= 50) { label = 'Growing'; colorClass = 'bg-brand-gold/20 text-brand-charcoal'; }
-  else if (score >= 30) { label = 'Developing'; colorClass = 'bg-orange-100 text-orange-800'; }
-  else { label = 'Beginning'; colorClass = 'bg-red-100 text-red-800'; }
   return (
-    <span className={`inline-flex items-center gap-1 h-8 px-3 rounded-full font-body font-bold text-base ${colorClass}`}>
-      {score.toFixed(0)} <span className="font-normal text-sm">({label})</span>
+    <span className="inline-flex items-center h-8 px-3 rounded-full font-body font-bold text-base bg-brand-teal-light/30 text-brand-charcoal">
+      {score.toFixed(0)}
     </span>
   );
 }
@@ -46,6 +40,7 @@ export function AdminDashboard() {
     members,
     pending,
     churchSettings,
+    stats,
     isLoading,
     isSaving,
     error,
@@ -54,6 +49,7 @@ export function AdminDashboard() {
     fetchMembers,
     fetchPending,
     fetchSettings,
+    fetchStats,
     updateSettings,
     approvePending,
     declinePending,
@@ -84,7 +80,8 @@ export function AdminDashboard() {
     fetchMembers();
     fetchPending();
     fetchSettings();
-  }, [fetchMembers, fetchPending, fetchSettings]);
+    fetchStats();
+  }, [fetchMembers, fetchPending, fetchSettings, fetchStats]);
 
   useEffect(() => {
     api.get('/billing/subscription/status').then((res) => {
@@ -258,10 +255,17 @@ export function AdminDashboard() {
         <section className="max-w-[1400px] mx-auto px-6 md:px-10 pt-10 pb-6">
           <div className="flex items-start justify-between">
             {/* Title */}
-            <h1 className="font-heading text-[36px] md:text-[48px] leading-[40px] md:leading-[55px] text-brand-charcoal">
-              <span className="font-medium">Welcome to Your Admin Account,</span>{' '}
-              <span className="font-black">{firstName}</span>
-            </h1>
+            <div>
+              <h1 className="font-heading text-[36px] md:text-[48px] leading-[40px] md:leading-[55px] text-brand-charcoal">
+                <span className="font-medium">Welcome to Your Admin Account,</span>{' '}
+                <span className="font-black">{firstName}</span>
+              </h1>
+              {churchSettings && (
+                <p className="font-body font-semibold text-lg text-brand-teal mt-2">
+                  {churchSettings.name}
+                </p>
+              )}
+            </div>
 
             {/* Gold hamburger menu */}
             <div className="relative" ref={menuRef}>
@@ -272,6 +276,7 @@ export function AdminDashboard() {
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-[260px] bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] z-50 py-2">
                   {[
+                    ...(user?.role === 'master' ? [{ label: '← Back to Master Dashboard', action: () => navigate('/master') }] : []),
                     { label: 'GPS Assessments', action: () => navigate('/dashboard') },
                     { label: 'MyImpact Assessments', action: () => navigate('/dashboard') },
                     { label: 'Account', action: () => navigate('/account') },
@@ -297,9 +302,21 @@ export function AdminDashboard() {
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Left sidebar nav */}
             <aside className="lg:w-[280px] shrink-0">
-              <p className="font-heading font-medium text-[20px] md:text-[24px] leading-[40px] md:leading-[55px] text-brand-charcoal">
+              {user?.role === 'master' && (
+                <button
+                  onClick={() => navigate('/master')}
+                  className="flex items-center gap-2 mb-4 font-body font-bold text-base text-brand-teal hover:text-brand-teal/80 transition-colors"
+                >
+                  <span className="text-lg">←</span> Back to Master Dashboard
+                </button>
+              )}
+
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="font-heading font-medium text-[20px] md:text-[22px] leading-[32px] md:leading-[40px] text-brand-charcoal hover:text-brand-teal transition-colors mb-1"
+              >
                 My Assessments
-              </p>
+              </button>
 
               {(['gps', 'myimpact', 'settings'] as AdminTab[]).map((tab) => {
                 const labels: Record<AdminTab, string> = {
@@ -312,16 +329,16 @@ export function AdminDashboard() {
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`flex items-center gap-2 w-full text-left py-1 font-heading text-[20px] md:text-[24px] leading-[40px] md:leading-[55px] transition-colors ${
+                    className={`flex items-center gap-2 w-full text-left py-1.5 font-heading font-medium text-[16px] md:text-[18px] leading-[24px] md:leading-[28px] transition-colors ${
                       isActive
-                        ? 'font-black text-brand-teal'
-                        : 'font-medium text-brand-charcoal hover:text-brand-teal'
+                        ? 'text-brand-teal'
+                        : 'text-brand-charcoal hover:text-brand-teal'
                     }`}
                   >
                     {isActive && (
-                      <img src={tealArrowIcon} alt="" className="w-[24px] h-[24px] md:w-[34px] md:h-[34px] shrink-0" />
+                      <img src={tealArrowIcon} alt="" className="w-[20px] h-[20px] md:w-[26px] md:h-[26px] shrink-0" />
                     )}
-                    <span className={isActive ? '' : 'ml-[32px] md:ml-[42px]'}>{labels[tab]}</span>
+                    <span>{labels[tab]}</span>
                   </button>
                 );
               })}
@@ -329,9 +346,35 @@ export function AdminDashboard() {
 
             {/* Right content */}
             <div className="flex-1 min-w-0">
-              {/* Pending Member Requests */}
-              {(activeTab === 'gps' || activeTab === 'myimpact') && (
-                <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6 mb-8">
+              {/* Church Stats Overview */}
+              {stats && (activeTab === 'gps' || activeTab === 'myimpact') && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                  <div className="bg-white border border-brand-gray-light rounded-xl p-4 text-center shadow-sm">
+                    <p className="font-heading font-black text-[28px] text-brand-teal">{stats.active_members}</p>
+                    <p className="font-body text-sm text-brand-gray-med">Active Members</p>
+                  </div>
+                  <div className="bg-white border border-brand-gray-light rounded-xl p-4 text-center shadow-sm">
+                    <p className="font-heading font-black text-[28px] text-brand-teal">{stats.gps_assessments}</p>
+                    <p className="font-body text-sm text-brand-gray-med">GPS Assessments</p>
+                  </div>
+                  <div className="bg-white border border-brand-gray-light rounded-xl p-4 text-center shadow-sm">
+                    <p className="font-heading font-black text-[28px] text-brand-teal">{stats.myimpact_assessments}</p>
+                    <p className="font-body text-sm text-brand-gray-med">MyImpact Assessments</p>
+                  </div>
+                  {stats.avg_myimpact_score != null && (
+                    <div className="bg-white border border-brand-gray-light rounded-xl p-4 text-center shadow-sm">
+                      <p className="font-heading font-black text-[28px] text-brand-gold">{stats.avg_myimpact_score}</p>
+                      <p className="font-body text-xs text-brand-gray-med mt-1">
+                        Character {stats.avg_character_score} x Calling {stats.avg_calling_score}
+                      </p>
+                      <p className="font-body text-sm text-brand-gray-med">Avg MyImpact Score</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pending Member Requests — shown on all tabs */}
+              <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6 mb-8">
                   <h3 className="font-heading font-medium text-[24px] text-brand-charcoal mb-1">
                     Pending Member Requests
                   </h3>
@@ -373,7 +416,11 @@ export function AdminDashboard() {
                     </div>
                   )}
                 </div>
-              )}
+
+            </div>
+          </div>
+
+          {/* ── Tab content — full width below sidebar row ── */}
 
               {/* ── GPS Members Tab ── */}
               {activeTab === 'gps' && (
@@ -978,7 +1025,7 @@ export function AdminDashboard() {
 
               {/* ── Church Profile & Settings Tab ── */}
               {activeTab === 'settings' && (
-                <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6 max-w-[900px]">
+                <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
                   <h2 className="font-heading font-black text-[32px] text-brand-charcoal mb-6">
                     Church Profile &amp; Settings
                   </h2>
@@ -1113,8 +1160,6 @@ export function AdminDashboard() {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
         </section>
       </main>
 

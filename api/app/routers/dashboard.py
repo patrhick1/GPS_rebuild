@@ -18,6 +18,7 @@ from app.models.assessment_result import AssessmentResult
 from app.models.myimpact_result import MyImpactResult
 from app.models.gifts_passion import GiftsPassion
 from app.models.organization import Organization
+from app.models.membership import Membership
 from app.models.question import Question
 from app.models.answer import Answer
 from app.schemas.dashboard import (
@@ -614,51 +615,52 @@ async def search_churches(
 @router.post("/link-request", response_model=LinkRequestResponse)
 @limiter.limit(AUTHENTICATED_RATE)
 async def request_church_link(
-    http_request: Request,
-    request: LinkRequestCreate,
+    request: Request,
+    link_data: LinkRequestCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """Request to link to a church"""
-    
+
     # Check if user already has a membership
     existing = db.query(Membership).filter(
         Membership.user_id == current_user.id
     ).first()
-    
+
     if existing and existing.organization_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You are already linked to an organization"
         )
-    
+
     # Get the organization
-    org = db.query(Organization).filter(Organization.id == request.organization_id).first()
+    org = db.query(Organization).filter(Organization.id == link_data.organization_id).first()
     if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
-    
+
     # Create or update membership with pending status
     if existing:
-        existing.organization_id = request.organization_id
+        existing.organization_id = link_data.organization_id
         existing.status = "pending"
+        membership = existing
     else:
         # Get the member role
         from app.models.role import Role
         member_role = db.query(Role).filter(Role.name == "member").first()
-        
+
         membership = Membership(
             user_id=current_user.id,
-            organization_id=request.organization_id,
+            organization_id=link_data.organization_id,
             role_id=member_role.id if member_role else None,
             status="pending"
         )
         db.add(membership)
-    
+
     db.commit()
-    
+
     return LinkRequestResponse(
         id=membership.id,
         organization_id=org.id,

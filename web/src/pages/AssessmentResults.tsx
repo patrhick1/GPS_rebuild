@@ -1,9 +1,32 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAssessment } from '../context/AssessmentContext';
-import { api } from '../context/AuthContext';
+import { api, useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+
+const ES_RESULTS: Record<string, string> = {
+  'GPS Assessment': 'Evaluación GPS',
+  'Assessment started on': 'Evaluación iniciada el',
+  'Completed': 'Completadas',
+  'of': 'de',
+  'questions': 'preguntas',
+  'Story': 'Historia',
+  'Your Spiritual Gifts': 'Tus Dones Espirituales',
+  'Score:': 'Puntaje:',
+  'Passions': 'Pasiones',
+  'Your Spiritual Influencing Styles (highest score is primary & lower is secondary)': 'Tus estilos de influencia espiritual (el puntaje más alto es el principal y el más bajo es el secundario)',
+  'Your Selections': 'Tus Selecciones',
+  'Key Abilities': 'Habilidades Clave',
+  "People You're Passionate About": 'Personas que te apasionan',
+  'Causes You Care About': 'Causas que te importan',
+  'Back': 'Volver',
+  'Download PDF': 'Descargar PDF',
+  'Generating…': 'Generando…',
+  'Print': 'Imprimir',
+  'Loading results...': 'Cargando resultados...',
+  'Go Back': 'Volver',
+};
 
 const GIFT_COLORS = [
   'bg-brand-teal-light',
@@ -46,6 +69,9 @@ interface GradedResults {
 
 export function AssessmentResults() {
   const { results: contextResults, questions, answeredCount, assessmentStartDate } = useAssessment();
+  const { locale } = useAuth();
+  const isEs = locale === 'es';
+  const t = useMemo(() => (key: string) => isEs ? (ES_RESULTS[key] || key) : key, [isEs]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const assessmentId = searchParams.get('id');
@@ -118,7 +144,7 @@ export function AssessmentResults() {
               onClick={() => navigate(-1)}
               className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
             >
-              Go Back
+              {t('Go Back')}
             </button>
           </div>
         </main>
@@ -132,7 +158,7 @@ export function AssessmentResults() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <p className="font-body text-lg text-brand-gray-med">Loading results...</p>
+          <p className="font-body text-lg text-brand-gray-med">{t('Loading results...')}</p>
         </main>
         <Footer />
       </div>
@@ -152,11 +178,11 @@ export function AssessmentResults() {
 
           {/* Header */}
           <h1 className="font-heading font-black text-[32px] md:text-[48px] md:leading-[55px] text-brand-charcoal">
-            GPS Assessment
+            {t('GPS Assessment')}
           </h1>
           {assessmentStartDate && (
             <p className="font-body font-semibold italic text-lg text-brand-charcoal mt-1">
-              Assessment started on {assessmentStartDate}
+              {t('Assessment started on')} {assessmentStartDate}
             </p>
           )}
 
@@ -170,7 +196,7 @@ export function AssessmentResults() {
                 />
               </div>
               <p className="font-body font-semibold italic text-lg text-brand-charcoal text-center mt-3">
-                Completed {completedCount} of {totalQuestions} questions
+                {t('Completed')} {completedCount} {t('of')} {totalQuestions} {t('questions')}
               </p>
             </div>
           )}
@@ -179,27 +205,45 @@ export function AssessmentResults() {
           {results.stories.length > 0 && (
             <section className="mt-16">
               <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-6">
-                Story
+                {t('Story')}
               </h2>
 
               <div className="font-body font-bold text-xl text-brand-charcoal leading-[30px] space-y-4">
-                <p>
-                  <span className="font-black">Take delight in the LORD, and he will give you the desires of your heart.</span>
-                  {' '}Psalm 37:4
-                </p>
-                <p>
-                  <span className="font-black">We are God's masterpiece. He has created us anew in Christ Jesus, so we can do the good things he planned for us long ago.</span>
-                  {' '}Ephesians 2:10
-                </p>
-                <p className="font-bold">
-                  As we abide with Jesus, He grows in us a passion for the good works He wants us to do. We will assess three areas of passion: the People, the Causes, and the primary Influencing Style you use to serve those people and causes. Follow the directions in each category to discern your passion.
-                </p>
+                {isEs ? (
+                  <>
+                    <p>
+                      <span className="font-black">Deléitate en el SEÑOR, y él te concederá los deseos de tu corazón.</span>
+                      {' '}Salmo 37:4
+                    </p>
+                    <p>
+                      <span className="font-black">Porque somos hechura de Dios, creados en Cristo Jesús para buenas obras, las cuales Dios dispuso de antemano a fin de que las pongamos en práctica.</span>
+                      {' '}Efesios 2:10
+                    </p>
+                    <p className="font-bold">
+                      Al permanecer con Jesús, Él hace crecer en nosotros una pasión por las buenas obras que Él quiere que hagamos. Evaluaremos tres áreas de pasión: las Personas, las Causas y el Estilo de Influencia principal que usas para servir a esas personas y causas. Sigue las instrucciones en cada categoría para discernir tu pasión.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <span className="font-black">Take delight in the LORD, and he will give you the desires of your heart.</span>
+                      {' '}Psalm 37:4
+                    </p>
+                    <p>
+                      <span className="font-black">We are God's masterpiece. He has created us anew in Christ Jesus, so we can do the good things he planned for us long ago.</span>
+                      {' '}Ephesians 2:10
+                    </p>
+                    <p className="font-bold">
+                      As we abide with Jesus, He grows in us a passion for the good works He wants us to do. We will assess three areas of passion: the People, the Causes, and the primary Influencing Style you use to serve those people and causes. Follow the directions in each category to discern your passion.
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* Story responses */}
               {results.stories.map((story, idx) => (
                 <div key={idx} className="mt-6">
-                  <h3 className="font-body font-black text-lg text-brand-charcoal">{story.question}</h3>
+                  <h3 className="font-body font-black text-lg text-brand-charcoal">{(isEs && story.question_es) ? story.question_es : story.question}</h3>
                   <p className="font-body text-lg text-brand-charcoal mt-1 whitespace-pre-wrap">{story.answer}</p>
                 </div>
               ))}
@@ -209,7 +253,7 @@ export function AssessmentResults() {
           {/* Your Spiritual Gifts */}
           <section className="mt-16">
             <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-6">
-              Your Spiritual Gifts
+              {t('Your Spiritual Gifts')}
             </h2>
 
             <div className="space-y-0">
@@ -233,7 +277,7 @@ export function AssessmentResults() {
 
                     {/* Score */}
                     <span className="shrink-0 font-body font-black text-xl text-brand-teal whitespace-nowrap">
-                      Score: {gift.points}
+                      {t('Score:')} {gift.points}
                     </span>
                   </div>
                 </div>
@@ -245,10 +289,10 @@ export function AssessmentResults() {
           {/* Passions / Influencing Styles */}
           <section className="mt-16">
             <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-2">
-              Passions
+              {t('Passions')}
             </h2>
             <p className="font-body font-bold text-xl text-brand-charcoal leading-[30px] mb-6">
-              Your Spiritual Influencing Styles (highest score is primary &amp; lower is secondary)
+              {t('Your Spiritual Influencing Styles (highest score is primary & lower is secondary)')}
             </p>
 
             <div className="space-y-0">
@@ -271,7 +315,7 @@ export function AssessmentResults() {
 
                     {/* Score */}
                     <span className="shrink-0 font-body font-black text-xl text-brand-teal whitespace-nowrap">
-                      Score: {passion.points}
+                      {t('Score:')} {passion.points}
                     </span>
                   </div>
                 </div>
@@ -284,12 +328,12 @@ export function AssessmentResults() {
           {(results.abilities.length > 0 || results.people.length > 0 || results.causes.length > 0) && (
             <section className="mt-16">
               <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-6">
-                Your Selections
+                {t('Your Selections')}
               </h2>
 
               {results.abilities.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">Key Abilities</h3>
+                  <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t('Key Abilities')}</h3>
                   <div className="flex flex-wrap gap-2">
                     {results.abilities.map((ability, idx) => (
                       <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-purple/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
@@ -302,7 +346,7 @@ export function AssessmentResults() {
 
               {results.people.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">People You're Passionate About</h3>
+                  <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t("People You're Passionate About")}</h3>
                   <div className="flex flex-wrap gap-2">
                     {results.people.map((person, idx) => (
                       <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-pink/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
@@ -315,7 +359,7 @@ export function AssessmentResults() {
 
               {results.causes.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">Causes You Care About</h3>
+                  <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t('Causes You Care About')}</h3>
                   <div className="flex flex-wrap gap-2">
                     {results.causes.map((cause, idx) => (
                       <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-teal-light/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
@@ -334,7 +378,7 @@ export function AssessmentResults() {
               onClick={() => navigate(-1)}
               className="h-[50px] px-8 bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors flex items-center gap-2"
             >
-              <span className="text-xl">&larr;</span> Back
+              <span className="text-xl">&larr;</span> {t('Back')}
             </button>
 
             <div className="flex items-center gap-3">
@@ -344,14 +388,14 @@ export function AssessmentResults() {
                   disabled={pdfLoading}
                   className="h-[50px] px-8 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-lg rounded-xl hover:bg-brand-teal/10 transition-colors disabled:opacity-50"
                 >
-                  {pdfLoading ? 'Generating…' : 'Download PDF'}
+                  {pdfLoading ? t('Generating…') : t('Download PDF')}
                 </button>
               )}
               <button
                 onClick={() => window.print()}
                 className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors flex items-center gap-2"
               >
-                Print <span className="text-xl">&rarr;</span>
+                {t('Print')} <span className="text-xl">&rarr;</span>
               </button>
             </div>
           </div>

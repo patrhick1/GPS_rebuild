@@ -33,6 +33,7 @@ from app.schemas.master import (
     ImpersonateRequest,
     ImpersonateResponse,
     SystemExportRequest,
+    MasterTransferPrimaryAdminRequest,
 )
 
 router = APIRouter(prefix="/master", tags=["Master Admin"])
@@ -150,12 +151,14 @@ async def get_all_churches(
             Assessment.status == "completed"
         ).count()
         
-        # Get admins
-        admins = db.query(User).join(Membership).join(Role).filter(
+        # Get admins with primary flag
+        admin_rows = db.query(User, Membership.is_primary_admin).join(
+            Membership, User.id == Membership.user_id
+        ).join(Role, Membership.role_id == Role.id).filter(
             Membership.organization_id == church.id,
             Role.name == "admin"
-        ).all()
-        
+        ).order_by(Membership.is_primary_admin.desc()).all()
+
         # Last activity
         last_activity = db.query(Assessment.completed_at).join(
             Membership, Assessment.user_id == Membership.user_id
@@ -163,7 +166,7 @@ async def get_all_churches(
             Membership.organization_id == church.id,
             Assessment.status == "completed"
         ).order_by(Assessment.completed_at.desc()).first()
-        
+
         result.append(ChurchDetail(
             id=church.id,
             name=church.name,
@@ -175,7 +178,7 @@ async def get_all_churches(
             is_comped=church.is_comped,
             member_count=member_count,
             assessment_count=assessment_count,
-            admins=[{"id": a.id, "email": a.email, "name": f"{a.first_name} {a.last_name}"} for a in admins],
+            admins=[{"id": a.id, "email": a.email, "name": f"{a.first_name} {a.last_name}", "is_primary": is_primary or False} for a, is_primary in admin_rows],
             last_activity=last_activity[0] if last_activity else None,
             created_at=church.created_at
         ))
@@ -218,10 +221,12 @@ async def get_church_detail(
         Assessment.status == "completed"
     ).count()
 
-    admins = db.query(User).join(Membership).join(Role).filter(
+    admin_rows = db.query(User, Membership.is_primary_admin).join(
+        Membership, User.id == Membership.user_id
+    ).join(Role, Membership.role_id == Role.id).filter(
         Membership.organization_id == church.id,
         Role.name == "admin"
-    ).all()
+    ).order_by(Membership.is_primary_admin.desc()).all()
 
     last_activity = db.query(Assessment.completed_at).join(
         Membership, Assessment.user_id == Membership.user_id
@@ -229,7 +234,7 @@ async def get_church_detail(
         Membership.organization_id == church.id,
         Assessment.status == "completed"
     ).order_by(Assessment.completed_at.desc()).first()
-    
+
     return ChurchDetail(
         id=church.id,
         name=church.name,
@@ -241,7 +246,7 @@ async def get_church_detail(
         is_comped=church.is_comped,
         member_count=member_count,
         assessment_count=assessment_count,
-        admins=[{"id": a.id, "email": a.email, "name": f"{a.first_name} {a.last_name}"} for a in admins],
+        admins=[{"id": a.id, "email": a.email, "name": f"{a.first_name} {a.last_name}", "is_primary": is_primary or False} for a, is_primary in admin_rows],
         last_activity=last_activity[0] if last_activity else None,
         created_at=church.created_at
     )
@@ -356,6 +361,84 @@ async def remove_church_admin(
     db.commit()
     
     return {"message": "Admin removed successfully"}
+
+
+@router.post("/churches/{church_id}/transfer-primary-admin")
+@limiter.limit(MASTER_RATE)
+async def master_transfer_primary_admin(
+    request: Request,
+    church_id: str,
+    body: MasterTransferPrimaryAdminRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_master)
+):
+    """Transfer primary admin status to another admin in a church.
+    Master admin override — does not require current primary admin's involvement."""
+
+    church = db.query(Organization).filter(Organization.id == church_id).first()
+    if not church:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Church not found"
+        )
+
+    # Get target user's membership in this church
+    target_membership = db.query(Membership).filter(
+        Membership.user_id == body.new_primary_user_id,
+        Membership.organization_id == church_id,
+        Membership.status == "active",
+    ).first()
+
+    if not target_membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Target user is not an active member of this church"
+        )
+
+    if target_membership.is_primary_admin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This user is already the primary admin"
+        )
+
+    # Promote target to admin role if they aren't already
+    admin_role = db.query(Role).filter(Role.name == "admin").first()
+    if target_membership.role_id != admin_role.id:
+        target_membership.role_id = admin_role.id
+
+    # Remove primary from current primary admin (if one exists)
+    current_primary = db.query(Membership).filter(
+        Membership.organization_id == church_id,
+        Membership.is_primary_admin == True,
+    ).first()
+
+    old_primary_id = None
+    if current_primary:
+        old_primary_id = str(current_primary.user_id)
+        current_primary.is_primary_admin = False
+
+    # Set new primary admin
+    target_membership.is_primary_admin = True
+    db.commit()
+
+    # Audit log
+    audit_log = AuditLog(
+        user_id=current_user.id,
+        action="master_transfer_primary_admin",
+        target_type="organization",
+        target_id=church_id,
+        details={
+            "organization_id": str(church_id),
+            "organization_name": church.name,
+            "previous_primary_id": old_primary_id,
+            "new_primary_id": str(body.new_primary_user_id),
+            "reason": "Master admin override"
+        }
+    )
+    db.add(audit_log)
+    db.commit()
+
+    return {"message": "Primary admin transferred successfully"}
 
 
 @router.get("/users", response_model=UserListResponse)

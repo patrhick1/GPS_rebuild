@@ -181,10 +181,15 @@ async def get_members(
             myimpact_score=myimpact_score_val,
         ))
     
-    member_list.sort(
-        key=lambda m: m.last_assessment_date or datetime.min.replace(tzinfo=timezone.utc),
-        reverse=True,
-    )
+    def _sort_key(m):
+        d = m.last_assessment_date
+        if d is None:
+            return datetime.min
+        if d.tzinfo is not None:
+            d = d.astimezone(timezone.utc).replace(tzinfo=None)
+        return d
+
+    member_list.sort(key=_sort_key, reverse=True)
 
     return MemberListResponse(
         members=member_list,
@@ -941,17 +946,53 @@ async def get_stats(
         Membership.status == "pending"
     ).count()
     
-    # Assessment count
-    assessment_count = db.query(Assessment).join(Membership).filter(
+    # Assessment counts by type
+    gps_count = db.query(Assessment).join(
+        Membership, Assessment.user_id == Membership.user_id
+    ).filter(
+        Membership.organization_id == org.id,
+        Assessment.status == "completed",
+        Assessment.instrument_type == "gps"
+    ).count()
+
+    myimpact_count = db.query(Assessment).join(
+        Membership, Assessment.user_id == Membership.user_id
+    ).filter(
+        Membership.organization_id == org.id,
+        Assessment.status == "completed",
+        Assessment.instrument_type == "myimpact"
+    ).count()
+
+    assessment_count = gps_count + myimpact_count
+
+    # Average MyImpact scores
+    avg_scores = db.query(
+        func.avg(MyImpactResult.character_score),
+        func.avg(MyImpactResult.calling_score),
+        func.avg(MyImpactResult.myimpact_score)
+    ).join(
+        Assessment, MyImpactResult.assessment_id == Assessment.id
+    ).join(
+        Membership, Assessment.user_id == Membership.user_id
+    ).filter(
         Membership.organization_id == org.id,
         Assessment.status == "completed"
-    ).count()
-    
+    ).first()
+
+    avg_character = round(float(avg_scores[0]), 1) if avg_scores[0] else None
+    avg_calling = round(float(avg_scores[1]), 1) if avg_scores[1] else None
+    avg_myimpact = round(float(avg_scores[2]), 1) if avg_scores[2] else None
+
     return ChurchStats(
         total_members=member_count,
         active_members=active_count,
         pending_members=pending_count,
-        total_assessments=assessment_count
+        total_assessments=assessment_count,
+        gps_assessments=gps_count,
+        myimpact_assessments=myimpact_count,
+        avg_character_score=avg_character,
+        avg_calling_score=avg_calling,
+        avg_myimpact_score=avg_myimpact,
     )
 
 

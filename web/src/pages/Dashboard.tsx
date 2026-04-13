@@ -201,6 +201,26 @@ export function Dashboard() {
             </button>
           </div>
 
+          {/* Church Linking Prompt */}
+          {!summary?.organization && user?.role !== 'admin' && user?.role !== 'master' && (
+            <div className="mt-8 bg-brand-gray-lightest border border-brand-gray-light rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <p className="font-heading font-bold text-lg text-brand-charcoal">
+                  Link My Assessment Results to a Church
+                </p>
+                <p className="font-body text-sm text-brand-gray-med mt-1">
+                  Search for your church, submit a request, and get connected once approved.
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/account#church-linking')}
+                className="shrink-0 h-[44px] px-6 bg-brand-teal text-white font-body font-bold text-base rounded-xl hover:bg-brand-teal/90 transition-colors"
+              >
+                Find My Church
+              </button>
+            </div>
+          )}
+
           {/* Upgrade / Admin link */}
           {user?.role === 'admin' || user?.role === 'master' ? (
             <p className="font-body font-bold text-base md:text-xl text-brand-charcoal mt-8">

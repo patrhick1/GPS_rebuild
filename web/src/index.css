@@ -14,7 +14,7 @@
   font-family: 'Mulish', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 body {
@@ -150,6 +150,7 @@ body {
   .password-input {
     @apply w-full px-3 py-3 pr-12 rounded-md text-base transition-colors focus:outline-none;
     border: 1px solid var(--brand-gray-light);
+    color: var(--brand-charcoal);
   }
 
   .password-input:focus {
@@ -236,6 +237,7 @@ body {
     @apply h-[50px] px-5 pr-12 rounded-xl font-bold text-lg;
     background: rgba(136, 192, 195, 0.17);
     border: 1px solid var(--brand-teal-light);
+    color: var(--brand-charcoal);
   }
 
   .register-card .password-input::placeholder {

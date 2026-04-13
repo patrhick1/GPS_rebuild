@@ -100,6 +100,11 @@ class AuditLogListResponse(BaseModel):
     total_pages: int
 
 
+# Transfer Primary Admin schema
+class MasterTransferPrimaryAdminRequest(BaseModel):
+    new_primary_user_id: uuid.UUID
+
+
 # Impersonation schemas
 class ImpersonateRequest(BaseModel):
     user_id: uuid.UUID

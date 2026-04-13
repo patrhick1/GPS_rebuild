@@ -58,6 +58,11 @@ interface ChurchStats {
   active_members: number;
   pending_members: number;
   total_assessments: number;
+  gps_assessments: number;
+  myimpact_assessments: number;
+  avg_character_score: number | null;
+  avg_calling_score: number | null;
+  avg_myimpact_score: number | null;
 }
 
 interface ChurchSettings {

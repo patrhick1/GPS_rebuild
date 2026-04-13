@@ -22,6 +22,7 @@ import { ChurchRegister } from './pages/ChurchRegister';
 import { ChurchUpgrade } from './pages/ChurchUpgrade';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { UpdatePassword } from './pages/UpdatePassword';
+import { UpdateLocale } from './pages/UpdateLocale';
 
 import { MasterDashboard } from './pages/MasterDashboard';
 import { BillingDashboard } from './pages/BillingDashboard';
@@ -38,6 +39,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/upgrade" element={<Upgrade />} />
+          <Route path="/update-locale" element={<UpdateLocale />} />
           <Route path="/register/church" element={<ChurchRegister />} />
           <Route
             path="/upgrade/church"

@@ -125,3 +125,8 @@ class ChurchStats(BaseModel):
     active_members: int
     pending_members: int
     total_assessments: int
+    gps_assessments: int = 0
+    myimpact_assessments: int = 0
+    avg_character_score: Optional[float] = None
+    avg_calling_score: Optional[float] = None
+    avg_myimpact_score: Optional[float] = None

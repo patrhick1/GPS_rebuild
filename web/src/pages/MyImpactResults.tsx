@@ -118,15 +118,6 @@ export function MyImpactResults() {
   const completedCount = answeredCount || totalQuestions;
   const progressPct = totalQuestions > 0 ? Math.round((completedCount / totalQuestions) * 100) : 100;
 
-  const getScoreInterpretation = (score: number) => {
-    if (score >= 70) return { label: 'Mature', bg: 'bg-green-100 text-green-800' };
-    if (score >= 50) return { label: 'Growing', bg: 'bg-yellow-100 text-yellow-800' };
-    if (score >= 30) return { label: 'Developing', bg: 'bg-orange-100 text-orange-800' };
-    return { label: 'Beginning', bg: 'bg-red-100 text-red-800' };
-  };
-
-  const interpretation = getScoreInterpretation(myimpact_score);
-
   const getBarColor = (score: number) => {
     if (score >= 8) return 'bg-brand-teal';
     if (score >= 5) return 'bg-brand-gold';
@@ -223,9 +214,6 @@ export function MyImpactResults() {
                 </div>
               </div>
 
-              <span className={`inline-flex items-center px-4 py-1 rounded-full font-body font-bold text-lg ${interpretation.bg}`}>
-                {interpretation.label}
-              </span>
               <p className="font-body text-base text-brand-gray-med mt-4 max-w-lg mx-auto">
                 Most first-time takers score between 4-25. The goal is steady growth, not perfection.
               </p>

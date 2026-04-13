@@ -25,6 +25,7 @@ interface User {
   organization_id?: string;
   organization_name?: string;
   is_primary_admin?: boolean;
+  locale?: string;
 }
 
 interface ChurchRegisterData {
@@ -55,6 +56,8 @@ interface AuthContextType {
   registerChurch: (data: ChurchRegisterData) => Promise<User>;
   upgradeToChurchAdmin: (data: ChurchUpgradeData) => Promise<User>;
   logout: () => Promise<void>;
+  updateLocale: (locale: string) => Promise<void>;
+  locale: string;
   error: string | null;
   clearError: () => void;
 }
@@ -231,7 +234,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { access_token } = response.data;
       // Store in memory only - NOT localStorage
       setAccessToken(access_token);
-      return await fetchUser();
+      const loggedInUser = await fetchUser();
+      // Apply stored locale preference if it differs from server
+      const storedLocale = localStorage.getItem('preferred_locale');
+      if (storedLocale && storedLocale !== loggedInUser.locale) {
+        try {
+          await api.put('/auth/profile', { locale: storedLocale });
+          setUser(prev => prev ? { ...prev, locale: storedLocale } : prev);
+        } catch { /* non-critical */ }
+      }
+      return loggedInUser;
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed');
       throw err;
@@ -299,6 +311,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateLocale = async (newLocale: string) => {
+    if (user) {
+      await api.put('/auth/profile', { locale: newLocale });
+      setUser({ ...user, locale: newLocale });
+    }
+    localStorage.setItem('preferred_locale', newLocale);
+  };
+
+  const locale = user?.locale || localStorage.getItem('preferred_locale') || 'en';
+
   const clearError = () => setError(null);
 
   return (
@@ -313,6 +335,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerChurch,
         upgradeToChurchAdmin,
         logout,
+        updateLocale,
+        locale,
         error,
         clearError,
       }}

@@ -1,7 +1,31 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAssessment } from '../context/AssessmentContext';
+
+/** Simple translation map for GPS assessment UI strings */
+const ES_STRINGS: Record<string, string> = {
+  'GPS Assessment': 'Evaluación GPS',
+  'Assessment started on': 'Evaluación iniciada el',
+  'Completed': 'Completadas',
+  'of': 'de',
+  'questions': 'preguntas',
+  'Statements': 'Declaraciones',
+  'Answers': 'Respuestas',
+  'Almost Never': 'Casi Nunca',
+  'Almost Always': 'Casi Siempre',
+  'Previous': 'Anterior',
+  'Next': 'Siguiente',
+  'Submit': 'Enviar',
+  'Submitting...': 'Enviando...',
+  'Save & Exit': 'Guardar y Salir',
+  'Account': 'Cuenta',
+  'Logout': 'Cerrar Sesión',
+  'Loading assessment...': 'Cargando evaluación...',
+  'No questions available': 'No hay preguntas disponibles',
+  'Enter your answer...': 'Ingrese su respuesta...',
+  'Assessment menu': 'Menú de evaluación',
+};
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { MultiSelectPage } from '../components/MultiSelectPage';
@@ -11,10 +35,10 @@ import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 import leftArrowIcon from '../../Graphics for Dev/Icons/Charcoal Left Arrow Icon.svg';
 import rightArrowIcon from '../../Graphics for Dev/Icons/White Right Arrow Icon.svg';
 
-const SECTION_LABELS: Record<string, string> = {
-  gifts: 'Gifts',
-  passion: 'Passion',
-  story: 'Story',
+const SECTION_LABELS: Record<string, Record<string, string>> = {
+  gifts: { en: 'Gifts', es: 'Dones' },
+  passion: { en: 'Passion', es: 'Pasión' },
+  story: { en: 'Story', es: 'Historia' },
 };
 
 export function AssessmentWizard() {
@@ -38,7 +62,9 @@ export function AssessmentWizard() {
     assessmentStartDate,
   } = useAssessment();
 
-  const { logout } = useAuth();
+  const { logout, locale } = useAuth();
+  const isEs = locale === 'es';
+  const t = useMemo(() => (key: string) => isEs ? (ES_STRINGS[key] || key) : key, [isEs]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const continueId = searchParams.get('continue');
@@ -133,7 +159,7 @@ export function AssessmentWizard() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <p className="font-body text-lg text-brand-gray-med">Loading assessment...</p>
+          <p className="font-body text-lg text-brand-gray-med">{t('Loading assessment...')}</p>
         </main>
         <Footer />
       </div>
@@ -145,7 +171,7 @@ export function AssessmentWizard() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <p className="font-body text-lg text-brand-gray-med">No questions available</p>
+          <p className="font-body text-lg text-brand-gray-med">{t('No questions available')}</p>
         </main>
         <Footer />
       </div>
@@ -162,11 +188,11 @@ export function AssessmentWizard() {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="font-heading font-black text-[48px] leading-[55px] text-brand-charcoal">
-                GPS Assessment
+                {t('GPS Assessment')}
               </h1>
               {assessmentStartDate && (
                 <p className="font-body font-semibold italic text-lg text-brand-charcoal mt-1">
-                  Assessment started on {assessmentStartDate}
+                  {t('Assessment started on')} {assessmentStartDate}
                 </p>
               )}
             </div>
@@ -176,7 +202,7 @@ export function AssessmentWizard() {
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
                 className="p-2 hover:opacity-80 transition-opacity"
-                aria-label="Assessment menu"
+                aria-label={t('Assessment menu')}
               >
                 <img
                   src={menuOpen ? goldXIcon : goldMenuIcon}
@@ -192,21 +218,21 @@ export function AssessmentWizard() {
                       onClick={handleSaveAndExit}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
                     >
-                      Save & Exit
+                      {t('Save & Exit')}
                     </button>
                     <hr className="border-brand-gray-light mx-4" />
                     <button
                       onClick={() => { setMenuOpen(false); navigate('/account'); }}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
                     >
-                      Account
+                      {t('Account')}
                     </button>
                     <hr className="border-brand-gray-light mx-4" />
                     <button
                       onClick={handleLogout}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest rounded-b-xl transition-colors"
                     >
-                      Logout
+                      {t('Logout')}
                     </button>
                   </nav>
                 </div>
@@ -223,7 +249,7 @@ export function AssessmentWizard() {
               />
             </div>
             <p className="font-body font-semibold italic text-lg text-brand-charcoal text-center mt-3">
-              Completed {answeredCount} of {totalQuestions} questions
+              {t('Completed')} {answeredCount} {t('of')} {totalQuestions} {t('questions')}
             </p>
           </div>
 
@@ -237,7 +263,7 @@ export function AssessmentWizard() {
 
           {/* ── Section Header ── */}
           <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mt-10 mb-6">
-            {SECTION_LABELS[currentPage.section] || currentPage.section}
+            {SECTION_LABELS[currentPage.section]?.[isEs ? 'es' : 'en'] || currentPage.section}
           </h2>
 
           {/* ── Page Content ── */}
@@ -246,6 +272,7 @@ export function AssessmentWizard() {
               questions={currentPage.questions}
               answers={answers}
               onSelect={handleLikertSelect}
+              isEs={isEs}
             />
           )}
 
@@ -287,6 +314,7 @@ export function AssessmentWizard() {
               question={currentPage.questions[0]}
               answer={answers[currentPage.questions[0].id]}
               onTextChange={handleTextChange}
+              isEs={isEs}
             />
           )}
 
@@ -298,11 +326,19 @@ export function AssessmentWizard() {
                 className="w-[175px] h-[50px] bg-brand-gray-light rounded-xl flex items-center justify-center gap-2 font-body font-bold text-lg text-brand-charcoal hover:bg-brand-gray-light/80 transition-colors"
               >
                 <img src={leftArrowIcon} alt="" className="w-[11px] h-[15px]" />
-                Previous
+                {t('Previous')}
               </button>
             ) : (
               <div className="w-[175px]" />
             )}
+
+            <button
+              onClick={handleSaveAndExit}
+              disabled={isLoading}
+              className="px-6 h-[50px] border border-brand-gray-light rounded-xl font-body font-bold text-lg text-brand-charcoal hover:bg-brand-gray-lightest disabled:opacity-50 transition-colors"
+            >
+              {t('Save & Exit')}
+            </button>
 
             {isLastPage ? (
               <button
@@ -310,7 +346,7 @@ export function AssessmentWizard() {
                 disabled={isLoading || !isCurrentPageComplete()}
                 className="w-[175px] h-[50px] bg-brand-teal rounded-xl flex items-center justify-center gap-2 font-body font-bold text-lg text-white hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isLoading ? 'Submitting...' : 'Submit'}
+                {isLoading ? t('Submitting...') : t('Submit')}
                 {!isLoading && <img src={rightArrowIcon} alt="" className="w-[11px] h-[15px]" />}
               </button>
             ) : (
@@ -319,20 +355,13 @@ export function AssessmentWizard() {
                 disabled={!isCurrentPageComplete()}
                 className="w-[175px] h-[50px] bg-brand-teal rounded-xl flex items-center justify-center gap-2 font-body font-bold text-lg text-white hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Next
+                {t('Next')}
                 <img src={rightArrowIcon} alt="" className="w-[11px] h-[15px]" />
               </button>
             )}
           </div>
         </section>
       </main>
-
-      {/* ── Spanish Toggle Bar ── */}
-      <div className="bg-brand-teal h-[59px] flex items-center justify-center">
-        <button className="font-body font-bold text-lg text-white underline hover:opacity-80 transition-opacity">
-          ¿En español?
-        </button>
-      </div>
 
       <Footer />
     </div>
@@ -345,20 +374,22 @@ function LikertPage({
   questions,
   answers,
   onSelect,
+  isEs = false,
 }: {
-  questions: { id: string; question: string }[];
+  questions: { id: string; question: string; question_es?: string }[];
   answers: Record<string, { numeric_value?: number }>;
   onSelect: (questionId: string, value: number) => void;
+  isEs?: boolean;
 }) {
   return (
     <div>
       {/* Column headers */}
       <div className="flex items-center justify-between mb-0">
         <span className="uppercase font-body font-bold text-base text-brand-gray-med tracking-wide">
-          Statements
+          {isEs ? 'Declaraciones' : 'Statements'}
         </span>
         <span className="uppercase font-body font-bold text-base text-brand-gray-med tracking-wide mr-4">
-          Answers
+          {isEs ? 'Respuestas' : 'Answers'}
         </span>
       </div>
 
@@ -371,13 +402,13 @@ function LikertPage({
             <div className="flex flex-col lg:flex-row lg:items-center py-6 gap-6">
               {/* Statement */}
               <p className="font-body font-bold text-[20px] leading-[30px] text-brand-charcoal lg:w-[393px] shrink-0">
-                {q.question}
+                {(isEs && q.question_es) ? q.question_es : q.question}
               </p>
 
               {/* Likert scale */}
               <div className="flex items-center gap-3 flex-1 justify-end">
                 <span className="font-body font-bold text-base text-brand-charcoal leading-[26px] w-[105px] text-left">
-                  Almost Never
+                  {isEs ? 'Casi Nunca' : 'Almost Never'}
                 </span>
                 <div className="flex gap-[15px]">
                   {[1, 2, 3, 4, 5].map((val) => (
@@ -395,7 +426,7 @@ function LikertPage({
                   ))}
                 </div>
                 <span className="font-body font-bold text-base text-brand-charcoal leading-[26px] w-[117px] text-right">
-                  Almost Always
+                  {isEs ? 'Casi Siempre' : 'Almost Always'}
                 </span>
               </div>
             </div>
@@ -411,15 +442,17 @@ function TextPage({
   question,
   answer,
   onTextChange,
+  isEs = false,
 }: {
-  question: { id: string; question: string; default_text?: string; summary?: string };
+  question: { id: string; question: string; question_es?: string; default_text?: string; summary?: string };
   answer?: { text_value?: string };
   onTextChange: (questionId: string, value: string) => void;
+  isEs?: boolean;
 }) {
   return (
     <div>
       <p className="font-body font-bold text-[20px] leading-[30px] text-brand-charcoal mb-4">
-        {question.question}
+        {(isEs && question.question_es) ? question.question_es : question.question}
       </p>
 
       {question.summary && (
@@ -438,7 +471,7 @@ function TextPage({
 
       <textarea
         className="w-full min-h-[200px] p-4 border border-brand-gray-light rounded-xl font-body text-base text-brand-charcoal resize-y focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
-        placeholder="Enter your answer..."
+        placeholder={isEs ? 'Ingrese su respuesta...' : 'Enter your answer...'}
         value={answer?.text_value || ''}
         onChange={(e) => onTextChange(question.id, e.target.value)}
       />

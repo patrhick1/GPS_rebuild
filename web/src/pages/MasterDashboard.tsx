@@ -20,6 +20,7 @@ export function MasterDashboard() {
   const {
     dashboardStats, fetchDashboardStats,
     churches, fetchChurches, toggleChurchStatus,
+    transferPrimaryAdmin,
     totalChurchPages,
     isLoading, error, clearError,
   } = useMaster();
@@ -64,6 +65,16 @@ export function MasterDashboard() {
   const handleToggleStatus = (churchId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'paused' ? 'active' : 'paused';
     toggleChurchStatus(churchId, newStatus);
+  };
+
+  const handleTransferPrimary = async (churchId: string, adminId: string, adminName: string) => {
+    if (!window.confirm(`Transfer primary admin to ${adminName}? This will also transfer billing access.`)) return;
+    try {
+      await transferPrimaryAdmin(churchId, adminId);
+      fetchChurches(churchPage, churchSearch);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to transfer primary admin');
+    }
   };
 
   const handleLogout = () => {
@@ -429,8 +440,27 @@ export function MasterDashboard() {
                                 <td className="px-4 py-5 font-body font-bold text-lg text-brand-charcoal">
                                   {[church.city, church.state].filter(Boolean).join(', ') || '—'}
                                 </td>
-                                <td className="px-4 py-5 font-body font-bold text-lg text-brand-charcoal">
-                                  {church.admins.map((a: any) => a.name).join(', ') || '—'}
+                                <td className="px-4 py-5 font-body text-lg text-brand-charcoal">
+                                  {church.admins.length === 0 ? '—' : church.admins.map((a: any, i: number) => (
+                                    <span key={a.id} className="inline-flex items-center">
+                                      {i > 0 && <span className="mr-1">,</span>}
+                                      <span className={a.is_primary ? 'font-black' : 'font-bold'}>
+                                        {a.name}
+                                      </span>
+                                      {a.is_primary ? (
+                                        <span className="ml-1 text-xs font-body font-bold text-brand-teal bg-brand-teal/10 px-1.5 py-0.5 rounded">
+                                          Primary
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleTransferPrimary(church.id, a.id, a.name)}
+                                          className="ml-1 text-xs font-body font-bold text-brand-gold hover:text-brand-gold/80 underline transition-colors"
+                                        >
+                                          Make Primary
+                                        </button>
+                                      )}
+                                    </span>
+                                  ))}
                                 </td>
                                 <td className="px-4 py-5">
                                   {church.status === 'paused' ? (
