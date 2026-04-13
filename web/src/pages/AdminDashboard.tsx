@@ -171,10 +171,14 @@ export function AdminDashboard() {
 
   // Shared member row action handler
   const handleViewResults = (member: typeof members[0]) => {
-    if (member.latest_gps_assessment_id) {
-      navigate(`/assessment-results?id=${member.latest_gps_assessment_id}`);
-    } else if (member.latest_myimpact_assessment_id) {
-      navigate(`/myimpact-results?id=${member.latest_myimpact_assessment_id}`);
+    if (activeTab === 'myimpact') {
+      if (member.latest_myimpact_assessment_id) {
+        navigate(`/myimpact-results?id=${member.latest_myimpact_assessment_id}`);
+      }
+    } else {
+      if (member.latest_gps_assessment_id) {
+        navigate(`/assessment-results?id=${member.latest_gps_assessment_id}`);
+      }
     }
   };
 
@@ -186,7 +190,9 @@ export function AdminDashboard() {
   };
 
   const hasResults = (member: typeof members[0]) =>
-    !!(member.latest_gps_assessment_id || member.latest_myimpact_assessment_id);
+    activeTab === 'myimpact'
+      ? !!member.latest_myimpact_assessment_id
+      : !!member.latest_gps_assessment_id;
 
   const handleConfirmTransfer = async () => {
     if (!transferTarget) return;
@@ -308,6 +314,14 @@ export function AdminDashboard() {
                   className="flex items-center gap-2 mb-4 font-body font-bold text-base text-brand-teal hover:text-brand-teal/80 transition-colors"
                 >
                   <span className="text-lg">←</span> Back to Master Dashboard
+                </button>
+              )}
+              {user?.role !== 'master' && (
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="flex items-center gap-2 mb-4 font-body font-bold text-base text-brand-teal hover:text-brand-teal/80 transition-colors"
+                >
+                  <span className="text-lg">←</span> Back to Member Dashboard
                 </button>
               )}
 
@@ -481,7 +495,7 @@ export function AdminDashboard() {
                       <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Name</span>
                       <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Last Assessment</span>
                       <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Gifts</span>
-                      <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Passion</span>
+                      <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Influencing Style</span>
                       <span />
                     </div>
                     <hr className="border-brand-gray-light mb-2" />
@@ -585,7 +599,7 @@ export function AdminDashboard() {
                               </div>
                             </div>
 
-                            {/* Gifts + Passion */}
+                            {/* Gifts + Influencing Style */}
                             <div className="flex gap-4 mb-4">
                               <div className="flex-1 min-w-0">
                                 <p className="font-body font-bold text-[16px] text-brand-gray-med uppercase mb-1">Gifts</p>
@@ -598,7 +612,7 @@ export function AdminDashboard() {
                                 </div>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-body font-bold text-[16px] text-brand-gray-med uppercase mb-1">Passion</p>
+                                <p className="font-body font-bold text-[16px] text-brand-gray-med uppercase mb-1">Influencing Style</p>
                                 <div className="flex gap-1 flex-wrap">
                                   {(member.top_passions || []).map((p, i) => (
                                     <span key={i} className="inline-flex items-center justify-center h-8 px-4 bg-[rgba(227,162,162,0.5)] rounded-full font-body font-bold text-lg text-brand-charcoal">

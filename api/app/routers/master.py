@@ -457,10 +457,12 @@ async def get_all_users(
     
     if search:
         search_pattern = f"%{search}%"
+        full_name = func.concat(User.first_name, ' ', User.last_name)
         query = query.filter(
             (User.first_name.ilike(search_pattern)) |
             (User.last_name.ilike(search_pattern)) |
-            (User.email.ilike(search_pattern))
+            (User.email.ilike(search_pattern)) |
+            (full_name.ilike(search_pattern))
         )
     
     total = query.count()

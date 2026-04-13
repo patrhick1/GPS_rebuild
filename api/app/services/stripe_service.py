@@ -148,11 +148,14 @@ class StripeService:
     @staticmethod
     def get_payment_methods(customer_id: str) -> list:
         """Get all payment methods for a customer"""
-        methods = stripe.PaymentMethod.list(
-            customer=customer_id,
-            type="card"
-        )
-        return methods.data
+        try:
+            methods = stripe.PaymentMethod.list(
+                customer=customer_id,
+                type="card"
+            )
+            return methods.data
+        except stripe.error.InvalidRequestError:
+            return []
     
     @staticmethod
     def detach_payment_method(payment_method_id: str) -> stripe.PaymentMethod:
@@ -173,12 +176,15 @@ class StripeService:
     @staticmethod
     def get_invoices(customer_id: str, limit: int = 10) -> list:
         """Get recent invoices for a customer"""
-        invoices = stripe.Invoice.list(
-            customer=customer_id,
-            limit=limit,
-            expand=["data.charge"]
-        )
-        return invoices.data
+        try:
+            invoices = stripe.Invoice.list(
+                customer=customer_id,
+                limit=limit,
+                expand=["data.charge"]
+            )
+            return invoices.data
+        except stripe.error.InvalidRequestError:
+            return []
     
     @staticmethod
     def construct_event(payload: bytes, sig_header: str) -> stripe.Event:

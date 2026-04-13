@@ -65,7 +65,10 @@ async def get_dashboard_summary(
     # Get organization info
     organization = None
     if current_user.memberships:
-        membership = current_user.memberships[0]
+        membership = next(
+            (m for m in current_user.memberships if m.organization_id is not None),
+            current_user.memberships[0],
+        )
         if membership.organization:
             organization = {
                 "id": membership.organization.id,

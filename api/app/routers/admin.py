@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case, desc
 from datetime import datetime, timedelta, timezone
 import csv
 import io
@@ -86,18 +86,36 @@ async def get_members(
     # Apply filters
     if search:
         search_pattern = f"%{search}%"
+        full_name = func.concat(User.first_name, ' ', User.last_name)
         query = query.filter(
             (User.first_name.ilike(search_pattern)) |
             (User.last_name.ilike(search_pattern)) |
-            (User.email.ilike(search_pattern))
+            (User.email.ilike(search_pattern)) |
+            (full_name.ilike(search_pattern))
         )
     
     if status:
         query = query.filter(Membership.status == status)
     
+    # Order: admins/masters first, then by latest assessment date descending
+    is_admin_rank = case(
+        (Role.name.in_(['admin', 'master']), 0),
+        else_=1
+    )
+    latest_assessment_date = (
+        db.query(func.max(Assessment.completed_at))
+        .filter(Assessment.user_id == User.id, Assessment.status == "completed")
+        .correlate(User)
+        .scalar_subquery()
+    )
+    query = query.join(Role, Membership.role_id == Role.id).order_by(
+        is_admin_rank,
+        desc(latest_assessment_date)
+    )
+
     # Get total count
     total = query.count()
-    
+
     # Paginate
     members = query.offset((page - 1) * per_page).limit(per_page).all()
     

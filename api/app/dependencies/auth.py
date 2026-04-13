@@ -28,7 +28,7 @@ def _get_active_membership(user: "User"):
 _ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing", "past_due"}
 
 # Statuses that grant read-only admin view (expired but can still see historical data)
-_VIEW_ALLOWED_STATUSES = {"active", "trialing", "past_due", "canceled", "unpaid"}
+_VIEW_ALLOWED_STATUSES = {"active", "trialing", "past_due", "canceled", "unpaid", "incomplete"}
 
 security = HTTPBearer(auto_error=False)
 
@@ -276,9 +276,10 @@ async def require_active_subscription(
     """
     membership = db.query(Membership).filter(
         Membership.user_id == current_user.id,
+        Membership.organization_id.isnot(None),
     ).first()
 
-    if not membership or not membership.organization_id:
+    if not membership:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="Active subscription required to access the admin dashboard",
@@ -312,9 +313,10 @@ async def require_view_subscription(
     """
     membership = db.query(Membership).filter(
         Membership.user_id == current_user.id,
+        Membership.organization_id.isnot(None),
     ).first()
 
-    if not membership or not membership.organization_id:
+    if not membership:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="no_subscription",
@@ -333,6 +335,22 @@ async def require_view_subscription(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="no_subscription",
         )
+
+    # Auto-sync incomplete subscriptions from Stripe
+    if sub.status == "incomplete" and sub.stripe_subscription_id:
+        try:
+            import stripe
+            stripe_sub = stripe.Subscription.retrieve(sub.stripe_subscription_id)
+            if stripe_sub.status != sub.status:
+                from datetime import datetime
+                sub.status = stripe_sub.status
+                if stripe_sub.get("current_period_start"):
+                    sub.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
+                if stripe_sub.get("current_period_end"):
+                    sub.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
+                db.commit()
+        except Exception:
+            pass
 
     return current_user
 

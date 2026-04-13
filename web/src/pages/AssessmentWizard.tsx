@@ -184,6 +184,12 @@ export function AssessmentWizard() {
 
       <main className="flex-1 bg-white">
         <section className="max-w-[1230px] mx-auto px-6 pt-12 pb-8">
+          <button
+            onClick={handleSaveAndExit}
+            className="inline-flex items-center gap-1 font-body font-bold text-sm text-brand-teal hover:text-brand-teal/80 transition-colors mb-4"
+          >
+            <span className="text-base">←</span> Back to Dashboard
+          </button>
           {/* ── Title Row ── */}
           <div className="flex justify-between items-start">
             <div>

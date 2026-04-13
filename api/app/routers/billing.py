@@ -52,9 +52,12 @@ async def get_subscription_status(
     current_user: User = Depends(require_admin)
 ):
     """Get subscription status for the organization — accessible to all admins (primary and secondary)."""
-    membership = current_user.memberships[0] if current_user.memberships else None
+    membership = next(
+        (m for m in current_user.memberships if m.organization_id is not None),
+        None,
+    )
 
-    if not membership or not membership.organization_id:
+    if not membership:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No organization found"
@@ -113,7 +116,7 @@ async def get_subscription(
         Subscription.organization_id == organization.id
     ).order_by(desc(Subscription.created_at)).first()
     
-    if not subscription:
+    if not subscription or (subscription.status == "incomplete" and not subscription.stripe_subscription_id):
         return {
             "status": "none",
             "organization": {
@@ -156,15 +159,18 @@ async def get_subscription(
     # Get payment methods
     payment_methods = []
     if subscription.stripe_customer_id:
-        methods = stripe_service.get_payment_methods(subscription.stripe_customer_id)
-        payment_methods = [{
-            "id": m.id,
-            "brand": m.card.brand,
-            "last4": m.card.last4,
-            "exp_month": m.card.exp_month,
-            "exp_year": m.card.exp_year,
-            "is_default": m.id == stripe_service.get_or_create_customer(organization, current_user.email).invoice_settings.default_payment_method
-        } for m in methods]
+        try:
+            methods = stripe_service.get_payment_methods(subscription.stripe_customer_id)
+            payment_methods = [{
+                "id": m.id,
+                "brand": m.card.brand,
+                "last4": m.card.last4,
+                "exp_month": m.card.exp_month,
+                "exp_year": m.card.exp_year,
+                "is_default": m.id == stripe_service.get_or_create_customer(organization, current_user.email).invoice_settings.default_payment_method
+            } for m in methods]
+        except stripe.error.InvalidRequestError:
+            pass
     
     return {
         "id": str(subscription.id),
@@ -517,10 +523,13 @@ async def get_invoices(
     
     stripe_invoices = []
     if subscription and subscription.stripe_customer_id:
-        stripe_invoices = stripe_service.get_invoices(
-            subscription.stripe_customer_id,
-            limit=limit
-        )
+        try:
+            stripe_invoices = stripe_service.get_invoices(
+                subscription.stripe_customer_id,
+                limit=limit
+            )
+        except stripe.error.InvalidRequestError:
+            pass
     
     return {
         "payments": [{
@@ -576,7 +585,7 @@ async def stripe_webhook(
         )
     
     # Handle event types
-    if event.type == "customer.subscription.updated":
+    if event.type in ("customer.subscription.updated", "customer.subscription.created"):
         stripe_service.handle_subscription_updated(event, db)
     elif event.type == "customer.subscription.deleted":
         stripe_service.handle_subscription_updated(event, db)

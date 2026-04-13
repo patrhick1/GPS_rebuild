@@ -174,6 +174,12 @@ export function Account() {
       <main className="flex-1 bg-white">
         {/* ── Header Section ── */}
         <section className="max-w-[1230px] mx-auto px-6 pt-12 pb-4">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-1 font-body font-bold text-sm text-brand-teal hover:text-brand-teal/80 transition-colors mb-4"
+          >
+            <span className="text-base">←</span> Back to Dashboard
+          </Link>
           <div className="flex justify-between items-start">
             <div>
               <h1 className="font-heading font-black text-3xl md:text-[48px] md:leading-[55px] text-brand-charcoal">
@@ -201,20 +207,24 @@ export function Account() {
               {menuOpen && (
                 <div className="absolute right-0 mt-2 w-[307px] bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] z-50">
                   <nav className="py-1">
-                    <button
-                      onClick={() => { setMenuOpen(false); navigate('/dashboard'); }}
-                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
-                    >
-                      GPS Assessments
-                    </button>
-                    <hr className="border-brand-gray-light mx-4" />
-                    <button
-                      onClick={() => { setMenuOpen(false); navigate('/dashboard'); }}
-                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
-                    >
-                      MyImpact Assessments
-                    </button>
-                    <hr className="border-brand-gray-light mx-4" />
+                    {user?.role !== 'master' && (
+                      <>
+                        <button
+                          onClick={() => { setMenuOpen(false); navigate('/dashboard'); }}
+                          className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
+                        >
+                          GPS Assessments
+                        </button>
+                        <hr className="border-brand-gray-light mx-4" />
+                        <button
+                          onClick={() => { setMenuOpen(false); navigate('/dashboard'); }}
+                          className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
+                        >
+                          MyImpact Assessments
+                        </button>
+                        <hr className="border-brand-gray-light mx-4" />
+                      </>
+                    )}
                     <button
                       onClick={() => setMenuOpen(false)}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-teal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
@@ -346,8 +356,8 @@ export function Account() {
           </form>
         </section>
 
-        {/* ── Church Linking Section ── */}
-        <section className="max-w-[1230px] mx-auto px-6 pb-16">
+        {/* ── Church Linking Section (hidden for master admins) ── */}
+        {user?.role !== 'master' && <section className="max-w-[1230px] mx-auto px-6 pb-16">
           <h2 className="font-heading font-black text-2xl md:text-[40px] md:leading-[41px] text-brand-charcoal mb-2">
             Link My Assessment Results to a Church
           </h2>
@@ -446,7 +456,7 @@ export function Account() {
               </div>
             )}
           </div>
-        </section>
+        </section>}
       </main>
 
       <Footer />

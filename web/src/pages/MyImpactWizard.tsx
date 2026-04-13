@@ -119,6 +119,12 @@ export function MyImpactWizard() {
 
       <main className="flex-1 bg-white">
         <section className="max-w-[800px] mx-auto px-6 py-12">
+          <button
+            onClick={handleSaveAndExit}
+            className="inline-flex items-center gap-1 font-body font-bold text-sm text-brand-teal hover:text-brand-teal/80 transition-colors mb-4"
+          >
+            <span className="text-base">←</span> Back to Dashboard
+          </button>
           {/* Section Header */}
           {sectionHeader && (
             <div className="text-center mb-8">

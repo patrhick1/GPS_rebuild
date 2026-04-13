@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -61,6 +61,14 @@ export function ChurchUpgrade() {
         />
 
         <div className="relative z-10 flex flex-col items-center px-6 pt-14 pb-20">
+          <div className="w-full max-w-[520px] mb-4">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-1 font-body font-bold text-sm text-brand-teal hover:text-brand-teal/80 transition-colors"
+            >
+              <span className="text-base">←</span> Back to Dashboard
+            </Link>
+          </div>
           {/* Heading */}
           <div className="flex flex-col items-center gap-3 mb-8">
             <img src={churchIcon} alt="" className="w-[64px] h-auto" />

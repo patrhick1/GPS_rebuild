@@ -170,20 +170,6 @@ export function MasterDashboard() {
                 <div className="absolute right-0 mt-2 w-[307px] bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] z-50">
                   <nav className="py-1">
                     <button
-                      onClick={() => { setMenuOpen(false); navigate('/dashboard'); }}
-                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
-                    >
-                      GPS Assessments
-                    </button>
-                    <hr className="border-brand-gray-light mx-4" />
-                    <button
-                      onClick={() => { setMenuOpen(false); }}
-                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
-                    >
-                      MyImpact Assessments
-                    </button>
-                    <hr className="border-brand-gray-light mx-4" />
-                    <button
                       onClick={() => { setMenuOpen(false); navigate('/account'); }}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
                     >

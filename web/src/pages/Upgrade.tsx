@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -44,6 +44,14 @@ export function Upgrade() {
       </div>
 
       <main className="flex-1 bg-white">
+        <div className="max-w-6xl mx-auto px-6 pt-6">
+          <Link
+            to={user ? '/dashboard' : '/login'}
+            className="inline-flex items-center gap-1 font-body font-bold text-sm text-brand-teal hover:text-brand-teal/80 transition-colors"
+          >
+            <span className="text-base">←</span> Back{user ? ' to Dashboard' : ''}
+          </Link>
+        </div>
         {/* ── Track & Manage Band ── */}
         <section className="w-full bg-[rgba(227,227,227,0.24)]">
           <div className="max-w-6xl mx-auto px-6 py-14 lg:py-20 flex flex-col lg:flex-row items-center gap-8 lg:gap-12">

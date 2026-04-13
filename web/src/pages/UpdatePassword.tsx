@@ -89,8 +89,10 @@ export function UpdatePassword() {
                 <div className="absolute right-0 mt-2 w-[307px] bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] z-50">
                   <nav className="py-1">
                     {[
-                      { label: 'GPS Assessments', to: '/dashboard' },
-                      { label: 'MyImpact Assessments', to: '/dashboard' },
+                      ...(user?.role !== 'master' ? [
+                        { label: 'GPS Assessments', to: '/dashboard' },
+                        { label: 'MyImpact Assessments', to: '/dashboard' },
+                      ] : []),
                       { label: 'Account', to: '/account' },
                     ].map((item) => (
                       <div key={item.label}>
