@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useMaster } from '../context/MasterContext';
+import { useMaster, type ChurchMember } from '../context/MasterContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import {
@@ -20,7 +20,7 @@ export function MasterDashboard() {
   const {
     dashboardStats, fetchDashboardStats,
     churches, fetchChurches, toggleChurchStatus,
-    transferPrimaryAdmin,
+    transferPrimaryAdmin, fetchChurchMembers,
     totalChurchPages,
     isLoading, error, clearError,
   } = useMaster();
@@ -33,6 +33,9 @@ export function MasterDashboard() {
   // Churches tab state
   const [churchSearch, setChurchSearch] = useState('');
   const [churchPage, setChurchPage] = useState(1);
+  const [expandedChurchId, setExpandedChurchId] = useState<string | null>(null);
+  const [churchMembers, setChurchMembers] = useState<ChurchMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -67,11 +70,33 @@ export function MasterDashboard() {
     toggleChurchStatus(churchId, newStatus);
   };
 
-  const handleTransferPrimary = async (churchId: string, adminId: string, adminName: string) => {
-    if (!window.confirm(`Transfer primary admin to ${adminName}? This will also transfer billing access.`)) return;
+  const handleExpandChurch = async (churchId: string) => {
+    if (expandedChurchId === churchId) {
+      setExpandedChurchId(null);
+      setChurchMembers([]);
+      return;
+    }
+    setExpandedChurchId(churchId);
+    setMembersLoading(true);
     try {
-      await transferPrimaryAdmin(churchId, adminId);
+      const members = await fetchChurchMembers(churchId);
+      setChurchMembers(members);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to load members');
+      setExpandedChurchId(null);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const handleTransferPrimary = async (churchId: string, memberId: string, memberName: string) => {
+    if (!window.confirm(`Transfer primary admin to ${memberName}? This will also transfer billing access.`)) return;
+    try {
+      await transferPrimaryAdmin(churchId, memberId);
       fetchChurches(churchPage, churchSearch);
+      // Refresh expanded member list
+      const members = await fetchChurchMembers(churchId);
+      setChurchMembers(members);
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Failed to transfer primary admin');
     }
@@ -234,7 +259,9 @@ export function MasterDashboard() {
                     {/* Character */}
                     <div className="text-center">
                       <div className="bg-brand-gray-lightest border-4 border-brand-teal-light rounded-md h-[54px] w-[156px] flex items-center justify-center">
-                        <span className="font-heading font-medium text-2xl text-brand-teal">6.8</span>
+                        <span className="font-heading font-medium text-2xl text-brand-teal">
+                          {dashboardStats?.avg_character_score ?? '—'}
+                        </span>
                       </div>
                       <p className="font-heading font-medium text-base text-brand-charcoal uppercase mt-2">Character</p>
                     </div>
@@ -242,7 +269,9 @@ export function MasterDashboard() {
                     {/* Calling */}
                     <div className="text-center">
                       <div className="bg-brand-gray-lightest border-4 border-brand-teal-light rounded-md h-[54px] w-[156px] flex items-center justify-center">
-                        <span className="font-heading font-medium text-2xl text-brand-teal">5.5</span>
+                        <span className="font-heading font-medium text-2xl text-brand-teal">
+                          {dashboardStats?.avg_calling_score ?? '—'}
+                        </span>
                       </div>
                       <p className="font-heading font-medium text-base text-brand-charcoal uppercase mt-2">Calling</p>
                     </div>
@@ -250,7 +279,9 @@ export function MasterDashboard() {
                     {/* Impact */}
                     <div className="text-center">
                       <div className="bg-brand-gray-lightest border-4 border-brand-teal-light rounded-md h-[54px] w-[156px] flex items-center justify-center">
-                        <span className="font-heading font-medium text-2xl text-brand-teal">37.4</span>
+                        <span className="font-heading font-medium text-2xl text-brand-teal">
+                          {dashboardStats?.avg_myimpact_score ?? '—'}
+                        </span>
                       </div>
                       <p className="font-heading font-medium text-base text-brand-charcoal uppercase mt-2">Impact</p>
                     </div>
@@ -415,58 +446,121 @@ export function MasterDashboard() {
                               </td>
                             </tr>
                           ) : (
-                            churches.map((church) => (
-                              <tr key={church.id} className="border-b border-brand-gray-light last:border-b-0">
-                                <td className="px-0 py-5 font-body font-bold text-lg text-brand-charcoal">
-                                  {church.name}
-                                </td>
-                                <td className="px-4 py-5 font-body font-bold text-lg text-brand-charcoal">
-                                  {church.member_count}
-                                </td>
-                                <td className="px-4 py-5 font-body font-bold text-lg text-brand-charcoal">
-                                  {[church.city, church.state].filter(Boolean).join(', ') || '—'}
-                                </td>
-                                <td className="px-4 py-5 font-body text-lg text-brand-charcoal">
-                                  {church.admins.length === 0 ? '—' : church.admins.map((a: any, i: number) => (
-                                    <span key={a.id} className="inline-flex items-center">
-                                      {i > 0 && <span className="mr-1">,</span>}
-                                      <span className={a.is_primary ? 'font-black' : 'font-bold'}>
-                                        {a.name}
-                                      </span>
-                                      {a.is_primary ? (
-                                        <span className="ml-1 text-xs font-body font-bold text-brand-teal bg-brand-teal/10 px-1.5 py-0.5 rounded">
-                                          Primary
+                            churches.map((church) => {
+                              const primaryAdmin = church.admins.find((a) => a.is_primary);
+                              const isExpanded = expandedChurchId === church.id;
+
+                              return (
+                                <React.Fragment key={church.id}>
+                                  {/* Main row */}
+                                  <tr className={`border-b border-brand-gray-light last:border-b-0 ${isExpanded ? 'bg-brand-gray-lightest/50' : ''}`}>
+                                    <td className="px-0 py-5 font-body font-bold text-lg text-brand-charcoal">
+                                      <button
+                                        onClick={() => handleExpandChurch(church.id)}
+                                        className="flex items-center gap-2 hover:text-brand-teal transition-colors text-left"
+                                      >
+                                        <span className={`text-sm transition-transform ${isExpanded ? 'rotate-90' : ''}`}>&#9654;</span>
+                                        {church.name}
+                                      </button>
+                                    </td>
+                                    <td className="px-4 py-5 font-body font-bold text-lg text-brand-charcoal">
+                                      {church.member_count}
+                                    </td>
+                                    <td className="px-4 py-5 font-body font-bold text-lg text-brand-charcoal">
+                                      {[church.city, church.state].filter(Boolean).join(', ') || '—'}
+                                    </td>
+                                    <td className="px-4 py-5 font-body text-lg text-brand-charcoal">
+                                      {primaryAdmin ? (
+                                        <span className="inline-flex items-center">
+                                          <span className="font-black">{primaryAdmin.name}</span>
+                                          <span className="ml-1.5 text-xs font-body font-bold text-brand-teal bg-brand-teal/10 px-1.5 py-0.5 rounded">
+                                            Primary
+                                          </span>
                                         </span>
                                       ) : (
+                                        <span className="text-sm font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                                          No Primary Admin
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-5">
+                                      {church.status === 'paused' ? (
                                         <button
-                                          onClick={() => handleTransferPrimary(church.id, a.id, a.name)}
-                                          className="ml-1 text-xs font-body font-bold text-brand-gold hover:text-brand-gold/80 underline transition-colors"
+                                          onClick={() => handleToggleStatus(church.id, church.status)}
+                                          className="w-[129px] h-[50px] bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
                                         >
-                                          Make Primary
+                                          Restore
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleToggleStatus(church.id, church.status)}
+                                          className="w-[129px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
+                                        >
+                                          Pause
                                         </button>
                                       )}
-                                    </span>
-                                  ))}
-                                </td>
-                                <td className="px-4 py-5">
-                                  {church.status === 'paused' ? (
-                                    <button
-                                      onClick={() => handleToggleStatus(church.id, church.status)}
-                                      className="w-[129px] h-[50px] bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
-                                    >
-                                      Restore
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => handleToggleStatus(church.id, church.status)}
-                                      className="w-[129px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
-                                    >
-                                      Pause
-                                    </button>
+                                    </td>
+                                  </tr>
+
+                                  {/* Expanded members row */}
+                                  {isExpanded && (
+                                    <tr>
+                                      <td colSpan={5} className="px-0 py-0 bg-brand-gray-lightest/30">
+                                        <div className="px-6 py-4">
+                                          <h4 className="font-heading font-bold text-base text-brand-teal uppercase mb-3">
+                                            Members
+                                          </h4>
+                                          {membersLoading ? (
+                                            <p className="font-body text-sm text-brand-gray-med py-2">Loading members...</p>
+                                          ) : churchMembers.length === 0 ? (
+                                            <p className="font-body text-sm text-brand-gray-med py-2">No active members</p>
+                                          ) : (
+                                            <div className="space-y-1">
+                                              {churchMembers.map((member) => (
+                                                <div
+                                                  key={member.id}
+                                                  className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/60 transition-colors"
+                                                >
+                                                  <div className="flex items-center gap-3">
+                                                    <span className="font-body font-bold text-base text-brand-charcoal">
+                                                      {member.name}
+                                                    </span>
+                                                    <span className="font-body text-sm text-brand-gray-med">
+                                                      {member.email}
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex items-center gap-3">
+                                                    <span className={`text-xs font-body font-bold px-2 py-0.5 rounded ${
+                                                      member.role === 'admin'
+                                                        ? 'text-brand-teal bg-brand-teal/10'
+                                                        : 'text-brand-gray-med bg-brand-gray-light'
+                                                    }`}>
+                                                      {member.role === 'admin' ? 'Admin' : 'Member'}
+                                                    </span>
+                                                    {member.is_primary_admin ? (
+                                                      <span className="text-xs font-body font-bold text-brand-teal bg-brand-teal/10 px-2 py-0.5 rounded">
+                                                        Primary
+                                                      </span>
+                                                    ) : (
+                                                      <button
+                                                        onClick={() => handleTransferPrimary(church.id, member.id, member.name)}
+                                                        className="text-xs font-body font-bold text-brand-gold hover:text-brand-gold/80 underline transition-colors"
+                                                      >
+                                                        Make Primary
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
                                   )}
-                                </td>
-                              </tr>
-                            ))
+                                </React.Fragment>
+                              );
+                            })
                           )}
                         </tbody>
                       </table>

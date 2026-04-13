@@ -26,6 +26,7 @@ class ChurchAdmin(BaseModel):
     id: uuid.UUID
     email: str
     name: str
+    is_primary: bool = False
 
 
 class ChurchDetail(BaseModel):
@@ -98,6 +99,15 @@ class AuditLogListResponse(BaseModel):
     page: int
     per_page: int
     total_pages: int
+
+
+# Church Member schema (all members, not just admins)
+class ChurchMember(BaseModel):
+    id: uuid.UUID
+    email: str
+    name: str
+    role: str
+    is_primary_admin: bool = False
 
 
 # Transfer Primary Admin schema

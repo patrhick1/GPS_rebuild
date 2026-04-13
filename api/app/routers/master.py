@@ -21,11 +21,13 @@ from app.models.assessment import Assessment
 from app.models.assessment_result import AssessmentResult
 from app.models.audit_log import AuditLog
 from app.models.gifts_passion import GiftsPassion
+from app.models.myimpact_result import MyImpactResult
 from pydantic import BaseModel
 from app.schemas.master import (
     SystemStats,
     ChurchListResponse,
     ChurchDetail,
+    ChurchMember,
     UserListResponse,
     UserDetail,
     AuditLogListResponse,
@@ -250,6 +252,44 @@ async def get_church_detail(
         last_activity=last_activity[0] if last_activity else None,
         created_at=church.created_at
     )
+
+
+@router.get("/churches/{church_id}/members", response_model=List[ChurchMember])
+@limiter.limit(MASTER_RATE)
+async def get_church_members(
+    request: Request,
+    church_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_master)
+):
+    """Get all active members of a church with their roles"""
+
+    church = db.query(Organization).filter(Organization.id == church_id).first()
+    if not church:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Church not found"
+        )
+
+    members = db.query(User, Membership, Role).join(
+        Membership, User.id == Membership.user_id
+    ).join(
+        Role, Membership.role_id == Role.id
+    ).filter(
+        Membership.organization_id == church_id,
+        Membership.status == "active",
+    ).order_by(Membership.is_primary_admin.desc(), Role.name, User.first_name).all()
+
+    return [
+        ChurchMember(
+            id=user.id,
+            email=user.email,
+            name=f"{user.first_name} {user.last_name}",
+            role=role.name,
+            is_primary_admin=membership.is_primary_admin or False,
+        )
+        for user, membership, role in members
+    ]
 
 
 @router.post("/churches/{church_id}/admins/{user_id}")
@@ -1027,9 +1067,45 @@ async def get_dashboard_stats(
 
         orgs_monthly.append({"month": months[month_idx - 1], "count": count})
 
+    # MyImpact Completed Assessments by month
+    myimpact_monthly = []
+    for month_idx in range(1, 13):
+        month_start = datetime(current_year, month_idx, 1, tzinfo=timezone.utc)
+        if month_idx < 12:
+            month_end = datetime(current_year, month_idx + 1, 1, tzinfo=timezone.utc)
+        else:
+            month_end = datetime(current_year + 1, 1, 1, tzinfo=timezone.utc)
+
+        count = db.query(Assessment).filter(
+            Assessment.status == "completed",
+            Assessment.instrument_type == "myimpact",
+            Assessment.completed_at >= month_start,
+            Assessment.completed_at < month_end
+        ).count()
+
+        myimpact_monthly.append({"month": months[month_idx - 1], "count": count})
+
+    # System-wide average MyImpact scores
+    avg_scores = db.query(
+        func.avg(MyImpactResult.character_score),
+        func.avg(MyImpactResult.calling_score),
+        func.avg(MyImpactResult.myimpact_score)
+    ).join(
+        Assessment, MyImpactResult.assessment_id == Assessment.id
+    ).filter(
+        Assessment.status == "completed"
+    ).first()
+
+    avg_character = round(float(avg_scores[0]), 1) if avg_scores and avg_scores[0] else None
+    avg_calling = round(float(avg_scores[1]), 1) if avg_scores and avg_scores[1] else None
+    avg_myimpact = round(float(avg_scores[2]), 1) if avg_scores and avg_scores[2] else None
+
     return {
         "gps_assessments_monthly": gps_monthly,
-        "myimpact_assessments_monthly": [],  # Not yet implemented
+        "myimpact_assessments_monthly": myimpact_monthly,
         "users_monthly": users_monthly,
-        "orgs_monthly": orgs_monthly
+        "orgs_monthly": orgs_monthly,
+        "avg_character_score": avg_character,
+        "avg_calling_score": avg_calling,
+        "avg_myimpact_score": avg_myimpact,
     }

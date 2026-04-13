@@ -23,7 +23,7 @@ interface Church {
   status: string;
   member_count: number;
   assessment_count: number;
-  admins: { id: string; email: string; name: string }[];
+  admins: { id: string; email: string; name: string; is_primary: boolean }[];
   last_activity?: string;
   created_at: string;
 }
@@ -38,6 +38,9 @@ interface DashboardStats {
   myimpact_assessments_monthly: MonthlyData[];
   users_monthly: MonthlyData[];
   orgs_monthly: MonthlyData[];
+  avg_character_score: number | null;
+  avg_calling_score: number | null;
+  avg_myimpact_score: number | null;
 }
 
 interface User {
@@ -63,6 +66,14 @@ interface AuditEntry {
   created_at: string;
 }
 
+export interface ChurchMember {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  is_primary_admin: boolean;
+}
+
 interface MasterContextType {
   stats: SystemStats | null;
   dashboardStats: DashboardStats | null;
@@ -83,6 +94,7 @@ interface MasterContextType {
   addChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   removeChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   transferPrimaryAdmin: (churchId: string, userId: string) => Promise<void>;
+  fetchChurchMembers: (churchId: string) => Promise<ChurchMember[]>;
   impersonateUser: (userId: string, reason: string) => Promise<string>;
   exportData: (type: string, filters?: any) => Promise<void>;
   clearError: () => void;
@@ -203,6 +215,11 @@ export function MasterProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const fetchChurchMembers = useCallback(async (churchId: string): Promise<ChurchMember[]> => {
+    const response = await api.get(`/master/churches/${churchId}/members`);
+    return response.data;
+  }, []);
+
   const impersonateUser = useCallback(async (userId: string, reason: string): Promise<string> => {
     const response = await api.post('/master/impersonate', {
       user_id: userId,
@@ -252,6 +269,7 @@ export function MasterProvider({ children }: { children: ReactNode }) {
         addChurchAdmin,
         removeChurchAdmin,
         transferPrimaryAdmin,
+        fetchChurchMembers,
         impersonateUser,
         exportData,
         clearError
