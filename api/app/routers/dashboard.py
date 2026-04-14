@@ -62,21 +62,34 @@ async def get_dashboard_summary(
         Assessment.status == "completed"
     ).count()
     
-    # Get organization info
+    # Get organization info (only for active memberships)
     organization = None
+    pending_organization = None
     if current_user.memberships:
         membership = next(
-            (m for m in current_user.memberships if m.organization_id is not None),
-            current_user.memberships[0],
+            (m for m in current_user.memberships if m.organization_id is not None and m.status == "active"),
+            None,
         )
-        if membership.organization:
+        if membership and membership.organization:
             organization = {
                 "id": membership.organization.id,
                 "name": membership.organization.name,
                 "role": membership.role.name if membership.role else None,
                 "is_primary_admin": membership.is_primary_admin if membership.role and membership.role.name == "admin" else False
             }
-    
+        else:
+            # Check for pending or declined membership
+            pending_membership = next(
+                (m for m in current_user.memberships if m.organization_id is not None and m.status in ("pending", "declined")),
+                None,
+            )
+            if pending_membership and pending_membership.organization:
+                pending_organization = {
+                    "id": pending_membership.organization.id,
+                    "name": pending_membership.organization.name,
+                    "status": pending_membership.status,
+                }
+
     return DashboardSummary(
         user={
             "id": current_user.id,
@@ -94,7 +107,8 @@ async def get_dashboard_summary(
             "total_assessments": total_count,
             "has_organization": organization is not None
         },
-        organization=organization
+        organization=organization,
+        pending_organization=pending_organization
     )
 
 
@@ -630,7 +644,7 @@ async def request_church_link(
         Membership.user_id == current_user.id
     ).first()
 
-    if existing and existing.organization_id:
+    if existing and existing.organization_id and existing.status in ("active", "pending"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You are already linked to an organization"

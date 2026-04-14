@@ -19,7 +19,7 @@ export function MasterDashboard() {
   const { user, logout } = useAuth();
   const {
     dashboardStats, fetchDashboardStats,
-    churches, fetchChurches, toggleChurchStatus,
+    churches, fetchChurches, toggleChurchStatus, toggleChurchComp,
     transferPrimaryAdmin, fetchChurchMembers,
     totalChurchPages,
     isLoading, error, clearError,
@@ -484,21 +484,34 @@ export function MasterDashboard() {
                                       )}
                                     </td>
                                     <td className="px-4 py-5">
-                                      {church.status === 'paused' ? (
+                                      <div className="flex items-center gap-2">
+                                        {church.status === 'paused' ? (
+                                          <button
+                                            onClick={() => handleToggleStatus(church.id, church.status)}
+                                            className="w-[129px] h-[50px] bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
+                                          >
+                                            Restore
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={() => handleToggleStatus(church.id, church.status)}
+                                            className="w-[129px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
+                                          >
+                                            Pause
+                                          </button>
+                                        )}
                                         <button
-                                          onClick={() => handleToggleStatus(church.id, church.status)}
-                                          className="w-[129px] h-[50px] bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
+                                          onClick={() => toggleChurchComp(church.id, !church.is_comped)}
+                                          className={`h-[50px] px-4 font-body font-bold text-base rounded-xl transition-colors ${
+                                            church.is_comped
+                                              ? 'bg-brand-gold/20 text-brand-gold border border-brand-gold hover:bg-brand-gold/30'
+                                              : 'bg-white text-brand-gray-med border border-brand-gray-light hover:bg-brand-gray-lightest'
+                                          }`}
+                                          title={church.is_comped ? 'Revoke comped access' : 'Grant comped access (bypasses subscription)'}
                                         >
-                                          Restore
+                                          {church.is_comped ? 'Comped' : 'Comp'}
                                         </button>
-                                      ) : (
-                                        <button
-                                          onClick={() => handleToggleStatus(church.id, church.status)}
-                                          className="w-[129px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
-                                        >
-                                          Pause
-                                        </button>
-                                      )}
+                                      </div>
                                     </td>
                                   </tr>
 

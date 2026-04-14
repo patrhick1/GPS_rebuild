@@ -11,6 +11,36 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Domains that will always bounce — skip sending to protect sender reputation.
+_BLOCKED_DOMAINS: set[str] = {
+    "example.com",
+    "example.org",
+    "example.net",
+    "test.com",
+    "test.org",
+    "testing.com",
+    "mailinator.com",
+    "guerrillamail.com",
+    "tempmail.com",
+    "throwaway.email",
+    "fakeinbox.com",
+    "sharklasers.com",
+    "guerrillamailblock.com",
+    "grr.la",
+    "dispostable.com",
+    "yopmail.com",
+    "trashmail.com",
+    "tempail.com",
+    "localhost",
+    "invalid",
+}
+
+
+def _is_blocked_email(email: str) -> bool:
+    """Return True if the email belongs to a known test/disposable domain."""
+    domain = email.rsplit("@", 1)[-1].lower()
+    return domain in _BLOCKED_DOMAINS
+
 
 def _get_client() -> bool:
     """Configure the Resend API key. Returns False if key is not set."""
@@ -29,6 +59,9 @@ def send_invite_email(
 ) -> None:
     """Send a church membership invitation email."""
     if not _get_client():
+        return
+    if _is_blocked_email(to_email):
+        logger.info("Skipped email to blocked/test address: %s", to_email)
         return
 
     register_url = (
@@ -84,6 +117,9 @@ def send_assessment_notification_email(
     """Notify a church admin that a member has completed an assessment."""
     if not _get_client():
         return
+    if _is_blocked_email(to_email):
+        logger.info("Skipped email to blocked/test address: %s", to_email)
+        return
 
     instrument_label = "MyImpact" if instrument_type == "myimpact" else "GPS"
 
@@ -127,6 +163,9 @@ def send_assessment_notification_email(
 def send_gps_result_email(to_email: str, first_name: str, result, results_url: str = "") -> None:
     """Send a user their GPS assessment results."""
     if not _get_client():
+        return
+    if _is_blocked_email(to_email):
+        logger.info("Skipped email to blocked/test address: %s", to_email)
         return
 
     def _gift_card(name, description, score, bg):
@@ -239,6 +278,9 @@ def send_gps_result_email(to_email: str, first_name: str, result, results_url: s
 def send_myimpact_result_email(to_email: str, first_name: str, result, results_url: str = "") -> None:
     """Send a user their MyImpact assessment results."""
     if not _get_client():
+        return
+    if _is_blocked_email(to_email):
+        logger.info("Skipped email to blocked/test address: %s", to_email)
         return
 
     character_score = result.character_score or 0.0
@@ -379,6 +421,9 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
     """Send a password reset email."""
     if not _get_client():
         return
+    if _is_blocked_email(to_email):
+        logger.info("Skipped email to blocked/test address: %s", to_email)
+        return
 
     reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
@@ -417,3 +462,90 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
         logger.info("Password reset email sent to %s", to_email)
     except Exception as exc:
         logger.error("Failed to send password reset email to %s: %s", to_email, exc)
+
+
+def send_membership_approved_email(to_email: str, first_name: str, org_name: str) -> None:
+    """Notify a user that their church membership request was approved."""
+    if not _get_client():
+        return
+    if _is_blocked_email(to_email):
+        logger.info("Skipped email to blocked/test address: %s", to_email)
+        return
+
+    dashboard_url = f"{settings.FRONTEND_URL}/dashboard"
+
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a3a4a;">You're In! Welcome to {org_name}</h2>
+      <p>Hi {first_name},</p>
+      <p>Great news — <strong>{org_name}</strong> has approved your request to join.
+         Your assessment results are now linked to the church.</p>
+      <p style="text-align: center; margin: 32px 0;">
+        <a href="{dashboard_url}"
+           style="background-color: #1a3a4a; color: white; padding: 14px 28px;
+                  text-decoration: none; border-radius: 6px; font-size: 16px;">
+          Go to Dashboard
+        </a>
+      </p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px;">
+        Gift, Passion, Story Assessment Platform &mdash;
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+      </p>
+    </div>
+    """
+
+    try:
+        resend.Emails.send({
+            "from": settings.EMAIL_FROM,
+            "to": [to_email],
+            "subject": f"You've been accepted into {org_name} on GPS",
+            "html": html,
+        })
+        logger.info("Membership approved email sent to %s for org %s", to_email, org_name)
+    except Exception as exc:
+        logger.error("Failed to send membership approved email to %s: %s", to_email, exc)
+
+
+def send_membership_declined_email(to_email: str, first_name: str, org_name: str) -> None:
+    """Notify a user that their church membership request was declined."""
+    if not _get_client():
+        return
+    if _is_blocked_email(to_email):
+        logger.info("Skipped email to blocked/test address: %s", to_email)
+        return
+
+    account_url = f"{settings.FRONTEND_URL}/account"
+
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a3a4a;">Membership Request Update</h2>
+      <p>Hi {first_name},</p>
+      <p>Unfortunately, your request to join <strong>{org_name}</strong> was not approved.
+         If you believe this was a mistake, please reach out to your church directly.</p>
+      <p>You can also search for a different church from your account page:</p>
+      <p style="text-align: center; margin: 32px 0;">
+        <a href="{account_url}"
+           style="background-color: #1a3a4a; color: white; padding: 14px 28px;
+                  text-decoration: none; border-radius: 6px; font-size: 16px;">
+          Go to Account
+        </a>
+      </p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px;">
+        Gift, Passion, Story Assessment Platform &mdash;
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+      </p>
+    </div>
+    """
+
+    try:
+        resend.Emails.send({
+            "from": settings.EMAIL_FROM,
+            "to": [to_email],
+            "subject": "Update on your GPS church membership request",
+            "html": html,
+        })
+        logger.info("Membership declined email sent to %s for org %s", to_email, org_name)
+    except Exception as exc:
+        logger.error("Failed to send membership declined email to %s: %s", to_email, exc)

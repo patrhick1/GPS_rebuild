@@ -49,11 +49,19 @@ class OrganizationSummary(BaseModel):
     role: Optional[str] = None
 
 
+class PendingOrganization(BaseModel):
+    """Shown when user has a pending or declined membership request."""
+    id: uuid.UUID
+    name: str
+    status: str  # "pending" or "declined"
+
+
 class DashboardSummary(BaseModel):
     user: UserSummary
     latest_assessment: Optional[LatestAssessment] = None
     stats: UserStats
     organization: Optional[OrganizationSummary] = None
+    pending_organization: Optional[PendingOrganization] = None
 
 
 # History schemas

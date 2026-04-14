@@ -382,6 +382,90 @@ export function Account() {
                   Leave Organization
                 </button>
               </div>
+            ) : summary?.pending_organization?.status === 'pending' ? (
+              /* Pending request */
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="inline-block w-3 h-3 rounded-full bg-yellow-400" />
+                  <p className="font-body font-bold text-lg text-brand-charcoal">
+                    Request Pending
+                  </p>
+                </div>
+                <p className="font-body text-base text-brand-charcoal">
+                  Your request to join <span className="font-bold text-brand-teal">{summary.pending_organization.name}</span> is
+                  awaiting approval. You'll receive an email once the church responds.
+                </p>
+              </div>
+            ) : summary?.pending_organization?.status === 'declined' ? (
+              /* Declined request — show banner then search form */
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="inline-block w-3 h-3 rounded-full bg-red-400" />
+                  <p className="font-body font-bold text-lg text-brand-charcoal">
+                    Request Declined
+                  </p>
+                </div>
+                <p className="font-body text-base text-brand-charcoal mb-6">
+                  Your request to join <span className="font-bold">{summary.pending_organization.name}</span> was
+                  not approved. You can search for a different church below, or contact your church directly if you believe this was a mistake.
+                </p>
+
+                {/* Search form (same as unlinked state) */}
+                <p className="font-body font-bold text-lg text-brand-charcoal mb-3">
+                  Search for a different church
+                </p>
+
+                <div className="relative mb-4">
+                  <input
+                    type="text"
+                    value={churchQuery}
+                    onChange={(e) => handleChurchSearch(e.target.value)}
+                    placeholder="Name of Church"
+                    className="w-full max-w-[934px] h-[50px] px-5 bg-[rgba(136,192,195,0.17)] border border-brand-teal-light rounded-xl font-body font-bold text-lg text-brand-charcoal placeholder:text-brand-charcoal/60 focus:outline-none focus:ring-2 focus:ring-brand-teal/30"
+                  />
+
+                  {searchResults.length > 0 && (
+                    <div className="absolute left-0 top-[54px] w-full max-w-[934px] bg-white border border-brand-gray-light rounded-xl shadow-lg z-40 max-h-[200px] overflow-y-auto">
+                      {searchResults.map((church) => (
+                        <button
+                          key={church.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedChurch(church.id);
+                            setChurchQuery(church.name);
+                            setSearchResults([]);
+                          }}
+                          className={`w-full text-left px-5 py-3 font-body text-base text-brand-charcoal hover:bg-brand-gray-lightest transition-colors ${
+                            selectedChurch === church.id ? 'bg-brand-gray-lightest' : ''
+                          }`}
+                        >
+                          {church.name}
+                          {church.city && <span className="text-brand-gray-med"> — {church.city}{church.state ? `, ${church.state}` : ''}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {searching && (
+                    <p className="mt-2 font-body text-sm text-brand-gray-med">Searching...</p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleChurchLink}
+                  disabled={!selectedChurch}
+                  className="w-[167px] h-[50px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-6"
+                >
+                  Submit
+                </button>
+
+                {linkMessage && (
+                  <p className={`font-body text-sm mb-4 ${linkMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                    {linkMessage}
+                  </p>
+                )}
+              </div>
             ) : (
               /* Church search */
               <div>

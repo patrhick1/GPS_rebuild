@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import dmLogo from '../../Graphics for Dev/Logos/Disciples+Made+Logo+Horizontal 1.svg';
 import gpsLogo from '../../Graphics for Dev/Logos/gps-logo 1.svg';
 import myImpactLogo from '../../Graphics for Dev/Logos/MyImpact Logo.svg';
@@ -8,12 +9,15 @@ import hamburgerIcon from '../../Graphics for Dev/Icons/Gold Menu Icon.svg';
 export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const homePath = user?.role === 'master' ? '/master' : '/dashboard';
 
   return (
     <nav className="w-full bg-white border-b-[3px] border-brand-teal">
       <div className="flex items-center justify-between px-8 lg:px-16 h-[72px]">
         {/* Left: Disciples Made logo */}
-        <button onClick={() => navigate('/dashboard')} className="cursor-pointer">
+        <button onClick={() => navigate(homePath)} className="cursor-pointer">
           <img src={dmLogo} alt="Disciples Made" className="h-10" />
         </button>
 

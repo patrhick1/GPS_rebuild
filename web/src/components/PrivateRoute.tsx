@@ -21,14 +21,21 @@ export function PrivateRoute({ children, requiredRole }: PrivateRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
+  const role = user?.role;
+  const home = role === 'master' ? '/master' : '/dashboard';
+
+  // Master admins should not access user-facing pages (dashboard, assessments, etc.)
+  if (!requiredRole && role === 'master') {
+    return <Navigate to="/master" replace />;
+  }
+
   if (requiredRole) {
-    const role = user?.role;
     if (requiredRole === 'admin_or_master' && role !== 'admin' && role !== 'master') {
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to={home} replace />;
     } else if (requiredRole === 'admin' && role !== 'admin') {
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to={home} replace />;
     } else if (requiredRole === 'master' && role !== 'master') {
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to={home} replace />;
     }
   }
 

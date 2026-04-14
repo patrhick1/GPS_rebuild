@@ -42,7 +42,7 @@ from app.schemas.admin import (
 from app.schemas.assessment import GradedAssessmentResponse, GradedMyImpactResponse
 from app.services.scoring_service import ScoringService
 from app.services.myimpact_scoring_service import MyImpactScoringService
-from app.services.email_service import send_invite_email
+from app.services.email_service import send_invite_email, send_membership_approved_email, send_membership_declined_email
 
 router = APIRouter(prefix="/admin", tags=["Church Admin"])
 
@@ -96,6 +96,8 @@ async def get_members(
     
     if status:
         query = query.filter(Membership.status == status)
+    else:
+        query = query.filter(Membership.status == "active")
     
     # Order: admins/masters first, then by latest assessment date descending
     is_admin_rank = case(
@@ -852,7 +854,16 @@ async def approve_pending(
     
     membership.status = "active"
     db.commit()
-    
+
+    # Notify the user via email
+    member_user = db.query(User).filter(User.id == membership.user_id).first()
+    if member_user:
+        send_membership_approved_email(
+            to_email=member_user.email,
+            first_name=member_user.first_name or "there",
+            org_name=org.name,
+        )
+
     return {"message": "Member approved"}
 
 
@@ -866,23 +877,32 @@ async def decline_pending(
     current_user: User = Depends(require_active_subscription)
 ):
     """Decline a pending membership request"""
-    
+
     org = get_admin_organization(db, current_user)
-    
+
     membership = db.query(Membership).filter(
         Membership.id == membership_id,
         Membership.organization_id == org.id
     ).first()
-    
+
     if not membership:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Membership request not found"
         )
-    
+
     membership.status = "declined"
     db.commit()
-    
+
+    # Notify the user via email
+    member_user = db.query(User).filter(User.id == membership.user_id).first()
+    if member_user:
+        send_membership_declined_email(
+            to_email=member_user.email,
+            first_name=member_user.first_name or "there",
+            org_name=org.name,
+        )
+
     return {"message": "Member request declined"}
 
 

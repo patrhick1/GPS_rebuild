@@ -21,6 +21,7 @@ interface Church {
   state?: string;
   country?: string;
   status: string;
+  is_comped: boolean;
   member_count: number;
   assessment_count: number;
   admins: { id: string; email: string; name: string; is_primary: boolean }[];
@@ -91,6 +92,7 @@ interface MasterContextType {
   fetchUsers: (page?: number, search?: string) => Promise<void>;
   fetchAuditLog: (page?: number, filters?: any) => Promise<void>;
   toggleChurchStatus: (churchId: string, status: string) => Promise<void>;
+  toggleChurchComp: (churchId: string, isComped: boolean) => Promise<void>;
   addChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   removeChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   transferPrimaryAdmin: (churchId: string, userId: string) => Promise<void>;
@@ -148,6 +150,17 @@ export function MasterProvider({ children }: { children: ReactNode }) {
       );
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to update church status');
+    }
+  }, []);
+
+  const toggleChurchComp = useCallback(async (churchId: string, isComped: boolean) => {
+    try {
+      await api.put(`/master/churches/${churchId}/comp`, { is_comped: isComped });
+      setChurches(prev =>
+        prev.map(c => c.id === churchId ? { ...c, is_comped: isComped } : c)
+      );
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update comped status');
     }
   }, []);
 
@@ -266,6 +279,7 @@ export function MasterProvider({ children }: { children: ReactNode }) {
         fetchUsers,
         fetchAuditLog,
         toggleChurchStatus,
+        toggleChurchComp,
         addChurchAdmin,
         removeChurchAdmin,
         transferPrimaryAdmin,

@@ -30,6 +30,12 @@ interface Organization {
   role?: string;
 }
 
+interface PendingOrganization {
+  id: string;
+  name: string;
+  status: 'pending' | 'declined';
+}
+
 interface DashboardSummary {
   user: {
     id: string;
@@ -43,6 +49,7 @@ interface DashboardSummary {
     has_organization: boolean;
   };
   organization?: Organization;
+  pending_organization?: PendingOrganization;
 }
 
 interface AssessmentHistoryItem {

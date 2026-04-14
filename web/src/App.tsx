@@ -26,7 +26,15 @@ import { UpdateLocale } from './pages/UpdateLocale';
 
 import { MasterDashboard } from './pages/MasterDashboard';
 import { BillingDashboard } from './pages/BillingDashboard';
+import { useAuth } from './context/AuthContext';
 import './App.css';
+
+function DefaultRedirect() {
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role === 'master') return <Navigate to="/master" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
 
 function App() {
   return (
@@ -164,7 +172,7 @@ function App() {
           />
           
           {/* Default redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<DefaultRedirect />} />
         </Routes>
       </Router>
     </AuthProvider>
