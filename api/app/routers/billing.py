@@ -238,9 +238,31 @@ async def create_subscription(
             quantity=quantity,
             payment_method_id=payment_method_id
         )
-        
-        # Save to database
-        db.add(result["db_subscription"])
+
+        # Upsert local subscription record — one row per organization.
+        # If an earlier attempt left an "incomplete" zombie with NULL ids,
+        # reuse it; otherwise update the existing real row in place so
+        # resubscribes don't accumulate duplicate rows.
+        new_sub = result["db_subscription"]
+        existing = db.query(Subscription).filter(
+            Subscription.organization_id == organization.id
+        ).order_by(desc(Subscription.created_at)).first()
+
+        if existing:
+            existing.stripe_customer_id = new_sub.stripe_customer_id
+            existing.stripe_subscription_id = new_sub.stripe_subscription_id
+            existing.stripe_price_id = new_sub.stripe_price_id
+            existing.status = new_sub.status
+            existing.plan = new_sub.plan
+            existing.quantity = new_sub.quantity
+            existing.current_period_start = new_sub.current_period_start
+            existing.current_period_end = new_sub.current_period_end
+            existing.trial_start = new_sub.trial_start
+            existing.trial_end = new_sub.trial_end
+            existing.canceled_at = None
+            existing.cancel_at_period_end = False
+        else:
+            db.add(new_sub)
         db.commit()
         
         # Save card info to organization so it shows on the billing page
@@ -516,11 +538,14 @@ async def get_invoices(
         Payment.organization_id == membership.organization_id
     ).order_by(desc(Payment.created_at)).limit(limit).all()
     
-    # Also get from Stripe for complete history
+    # Also get from Stripe for complete history. Pick the most recent
+    # subscription row that actually has a Stripe customer id — older rows
+    # may exist from abandoned "incomplete" attempts with NULL customer_id.
     subscription = db.query(Subscription).filter(
-        Subscription.organization_id == membership.organization_id
-    ).first()
-    
+        Subscription.organization_id == membership.organization_id,
+        Subscription.stripe_customer_id.isnot(None),
+    ).order_by(desc(Subscription.created_at)).first()
+
     stripe_invoices = []
     if subscription and subscription.stripe_customer_id:
         try:
