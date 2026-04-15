@@ -12,7 +12,7 @@ import io
 
 from app.core.database import get_db
 from app.core.rate_limits import limiter, MASTER_RATE, EXPORT_RATE
-from app.dependencies.auth import get_current_active_user, require_master
+from app.dependencies.auth import require_master
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.membership import Membership
@@ -142,7 +142,8 @@ async def get_all_churches(
     for church in churches:
         # Get member count
         member_count = db.query(Membership).filter(
-            Membership.organization_id == church.id
+            Membership.organization_id == church.id,
+            Membership.status == "active",
         ).count()
         
         # Get assessment count
@@ -213,7 +214,8 @@ async def get_church_detail(
         )
     
     member_count = db.query(Membership).filter(
-        Membership.organization_id == church.id
+        Membership.organization_id == church.id,
+        Membership.status == "active",
     ).count()
     
     assessment_count = db.query(Assessment).join(

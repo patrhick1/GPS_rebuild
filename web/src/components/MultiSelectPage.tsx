@@ -111,28 +111,32 @@ export function MultiSelectPage({
                 </label>
               );
             })}
-
-            {/* Custom text inputs distributed across columns */}
-            {colIdx < customCount && (
-              <div className="mt-1 mb-2">
-                <label className="flex items-center gap-3 leading-[50px]">
-                  <div className="w-6 h-6 shrink-0" />
-                  <span className="font-body font-bold text-[20px] text-brand-charcoal">
-                    {getCustomLabel(colIdx)}
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  value={customValues[colIdx]}
-                  onChange={(e) => handleCustomChange(colIdx, e.target.value)}
-                  className="w-[301px] h-[34px] bg-brand-gray-lightest border border-brand-gray-light rounded px-2 font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal ml-9"
-                  placeholder=""
-                />
-              </div>
-            )}
           </div>
         ))}
       </div>
+
+      {/* Custom "Other" inputs, placed below the full grid for visual consistency */}
+      {customCount > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 mt-4">
+          {Array.from({ length: customCount }).map((_, idx) => (
+            <div key={idx} className="mt-1 mb-2">
+              <label className="flex items-center gap-3 leading-[50px]">
+                <div className="w-6 h-6 shrink-0" />
+                <span className="font-body font-bold text-[20px] text-brand-charcoal">
+                  {getCustomLabel(idx)}
+                </span>
+              </label>
+              <input
+                type="text"
+                value={customValues[idx]}
+                onChange={(e) => handleCustomChange(idx, e.target.value)}
+                className="w-[301px] h-[34px] bg-brand-gray-lightest border border-brand-gray-light rounded px-2 font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal ml-9"
+                placeholder=""
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
