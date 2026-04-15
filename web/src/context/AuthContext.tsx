@@ -21,6 +21,7 @@ interface User {
   first_name?: string;
   last_name?: string;
   status: string;
+  email_verified?: string;
   role?: string;
   organization_id?: string;
   organization_name?: string;
@@ -56,6 +57,7 @@ interface AuthContextType {
   registerChurch: (data: ChurchRegisterData) => Promise<User>;
   upgradeToChurchAdmin: (data: ChurchUpgradeData) => Promise<User>;
   logout: () => Promise<void>;
+  resendVerification: () => Promise<void>;
   updateLocale: (locale: string) => Promise<void>;
   locale: string;
   error: string | null;
@@ -298,6 +300,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resendVerification = async () => {
+    await api.post('/auth/resend-verification');
+  };
+
   const logout = async () => {
     setIsLoading(true);
     try {
@@ -335,6 +341,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerChurch,
         upgradeToChurchAdmin,
         logout,
+        resendVerification,
         updateLocale,
         locale,
         error,

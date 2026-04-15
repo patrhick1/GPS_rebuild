@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.rate_limits import limiter, AUTHENTICATED_RATE
 from app.core.sanitization import sanitize_user_input
 from app.core.audit import audit_action
-from app.dependencies.auth import get_current_active_user, require_admin
+from app.dependencies.auth import get_current_verified_user, require_admin
 from app.models.user import User
 from app.models.assessment import Assessment
 from app.models.answer import Answer
@@ -23,7 +23,7 @@ from app.models.myimpact_result import MyImpactResult
 from app.models.gifts_passion import GiftsPassion
 from app.services.scoring_service import ScoringService
 from app.services.myimpact_scoring_service import MyImpactScoringService
-from app.services.pdf_service import generate_pdf
+from app.services.pdf_service import generate_pdf, generate_myimpact_pdf
 from app.services.email_service import (
     send_assessment_notification_email,
     send_gps_result_email,
@@ -89,7 +89,7 @@ async def start_assessment(
     response: Response,
     instrument_type: str = Query("gps", description="Assessment instrument type: 'gps' or 'myimpact'"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Start a new assessment and return the form data"""
     # Validate instrument type
@@ -189,7 +189,7 @@ async def save_progress(
     assessment_id: str,
     submit_data: AssessmentSubmit,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Save assessment progress (answers) without completing"""
     try:
@@ -256,7 +256,7 @@ async def submit_assessment(
     assessment_id: str,
     submit_data: AssessmentSubmit,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Submit assessment and get results"""
     try:
@@ -376,7 +376,7 @@ async def get_assessment_results(
     request: Request,
     assessment_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Get results for a completed assessment"""
     try:
@@ -437,7 +437,7 @@ async def grade_assessment_preview(
     request: Request,
     assessment_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Preview grade calculation without saving results"""
     try:
@@ -554,7 +554,7 @@ async def download_assessment_pdf(
     request: Request,
     assessment_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Download a completed GPS assessment as a PDF report."""
     try:
@@ -602,26 +602,35 @@ async def download_assessment_pdf(
             detail="Assessment is not yet completed"
         )
 
-    if assessment.instrument_type == "myimpact":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="PDF download is only available for GPS assessments"
-        )
-
-    scoring_service = ScoringService(db)
-    graded = scoring_service.grade_assessment(assessment)
-
     owner = db.query(User).filter(User.id == assessment.user_id).first()
     user_name = f"{owner.first_name or ''} {owner.last_name or ''}".strip() if owner else "Unknown"
 
-    pdf_buffer = generate_pdf(
-        graded=graded,
-        user_name=user_name,
-        completed_at=assessment.completed_at,
-    )
-
-    safe_name = user_name.replace(" ", "_") or "gps"
-    filename = f"gps-results-{safe_name}.pdf"
+    if assessment.instrument_type == "myimpact":
+        myimpact_result = db.query(MyImpactResult).filter(
+            MyImpactResult.assessment_id == assessment_uuid
+        ).first()
+        if not myimpact_result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="MyImpact results not found"
+            )
+        pdf_buffer = generate_myimpact_pdf(
+            result=myimpact_result,
+            user_name=user_name,
+            completed_at=assessment.completed_at,
+        )
+        safe_name = user_name.replace(" ", "_") or "myimpact"
+        filename = f"myimpact-results-{safe_name}.pdf"
+    else:
+        scoring_service = ScoringService(db)
+        graded = scoring_service.grade_assessment(assessment)
+        pdf_buffer = generate_pdf(
+            graded=graded,
+            user_name=user_name,
+            completed_at=assessment.completed_at,
+        )
+        safe_name = user_name.replace(" ", "_") or "gps"
+        filename = f"gps-results-{safe_name}.pdf"
 
     return StreamingResponse(
         iter([pdf_buffer.read()]),
@@ -636,7 +645,7 @@ async def continue_assessment(
     request: Request,
     assessment_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Continue an in-progress assessment — returns questions + saved answers"""
     try:
@@ -740,7 +749,7 @@ async def get_my_assessments(
     request: Request,
     instrument_type: Optional[str] = Query(None, description="Filter by instrument type: 'gps' or 'myimpact'"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Get all assessments for current user"""
     query = db.query(Assessment).filter(

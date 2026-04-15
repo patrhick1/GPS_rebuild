@@ -20,6 +20,7 @@ class User(Base):
     country = Column(String(255), nullable=True)
     locale = Column(String(10), nullable=False, default="en")
     status = Column(String(20), nullable=False, default="active")  # active, invited, locked, deleted
+    email_verified = Column(String(1), nullable=False, default="N")  # Y or N
     stripe_id = Column(String(255), nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

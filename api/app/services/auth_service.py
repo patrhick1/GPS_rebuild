@@ -17,6 +17,7 @@ from app.models.role import Role
 from app.models.membership import Membership
 from app.models.refresh_token import RefreshToken
 from app.models.password_reset import PasswordResetToken
+from app.models.email_verification import EmailVerificationToken
 from app.schemas.user import UserCreate, UserLogin, ChurchAdminRegister, ChurchUpgrade
 import secrets
 import string
@@ -26,6 +27,15 @@ import re
 class AuthService:
     def __init__(self, db: Session):
         self.db = db
+
+    def _send_verification(self, user: User):
+        """Create a verification token and send the verification email."""
+        try:
+            from app.services.email_service import send_verification_email
+            token = self.create_email_verification_token(user.id)
+            send_verification_email(user.email, user.first_name, token)
+        except Exception:
+            pass  # Non-fatal: don't block registration if email fails
 
     def register_user(self, user_data: UserCreate, organization_key: Optional[str] = None) -> User:
         """Register a new user."""
@@ -86,7 +96,10 @@ class AuthService:
         self.db.add(membership)
         self.db.commit()
         self.db.refresh(db_user)
-        
+
+        # Send verification email
+        self._send_verification(db_user)
+
         return db_user
 
     def register_church_admin(self, data: ChurchAdminRegister) -> User:
@@ -152,6 +165,9 @@ class AuthService:
         self.db.add(membership)
         self.db.commit()
         self.db.refresh(db_user)
+
+        # Send verification email
+        self._send_verification(db_user)
 
         return db_user
 
@@ -373,6 +389,54 @@ class AuthService:
             RefreshToken.user_id == user.id
         ).update({"revoked": True})
         
+        self.db.commit()
+        return True
+
+    def create_email_verification_token(self, user_id: UUID) -> str:
+        """Create an email verification token for a user."""
+        # Invalidate any existing unused tokens for this user
+        self.db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.user_id == user_id,
+            EmailVerificationToken.used == "N",
+        ).update({"used": "Y"})
+
+        token = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(64))
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        verification_token = EmailVerificationToken(
+            user_id=user_id,
+            token=token,
+            expires_at=expires_at,
+        )
+        self.db.add(verification_token)
+        self.db.commit()
+        return token
+
+    def verify_email_token(self, token: str) -> bool:
+        """Verify an email verification token and mark user as verified.
+
+        Idempotent: replaying a token whose user is already verified returns
+        True so that retries, prefetchers, and React StrictMode double-invokes
+        don't surface a misleading error to a user who is, in fact, verified.
+        """
+        verification = self.db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.token == token,
+        ).first()
+
+        if not verification:
+            return False
+
+        user = self.db.query(User).filter(User.id == verification.user_id).first()
+        if not user:
+            return False
+
+        if verification.used == "Y":
+            return user.email_verified == "Y"
+
+        if verification.expires_at <= datetime.utcnow():
+            return False
+
+        user.email_verified = "Y"
+        verification.used = "Y"
         self.db.commit()
         return True
 

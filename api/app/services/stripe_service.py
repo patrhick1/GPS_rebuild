@@ -180,7 +180,6 @@ class StripeService:
             invoices = stripe.Invoice.list(
                 customer=customer_id,
                 limit=limit,
-                expand=["data.charge"]
             )
             return invoices.data
         except stripe.error.InvalidRequestError:

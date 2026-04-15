@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.core.rate_limits import limiter, ADMIN_RATE
 from app.core.exceptions import handle_exception, handle_stripe_exception
 from app.dependencies.auth import (
-    get_current_active_user,
+    get_current_verified_user,
     require_admin,
     require_primary_admin,
     require_primary_admin_no_impersonation
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/billing", tags=["Billing"])
 @limiter.limit(ADMIN_RATE)
 async def get_billing_config(
     request: Request,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Get public Stripe configuration"""
     return {
@@ -528,8 +528,11 @@ async def get_invoices(
                 subscription.stripe_customer_id,
                 limit=limit
             )
-        except stripe.error.InvalidRequestError:
-            pass
+        except stripe.error.InvalidRequestError as e:
+            # Only swallow "no such customer" — surface everything else so the
+            # UI can show a real error instead of a silently empty tab.
+            if "No such customer" not in str(e):
+                raise handle_stripe_exception(e)
     
     return {
         "payments": [{
@@ -547,7 +550,7 @@ async def get_invoices(
             "amount_due": inv.amount_due / 100,
             "currency": inv.currency,
             "status": inv.status,
-            "receipt_url": (inv.charge.receipt_url if inv.get("charge") and hasattr(inv.charge, "receipt_url") else None) or inv.hosted_invoice_url,
+            "receipt_url": inv.hosted_invoice_url,
             "hosted_invoice_url": inv.hosted_invoice_url,
             "invoice_pdf": inv.invoice_pdf,
             "created": inv.created

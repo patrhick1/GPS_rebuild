@@ -14,6 +14,11 @@ export function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Re-take confirmation state
+  const [retakeModalOpen, setRetakeModalOpen] = useState(false);
+  const [retakeType, setRetakeType] = useState<'gps' | 'myimpact'>('gps');
+  const [retakeDate, setRetakeDate] = useState('');
+
   // Comparison state
   const [compareSelected, setCompareSelected] = useState<string[]>([]);
   const [comparisonResult, setComparisonResult] = useState<any>(null);
@@ -84,6 +89,18 @@ export function Dashboard() {
   const handleLogout = () => {
     setMenuOpen(false);
     logout();
+  };
+
+  const handleStartAssessment = (type: 'gps' | 'myimpact') => {
+    const items = type === 'gps' ? history : myimpactHistory;
+    const lastCompleted = items.find(a => a.status === 'completed');
+    if (lastCompleted?.completed_at) {
+      setRetakeType(type);
+      setRetakeDate(formatDate(lastCompleted.completed_at));
+      setRetakeModalOpen(true);
+    } else {
+      navigate(type === 'gps' ? '/assessment' : '/myimpact');
+    }
   };
 
   if (isLoading && !summary) {
@@ -188,13 +205,13 @@ export function Dashboard() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 mt-8">
             <button
-              onClick={() => navigate('/assessment')}
+              onClick={() => handleStartAssessment('gps')}
               className="h-[50px] px-10 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
             >
               Take New GPS Assessment
             </button>
             <button
-              onClick={() => navigate('/myimpact')}
+              onClick={() => handleStartAssessment('myimpact')}
               className="h-[50px] px-10 bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
             >
               Take New MyImpact Assessment
@@ -598,6 +615,40 @@ export function Dashboard() {
             )}
           </div>
         </section>
+        {/* Re-take Confirmation Modal */}
+        {retakeModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-8">
+              <h3 className="font-heading font-black text-xl text-brand-charcoal mb-4">
+                Start a New {retakeType === 'gps' ? 'GPS' : 'MyImpact'} Assessment?
+              </h3>
+              <p className="font-body text-base text-brand-charcoal mb-6">
+                You completed a {retakeType === 'gps' ? 'GPS' : 'MyImpact'} assessment on{' '}
+                <span className="font-bold">{retakeDate}</span>. Are you sure you want to start
+                a new one?
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRetakeModalOpen(false)}
+                  className="h-[50px] px-8 bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRetakeModalOpen(false);
+                    navigate(retakeType === 'gps' ? '/assessment' : '/myimpact');
+                  }}
+                  className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
+                >
+                  Start New Assessment
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       <Footer />

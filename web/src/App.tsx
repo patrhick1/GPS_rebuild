@@ -23,6 +23,8 @@ import { ChurchUpgrade } from './pages/ChurchUpgrade';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { UpdatePassword } from './pages/UpdatePassword';
 import { UpdateLocale } from './pages/UpdateLocale';
+import { VerifyEmail } from './pages/VerifyEmail';
+import { VerifyEmailCallback } from './pages/VerifyEmailCallback';
 
 import { MasterDashboard } from './pages/MasterDashboard';
 import { BillingDashboard } from './pages/BillingDashboard';
@@ -48,12 +50,23 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/upgrade" element={<Upgrade />} />
           <Route path="/update-locale" element={<UpdateLocale />} />
+          <Route path="/verify-email/confirm" element={<VerifyEmailCallback />} />
           <Route path="/register/church" element={<ChurchRegister />} />
           <Route
             path="/upgrade/church"
             element={
               <PrivateRoute>
                 <ChurchUpgrade />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Email verification (auth required, unverified allowed) */}
+          <Route
+            path="/verify-email"
+            element={
+              <PrivateRoute allowUnverified>
+                <VerifyEmail />
               </PrivateRoute>
             }
           />

@@ -63,6 +63,7 @@ class UserInDB(UserBase):
 class UserResponse(UserBase):
     id: uuid.UUID
     status: str
+    email_verified: str = "N"
     created_at: datetime
 
     class Config:

@@ -23,7 +23,7 @@ from app.schemas.user import (
 from app.core.password_policy import PasswordPolicy
 from app.schemas.token import Token, RefreshTokenRequest
 from app.services.auth_service import AuthService
-from app.services.email_service import send_password_reset_email
+from app.services.email_service import send_password_reset_email, send_verification_email
 from app.models.user import User
 from app.models.membership import Membership
 from app.models.organization import Organization
@@ -145,7 +145,7 @@ async def login(
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is locked",
+            detail="Account is locked. Please contact support at info@disciplesmade.com.",
         )
     
     # Log successful login
@@ -299,6 +299,47 @@ async def password_reset(
     return {"message": "Password reset successfully"}
 
 
+@router.get("/verify-email")
+@limiter.limit(PUBLIC_AUTH_RATE)
+async def verify_email(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """Verify a user's email address using the token from their verification email."""
+    auth_service = AuthService(db)
+    success = auth_service.verify_email_token(token)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token",
+        )
+
+    return {"message": "Email verified successfully"}
+
+
+@router.post("/resend-verification")
+@limiter.limit("3/hour")
+async def resend_verification(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Resend the email verification link. Requires authentication but not verification."""
+    if current_user.email_verified == "Y":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is already verified",
+        )
+
+    auth_service = AuthService(db)
+    token = auth_service.create_email_verification_token(current_user.id)
+    send_verification_email(current_user.email, current_user.first_name, token)
+
+    return {"message": "Verification email sent"}
+
+
 @router.post("/change-password")
 async def change_password(
     password_data: PasswordChange,
@@ -339,7 +380,7 @@ async def change_password(
 
 @router.get("/me", response_model=UserWithRole)
 async def get_me(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get current authenticated user with role information."""

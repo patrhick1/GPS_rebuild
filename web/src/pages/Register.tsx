@@ -68,7 +68,7 @@ export function Register() {
     try {
       const { confirmPassword, country, city, state, ...registerData } = formData;
       await register({ ...registerData, ...(orgKey ? { organization_key: orgKey } : {}) });
-      navigate('/dashboard');
+      navigate('/verify-email');
     } catch (err) {
       // Error is handled by auth context
     }

@@ -20,7 +20,9 @@ export function Login() {
     clearError();
     try {
       const loggedInUser = await login(email, password);
-      if (loggedInUser.role === 'admin') {
+      if (loggedInUser.email_verified !== 'Y') {
+        navigate('/verify-email');
+      } else if (loggedInUser.role === 'admin') {
         navigate('/admin');
       } else if (loggedInUser.role === 'master') {
         navigate('/master');

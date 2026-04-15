@@ -4,9 +4,10 @@ import { useAuth } from '../context/AuthContext';
 interface PrivateRouteProps {
   children: React.ReactNode;
   requiredRole?: 'admin' | 'master' | 'admin_or_master';
+  allowUnverified?: boolean;
 }
 
-export function PrivateRoute({ children, requiredRole }: PrivateRouteProps) {
+export function PrivateRoute({ children, requiredRole, allowUnverified }: PrivateRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
@@ -19,6 +20,11 @@ export function PrivateRoute({ children, requiredRole }: PrivateRouteProps) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Redirect unverified users to the verification page
+  if (!allowUnverified && user?.email_verified !== 'Y') {
+    return <Navigate to="/verify-email" replace />;
   }
 
   const role = user?.role;

@@ -11,7 +11,7 @@ import io
 
 from app.core.database import get_db
 from app.core.rate_limits import limiter, AUTHENTICATED_RATE
-from app.dependencies.auth import get_current_active_user
+from app.dependencies.auth import get_current_verified_user
 from app.models.user import User
 from app.models.assessment import Assessment
 from app.models.assessment_result import AssessmentResult
@@ -40,7 +40,7 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 async def get_dashboard_summary(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Get dashboard summary for current user"""
     
@@ -117,7 +117,7 @@ async def get_dashboard_summary(
 async def get_assessment_history(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_verified_user),
     instrument_type: Optional[str] = Query(None, description="Filter by instrument type: 'gps' or 'myimpact'"),
     include_in_progress: bool = True,
     limit: int = 50,
@@ -207,7 +207,7 @@ async def get_assessment_detail(
     request: Request,
     assessment_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Get detailed view of a specific assessment"""
     try:
@@ -268,7 +268,7 @@ async def compare_assessments(
     request: Request,
     comparison: ComparisonRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Compare two assessments side by side"""
     
@@ -320,7 +320,7 @@ async def compare_assessments(
 async def export_assessments_csv(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Export user's assessment history as CSV"""
     
@@ -511,7 +511,7 @@ async def upgrade_to_admin(
     state: Optional[str] = None,
     country: str = "USA",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Upgrade user to church admin by creating a new organization"""
     
@@ -603,7 +603,7 @@ async def search_churches(
     request: Request,
     query: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Search for churches to link to"""
     
@@ -635,7 +635,7 @@ async def request_church_link(
     request: Request,
     link_data: LinkRequestCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Request to link to a church"""
 
@@ -692,7 +692,7 @@ async def request_church_link(
 async def leave_organization(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_verified_user)
 ):
     """Leave current organization and become independent"""
     

@@ -57,7 +57,7 @@ export function ChurchRegister() {
     try {
       const { confirmPassword, ...submitData } = formData;
       await registerChurch(submitData);
-      navigate('/admin/billing');
+      navigate('/verify-email');
     } catch {
       // Error handled by AuthContext
     }

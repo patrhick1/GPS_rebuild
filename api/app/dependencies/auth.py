@@ -158,6 +158,18 @@ async def get_current_active_user(
     return current_user
 
 
+async def get_current_verified_user(
+    current_user: User = Depends(get_current_active_user)
+) -> User:
+    """Dependency to ensure user has verified their email address."""
+    if current_user.email_verified != "Y":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="email_not_verified",
+        )
+    return current_user
+
+
 async def get_current_active_user_no_impersonation(
     current_user: User = Depends(get_current_user_no_impersonation)
 ) -> User:
@@ -170,8 +182,8 @@ async def get_current_active_user_no_impersonation(
     return current_user
 
 
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Dependency to require admin or master role."""
+def require_admin(current_user: User = Depends(get_current_verified_user)) -> User:
+    """Dependency to require admin or master role (email must be verified)."""
     membership = _get_active_membership(current_user)
     if membership:
         role_name = membership.role.name if membership.role else None
@@ -200,8 +212,8 @@ def require_admin_no_impersonation(
     )
 
 
-def require_master(current_user: User = Depends(get_current_user)) -> User:
-    """Dependency to require master role."""
+def require_master(current_user: User = Depends(get_current_verified_user)) -> User:
+    """Dependency to require master role (email must be verified)."""
     membership = current_user.memberships[0] if current_user.memberships else None
     if membership and membership.role and membership.role.name == "master":
         return current_user

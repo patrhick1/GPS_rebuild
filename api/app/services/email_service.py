@@ -51,6 +51,54 @@ def _get_client() -> bool:
     return True
 
 
+def send_verification_email(to_email: str, first_name: str, verification_token: str) -> None:
+    """Send an email verification link to a newly registered user."""
+    if not _get_client():
+        return
+    if _is_blocked_email(to_email):
+        logger.info("Skipped email to blocked/test address: %s", to_email)
+        return
+
+    verify_url = f"{settings.FRONTEND_URL}/verify-email/confirm?token={verification_token}"
+    greeting = first_name or "there"
+
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a3a4a;">Verify Your Email Address</h2>
+      <p>Hi {greeting},</p>
+      <p>Thanks for creating your GPS account! Please verify your email address
+         by clicking the button below:</p>
+      <p style="text-align: center; margin: 32px 0;">
+        <a href="{verify_url}"
+           style="background-color: #1a3a4a; color: white; padding: 14px 28px;
+                  text-decoration: none; border-radius: 6px; font-size: 16px;">
+          Verify Email
+        </a>
+      </p>
+      <p style="color: #666; font-size: 14px;">
+        This link expires in 24 hours.
+        If you did not create an account, you can safely ignore this email.
+      </p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px;">
+        Gift, Passion, Story Assessment Platform &mdash;
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+      </p>
+    </div>
+    """
+
+    try:
+        resend.Emails.send({
+            "from": settings.EMAIL_FROM,
+            "to": [to_email],
+            "subject": "Verify your email address — GPS",
+            "html": html,
+        })
+        logger.info("Verification email sent to %s", to_email)
+    except Exception as exc:
+        logger.error("Failed to send verification email to %s: %s", to_email, exc)
+
+
 def send_invite_email(
     to_email: str,
     org_name: str,
