@@ -9,10 +9,28 @@ import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 
 export function Dashboard() {
   const { user, logout } = useAuth();
-  const { summary, history, myimpactHistory, fetchSummary, fetchHistory, fetchMyImpactHistory, isLoading, error, compareAssessments } = useDashboard();
+  const { summary, history, myimpactHistory, fetchSummary, fetchHistory, fetchMyImpactHistory, isLoading, error, compareAssessments, exportCSV } = useDashboard();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Export state
+  const [isExportingMyData, setIsExportingMyData] = useState(false);
+  const [exportMsg, setExportMsg] = useState('');
+
+  const handleExportMyData = async () => {
+    setIsExportingMyData(true);
+    setExportMsg('');
+    try {
+      await exportCSV();
+      setExportMsg('Export downloaded successfully.');
+      setTimeout(() => setExportMsg(''), 3000);
+    } catch {
+      setExportMsg('Failed to export data. Please try again.');
+    } finally {
+      setIsExportingMyData(false);
+    }
+  };
 
   // Re-take confirmation state
   const [retakeModalOpen, setRetakeModalOpen] = useState(false);
@@ -216,7 +234,19 @@ export function Dashboard() {
             >
               Take New MyImpact Assessment
             </button>
+            <button
+              onClick={handleExportMyData}
+              disabled={isExportingMyData}
+              className="h-[50px] px-10 bg-brand-charcoal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-charcoal/90 transition-colors disabled:opacity-50"
+            >
+              {isExportingMyData ? 'Exporting...' : 'Export My Data'}
+            </button>
           </div>
+          {exportMsg && (
+            <p className={`mt-3 font-body text-sm ${exportMsg.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+              {exportMsg}
+            </p>
+          )}
 
           {/* Church Linking Prompt */}
           {!summary?.organization && user?.role !== 'admin' && user?.role !== 'master' && (

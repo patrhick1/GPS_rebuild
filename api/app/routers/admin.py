@@ -15,7 +15,7 @@ import string
 from app.core.database import get_db
 from app.core.rate_limits import limiter, ADMIN_RATE
 from app.core.audit import audit_action
-from app.dependencies.auth import get_current_active_user, require_admin, require_active_subscription, require_view_subscription, require_primary_admin
+from app.dependencies.auth import require_admin, require_active_subscription, require_view_subscription, require_primary_admin
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.membership import Membership
@@ -24,7 +24,9 @@ from app.models.assessment import Assessment
 from app.models.assessment_result import AssessmentResult
 from app.models.gifts_passion import GiftsPassion
 from app.models.myimpact_result import MyImpactResult
+from app.models.answer import Answer
 from app.models.invitation import Invitation
+import json
 from app.schemas.admin import (
     MemberListResponse,
     MemberDetail,
@@ -1067,6 +1069,10 @@ def _get_member_passions(db: Session, result: AssessmentResult):
 @limiter.limit(ADMIN_RATE)
 async def export_church_data(
     request: Request,
+    instrument: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    format: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),  # No subscription check — export works even when canceled
 ):
@@ -1074,6 +1080,8 @@ async def export_church_data(
     Export all church member and assessment data as a CSV file.
     Accessible regardless of subscription status so admins can retrieve
     their data before access is fully removed.
+    Optional filters: instrument (gps|myimpact), date_from, date_to (YYYY-MM-DD).
+    Optional format: 'planning_center' or 'rock_rms' for ChMS-compatible headers.
     """
     org = get_admin_organization(db, current_user)
 
@@ -1085,16 +1093,55 @@ async def export_church_data(
     output = io.StringIO()
     writer = csv.writer(output)
 
-    writer.writerow([
-        "First Name", "Last Name", "Email", "Member Status", "Joined Date",
-        "Assessment Type", "Assessment Completed",
-        "Gift 1", "Gift 1 Score", "Gift 2", "Gift 2 Score",
-        "Gift 3", "Gift 3 Score", "Gift 4", "Gift 4 Score",
-        "Passion 1", "Passion 1 Score", "Passion 2", "Passion 2 Score",
-        "Passion 3", "Passion 3 Score",
-        "MyImpact Score", "Character Score", "Calling Score",
-        "People", "Cause", "Abilities",
-    ])
+    # Header row — field names compatible with Planning Center and ROCK RMS import schemas.
+    # Planning Center recognizes: first_name, last_name, email (core person fields).
+    # ROCK RMS recognizes: FirstName, LastName, Email (core person fields).
+    # Assessment-specific columns are mapped as custom/attribute fields by both platforms.
+    if format == "planning_center":
+        writer.writerow([
+            "first_name", "last_name", "email", "campus",
+            "membership_type", "membership_date",
+            "assessment_instrument", "assessment_date",
+            "spiritual_gift_1", "spiritual_gift_1_score",
+            "spiritual_gift_2", "spiritual_gift_2_score",
+            "spiritual_gift_3", "spiritual_gift_3_score",
+            "spiritual_gift_4", "spiritual_gift_4_score",
+            "passion_1", "passion_1_score",
+            "passion_2", "passion_2_score",
+            "passion_3", "passion_3_score",
+            "myimpact_score", "character_score", "calling_score",
+            "people", "cause", "abilities",
+            "raw_answers",
+        ])
+    elif format == "rock_rms":
+        writer.writerow([
+            "FirstName", "LastName", "Email", "Campus",
+            "ConnectionStatus", "CreatedDateTime",
+            "AssessmentInstrument", "AssessmentDate",
+            "SpiritualGift1", "SpiritualGift1Score",
+            "SpiritualGift2", "SpiritualGift2Score",
+            "SpiritualGift3", "SpiritualGift3Score",
+            "SpiritualGift4", "SpiritualGift4Score",
+            "Passion1", "Passion1Score",
+            "Passion2", "Passion2Score",
+            "Passion3", "Passion3Score",
+            "MyImpactScore", "CharacterScore", "CallingScore",
+            "People", "Cause", "Abilities",
+            "RawAnswers",
+        ])
+    else:
+        writer.writerow([
+            "First Name", "Last Name", "Email", "Church Name",
+            "Member Status", "Joined Date",
+            "Assessment Instrument", "Assessment Date",
+            "Gift 1", "Gift 1 Score", "Gift 2", "Gift 2 Score",
+            "Gift 3", "Gift 3 Score", "Gift 4", "Gift 4 Score",
+            "Passion 1", "Passion 1 Score", "Passion 2", "Passion 2 Score",
+            "Passion 3", "Passion 3 Score",
+            "MyImpact Score", "Character Score", "Calling Score",
+            "People", "Cause", "Abilities",
+            "Raw Answers (JSON)",
+        ])
 
     for m in memberships:
         user = m.user
@@ -1105,21 +1152,50 @@ async def export_church_data(
             user.first_name or "",
             user.last_name or "",
             user.email or "",
+            org.name or "",
             m.status,
             m.created_at.strftime("%Y-%m-%d") if m.created_at else "",
         ]
 
-        # Get the latest completed assessment
-        assessment = db.query(Assessment).filter(
+        # Get the latest completed assessment (with optional filters)
+        assessment_query = db.query(Assessment).filter(
             Assessment.user_id == user.id,
             Assessment.status == "completed",
-        ).order_by(Assessment.completed_at.desc()).first()
+        )
+        if instrument:
+            assessment_query = assessment_query.filter(Assessment.instrument_type == instrument)
+        if date_from:
+            try:
+                from_dt = datetime.strptime(date_from, "%Y-%m-%d")
+                assessment_query = assessment_query.filter(Assessment.completed_at >= from_dt)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                to_dt = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+                assessment_query = assessment_query.filter(Assessment.completed_at <= to_dt)
+            except ValueError:
+                pass
+        assessment = assessment_query.order_by(Assessment.completed_at.desc()).first()
 
         if not assessment:
-            writer.writerow(base + [""] * 21)
+            # 22 empty columns: instrument, date, 8 gift cols, 6 passion cols, 3 MI, 3 PCA, 1 raw
+            writer.writerow(base + [""] * 22)
             continue
 
         completed = assessment.completed_at.strftime("%Y-%m-%d") if assessment.completed_at else ""
+
+        # Build raw answers JSON
+        raw_answers = db.query(Answer).filter(Answer.assessment_id == assessment.id).all()
+        raw_json = json.dumps([
+            {
+                "question_id": str(a.question_id) if a.question_id else None,
+                "mc": a.multiple_choice_answer,
+                "numeric": a.numeric_value,
+                "text": a.text_value,
+            }
+            for a in raw_answers
+        ]) if raw_answers else ""
 
         if assessment.instrument_type == "myimpact":
             mi = assessment.myimpact_results
@@ -1131,6 +1207,7 @@ async def export_church_data(
                 mi.character_score if mi else "",
                 mi.calling_score if mi else "",
                 "", "", "",
+                raw_json,
             ])
         else:
             r = assessment.results
@@ -1172,10 +1249,145 @@ async def export_church_data(
                 passions[2][0], passions[2][1],
                 "", "", "",  # MyImpact columns blank
                 r.people if r else "", r.cause if r else "", r.abilities if r else "",
+                raw_json,
             ])
 
     output.seek(0)
-    filename = f"{org.name.replace(' ', '-').lower()}-church-data.csv"
+    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    instrument_label = instrument.upper() if instrument else "All"
+    filename = f"{org.name.replace(' ', '_')}_{instrument_label}_{date_str}.csv"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/export/csv/{member_id}")
+@limiter.limit(ADMIN_RATE)
+async def export_member_data(
+    request: Request,
+    member_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Export a single member's assessment data as CSV."""
+    org = get_admin_organization(db, current_user)
+
+    membership = db.query(Membership).filter(
+        Membership.organization_id == org.id,
+        Membership.user_id == member_id,
+        Membership.status != "removed",
+    ).first()
+
+    if not membership:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    user = membership.user
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "First Name", "Last Name", "Email", "Church Name",
+        "Assessment Instrument", "Assessment Date",
+        "Gift 1", "Gift 1 Score", "Gift 2", "Gift 2 Score",
+        "Gift 3", "Gift 3 Score", "Gift 4", "Gift 4 Score",
+        "Passion 1", "Passion 1 Score", "Passion 2", "Passion 2 Score",
+        "Passion 3", "Passion 3 Score",
+        "MyImpact Score", "Character Score", "Calling Score",
+        "People", "Cause", "Abilities", "Status", "Raw Answers (JSON)",
+    ])
+
+    assessments = db.query(Assessment).filter(
+        Assessment.user_id == user.id,
+        Assessment.status == "completed",
+    ).order_by(Assessment.completed_at.desc()).all()
+
+    for assessment in assessments:
+        base = [
+            user.first_name or "",
+            user.last_name or "",
+            user.email or "",
+            org.name or "",
+        ]
+
+        completed = assessment.completed_at.strftime("%Y-%m-%d") if assessment.completed_at else ""
+
+        # Build raw answers JSON
+        raw_answers = db.query(Answer).filter(Answer.assessment_id == assessment.id).all()
+        raw_json = json.dumps([
+            {
+                "question_id": str(a.question_id) if a.question_id else None,
+                "mc": a.multiple_choice_answer,
+                "numeric": a.numeric_value,
+                "text": a.text_value,
+            }
+            for a in raw_answers
+        ]) if raw_answers else ""
+
+        if assessment.instrument_type == "myimpact":
+            mi = assessment.myimpact_results
+            writer.writerow(base + [
+                "MyImpact", completed,
+                "", "", "", "", "", "", "", "",
+                "", "", "", "", "", "",
+                mi.myimpact_score if mi else "",
+                mi.character_score if mi else "",
+                mi.calling_score if mi else "",
+                "", "", "", membership.status, raw_json,
+            ])
+        else:
+            r = assessment.results
+            gifts = []
+            passions = []
+            if r:
+                for gid, gscore in [
+                    (r.gift_1_id, r.spiritual_gift_1_score),
+                    (r.gift_2_id, r.spiritual_gift_2_score),
+                    (r.gift_3_id, r.spiritual_gift_3_score),
+                    (r.gift_4_id, r.spiritual_gift_4_score),
+                ]:
+                    if gid:
+                        gp = db.query(GiftsPassion).filter(GiftsPassion.id == gid).first()
+                        gifts.append((gp.name if gp else "", gscore or ""))
+                    else:
+                        gifts.append(("", ""))
+                for pid, pscore in [
+                    (r.passion_1_id, r.passion_1_score),
+                    (r.passion_2_id, r.passion_2_score),
+                    (r.passion_3_id, r.passion_3_score),
+                ]:
+                    if pid:
+                        gp = db.query(GiftsPassion).filter(GiftsPassion.id == pid).first()
+                        passions.append((gp.name if gp else "", pscore or ""))
+                    else:
+                        passions.append(("", ""))
+
+            while len(gifts) < 4:
+                gifts.append(("", ""))
+            while len(passions) < 3:
+                passions.append(("", ""))
+
+            writer.writerow(base + [
+                "GPS", completed,
+                gifts[0][0], gifts[0][1], gifts[1][0], gifts[1][1],
+                gifts[2][0], gifts[2][1], gifts[3][0], gifts[3][1],
+                passions[0][0], passions[0][1], passions[1][0], passions[1][1],
+                passions[2][0], passions[2][1],
+                "", "", "",
+                r.people if r else "", r.cause if r else "", r.abilities if r else "",
+                membership.status, raw_json,
+            ])
+
+    if not assessments:
+        writer.writerow([
+            user.first_name or "", user.last_name or "", user.email or "",
+            org.name or "", "", "",
+        ] + [""] * 20 + [membership.status, ""])
+
+    output.seek(0)
+    filename = f"{(user.first_name or '').replace(' ', '-')}-{(user.last_name or '').replace(' ', '-')}-data.csv"
 
     return StreamingResponse(
         iter([output.getvalue()]),

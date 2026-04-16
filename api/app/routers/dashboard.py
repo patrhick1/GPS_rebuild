@@ -322,63 +322,102 @@ async def export_assessments_csv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_verified_user)
 ):
-    """Export user's assessment history as CSV"""
-    
+    """Export user's assessment history as CSV (GPS + MyImpact)"""
+    import json
+
+    # Get user's church name
+    membership = db.query(Membership).filter(
+        Membership.user_id == current_user.id,
+        Membership.status.in_(["approved", "active"]),
+    ).first()
+    church_name = ""
+    if membership and membership.organization:
+        church_name = membership.organization.name
+
     assessments = db.query(Assessment).filter(
         Assessment.user_id == current_user.id,
         Assessment.status == "completed"
     ).order_by(Assessment.completed_at.desc()).all()
-    
-    # Create CSV in memory
+
     output = io.StringIO()
     writer = csv.writer(output)
-    
-    # Write header
+
     writer.writerow([
-        "Assessment Date",
-        "Gift 1",
-        "Score 1",
-        "Gift 2",
-        "Score 2",
-        "Passion 1",
-        "Score 1",
-        "Passion 2",
-        "Score 2"
+        "First Name", "Last Name", "Email", "Church Name",
+        "Assessment Instrument", "Assessment Date",
+        "Gift 1", "Gift 1 Score", "Gift 2", "Gift 2 Score",
+        "Passion 1", "Passion 1 Score", "Passion 2", "Passion 2 Score",
+        "MyImpact Score", "Character Score", "Calling Score",
+        "Status",
     ])
-    
-    # Write data
+
     for assessment in assessments:
-        result = db.query(AssessmentResult).filter(
-            AssessmentResult.assessment_id == assessment.id
-        ).first()
-        
-        if result:
-            # Get gift names
-            gift1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_1_id).first()
-            gift2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_2_id).first()
-            passion1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.passion_1_id).first()
-            passion2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.passion_2_id).first()
-            
-            writer.writerow([
-                assessment.completed_at.isoformat() if assessment.completed_at else "",
-                gift1.name if gift1 else "",
-                result.spiritual_gift_1_score or "",
-                gift2.name if gift2 else "",
-                result.spiritual_gift_2_score or "",
-                passion1.name if passion1 else "",
-                result.passion_1_score or "",
-                passion2.name if passion2 else "",
-                result.passion_2_score or ""
+        base = [
+            current_user.first_name or "",
+            current_user.last_name or "",
+            current_user.email or "",
+            church_name,
+        ]
+        completed = assessment.completed_at.strftime("%Y-%m-%d") if assessment.completed_at else ""
+
+        if assessment.instrument_type == "myimpact":
+            mi = assessment.myimpact_results
+            writer.writerow(base + [
+                "MyImpact", completed,
+                "", "", "", "",
+                "", "", "", "",
+                mi.myimpact_score if mi else "",
+                mi.character_score if mi else "",
+                mi.calling_score if mi else "",
+                membership.status if membership else "",
             ])
-    
-    # Prepare response
+        else:
+            r = db.query(AssessmentResult).filter(
+                AssessmentResult.assessment_id == assessment.id
+            ).first()
+            gifts = []
+            passions = []
+            if r:
+                for gid, gscore in [
+                    (r.gift_1_id, r.spiritual_gift_1_score),
+                    (r.gift_2_id, r.spiritual_gift_2_score),
+                ]:
+                    if gid:
+                        gp = db.query(GiftsPassion).filter(GiftsPassion.id == gid).first()
+                        gifts.append((gp.name if gp else "", gscore or ""))
+                    else:
+                        gifts.append(("", ""))
+                for pid, pscore in [
+                    (r.passion_1_id, r.passion_1_score),
+                    (r.passion_2_id, r.passion_2_score),
+                ]:
+                    if pid:
+                        gp = db.query(GiftsPassion).filter(GiftsPassion.id == pid).first()
+                        passions.append((gp.name if gp else "", pscore or ""))
+                    else:
+                        passions.append(("", ""))
+
+            while len(gifts) < 2:
+                gifts.append(("", ""))
+            while len(passions) < 2:
+                passions.append(("", ""))
+
+            writer.writerow(base + [
+                "GPS", completed,
+                gifts[0][0], gifts[0][1], gifts[1][0], gifts[1][1],
+                passions[0][0], passions[0][1], passions[1][0], passions[1][1],
+                "", "", "",
+                membership.status if membership else "",
+            ])
+
     output.seek(0)
-    filename = f"gps_assessments_{current_user.email}_{datetime.now().strftime('%Y%m%d')}.csv"
-    
+    date_str = datetime.now().strftime("%Y%m%d")
+    filename = f"my_assessments_{date_str}.csv"
+
     return Response(
         content=output.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 

@@ -7,6 +7,35 @@ export function AuditLog() {
   const [filters, setFilters] = useState({ action: '', target_type: '' });
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState('');
+
+  const handleExportAuditLog = async () => {
+    setIsExporting(true);
+    setExportMsg('');
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('/api/master/export/full', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Export failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gps_audit_log_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setExportMsg('Export downloaded successfully.');
+      setTimeout(() => setExportMsg(''), 3000);
+    } catch {
+      setExportMsg('Failed to export audit log. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     fetchAuditLog();
@@ -35,9 +64,24 @@ export function AuditLog() {
 
   return (
     <div className="audit-log">
-      <header className="page-header">
+      <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Audit Log</h1>
+        <button
+          className="btn-export"
+          onClick={handleExportAuditLog}
+          disabled={isExporting}
+          style={{ opacity: isExporting ? 0.5 : 1 }}
+        >
+          {isExporting ? 'Exporting...' : 'Export Audit Log'}
+        </button>
       </header>
+
+      {exportMsg && (
+        <div className={exportMsg.includes('Failed') ? 'error-banner' : 'success-banner'}>
+          {exportMsg}
+          <button onClick={() => setExportMsg('')}>&times;</button>
+        </div>
+      )}
 
       {error && (
         <div className="error-banner">

@@ -733,10 +733,14 @@ async def get_audit_log(
 async def system_export(
     request: Request,
     export_type: str,
+    church_id: Optional[str] = None,
+    instrument: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_master)
 ):
-    """Export system data as CSV"""
+    """Export system data as CSV. Optional filters: church_id, instrument (gps|myimpact), date_from, date_to (YYYY-MM-DD)."""
     
     # Log the export
     audit_log = AuditLog(
@@ -772,20 +776,37 @@ async def system_export(
             ])
     
     elif export_type == "assessments":
-        writer.writerow(["Assessment ID", "User Email", "Completed At", "Gift 1", "Score 1", "Gift 2", "Score 2", "Style 1", "Score 1", "Style 2", "Score 2"])
-        
-        assessments = db.query(Assessment, User, AssessmentResult).join(
+        writer.writerow(["Assessment ID", "User Email", "Church", "Instrument", "Completed At", "Gift 1", "Score 1", "Gift 2", "Score 2", "Style 1", "Score 1", "Style 2", "Score 2"])
+
+        assessment_q = db.query(Assessment, User, AssessmentResult).join(
             User, Assessment.user_id == User.id
         ).outerjoin(
             AssessmentResult, Assessment.id == AssessmentResult.assessment_id
-        ).filter(Assessment.status == "completed").all()
+        ).filter(Assessment.status == "completed")
+        if instrument:
+            assessment_q = assessment_q.filter(Assessment.instrument_type == instrument)
+        if date_from:
+            try:
+                assessment_q = assessment_q.filter(Assessment.completed_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                assessment_q = assessment_q.filter(Assessment.completed_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+            except ValueError:
+                pass
+        if church_id:
+            assessment_q = assessment_q.join(Membership, Membership.user_id == User.id).filter(Membership.organization_id == church_id)
+        assessments = assessment_q.all()
         
         for assessment, user, result in assessments:
+            membership = db.query(Membership).filter(Membership.user_id == user.id).first()
+            org_name = membership.organization.name if membership and membership.organization else "Independent"
             gift1_name = ""
             gift2_name = ""
             style1_name = ""
             style2_name = ""
-            
+
             if result:
                 gift1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_1_id).first() if result.gift_1_id else None
                 gift2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_2_id).first() if result.gift_2_id else None
@@ -795,10 +816,12 @@ async def system_export(
                 gift2_name = gift2.name if gift2 else ""
                 style1_name = style1.name if style1 else ""
                 style2_name = style2.name if style2 else ""
-            
+
             writer.writerow([
                 str(assessment.id),
                 user.email,
+                org_name,
+                assessment.instrument_type or "gps",
                 assessment.completed_at.isoformat() if assessment.completed_at else "",
                 gift1_name,
                 result.spiritual_gift_1_score if result else "",
@@ -809,7 +832,7 @@ async def system_export(
                 style2_name,
                 result.influencing_style_2_score if result else ""
             ])
-    
+
     elif export_type == "full":
         # Full export - users and their assessments
         writer.writerow(["=== USERS ==="])

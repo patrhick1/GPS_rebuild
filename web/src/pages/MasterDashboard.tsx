@@ -8,12 +8,14 @@ import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
+import { AuditLog } from './AuditLog';
+import { SystemExport } from './SystemExport';
 import goldMenuIcon from '../../Graphics for Dev/Icons/Gold Menu Icon.svg';
 import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 import tealArrowIcon from '../../Graphics for Dev/Icons/Dark Teal Arrow Circle Icon.svg';
 import searchIcon from '../../Graphics for Dev/Icons/Charcoal Search Icon.svg';
 
-type Tab = 'dashboard' | 'churches';
+type Tab = 'dashboard' | 'churches' | 'audit-log' | 'export';
 
 export function MasterDashboard() {
   const { user, logout } = useAuth();
@@ -116,6 +118,8 @@ export function MasterDashboard() {
   const sidebarItems: { key: Tab; label: string }[] = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'churches', label: 'Churches' },
+    { key: 'export', label: 'System Export' },
+    { key: 'audit-log', label: 'Audit Log' },
   ];
 
   // Pagination
@@ -370,6 +374,12 @@ export function MasterDashboard() {
                 </div>
               </div>
             )}
+
+            {/* ── System Export Tab ── */}
+            {activeTab === 'export' && <SystemExport />}
+
+            {/* ── Audit Log Tab ── */}
+            {activeTab === 'audit-log' && <AuditLog />}
 
             {/* ── Churches Tab ── */}
             {activeTab === 'churches' && (

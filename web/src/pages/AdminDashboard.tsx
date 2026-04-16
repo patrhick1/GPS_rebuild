@@ -68,6 +68,17 @@ export function AdminDashboard() {
   const [transferTarget, setTransferTarget] = useState<typeof members[0] | null>(null);
   const [isTransferring, setIsTransferring] = useState(false);
   const [search, setSearch] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState('');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportInstrument, setExportInstrument] = useState('');
+  const [exportDateFrom, setExportDateFrom] = useState('');
+  const [exportDateTo, setExportDateTo] = useState('');
+  const [exportFormat, setExportFormat] = useState('');
+  const [sortField, setSortField] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [selectedMember, setSelectedMember] = useState<typeof members[0] | null>(null);
+  const [isMemberExporting, setIsMemberExporting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Church settings form state
@@ -165,6 +176,145 @@ export function AdminDashboard() {
       navigator.clipboard.writeText(link);
       alert('Assessment link copied to clipboard!');
     }
+  };
+
+  const handleExportCSV = () => {
+    setShowExportModal(true);
+  };
+
+  const handleConfirmExport = async () => {
+    setIsExporting(true);
+    setExportMsg('');
+    try {
+      const token = localStorage.getItem('access_token');
+      const params = new URLSearchParams();
+      if (exportInstrument) params.set('instrument', exportInstrument);
+      if (exportDateFrom) params.set('date_from', exportDateFrom);
+      if (exportDateTo) params.set('date_to', exportDateTo);
+      if (exportFormat) params.set('format', exportFormat);
+      const qs = params.toString();
+      const response = await fetch(`/api/admin/export/csv${qs ? `?${qs}` : ''}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Export failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const disposition = response.headers.get('Content-Disposition');
+      const filename = disposition?.split('filename=')[1]?.replace(/"/g, '') || 'church-data.csv';
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setExportMsg('Export downloaded successfully.');
+      setTimeout(() => setExportMsg(''), 3000);
+      setShowExportModal(false);
+    } catch {
+      setExportMsg('Failed to export data. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortIndicator = (field: string) =>
+    sortField === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+
+  const sortedMembers = [...members].sort((a, b) => {
+    if (!sortField) return 0;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    switch (sortField) {
+      case 'name': {
+        const aName = `${a.first_name} ${a.last_name}`.toLowerCase();
+        const bName = `${b.first_name} ${b.last_name}`.toLowerCase();
+        return aName.localeCompare(bName) * dir;
+      }
+      case 'date': {
+        const aDate = a.last_assessment_date || '';
+        const bDate = b.last_assessment_date || '';
+        return aDate.localeCompare(bDate) * dir;
+      }
+      case 'character': {
+        const aScore = a.myimpact_character_score ?? -1;
+        const bScore = b.myimpact_character_score ?? -1;
+        return (aScore - bScore) * dir;
+      }
+      case 'calling': {
+        const aScore = a.myimpact_calling_score ?? -1;
+        const bScore = b.myimpact_calling_score ?? -1;
+        return (aScore - bScore) * dir;
+      }
+      case 'myimpact': {
+        const aScore = a.myimpact_score ?? -1;
+        const bScore = b.myimpact_score ?? -1;
+        return (aScore - bScore) * dir;
+      }
+      default:
+        return 0;
+    }
+  });
+
+  const handleExportMemberCSV = async (member: typeof members[0]) => {
+    setIsMemberExporting(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`/api/admin/export/csv/${member.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Export failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${member.first_name}-${member.last_name}-data.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch {
+      alert('Failed to export member data.');
+    } finally {
+      setIsMemberExporting(false);
+    }
+  };
+
+  const handlePrintMember = (member: typeof members[0]) => {
+    const w = window.open('', '_blank', 'width=800,height=600');
+    if (!w) return;
+    const gifts = (member.top_gifts || []).map(g => g.short_code || g.name).join(', ');
+    const passions = (member.top_passions || []).map(p => p.name).join(', ');
+    w.document.write(`
+      <html><head><title>${member.first_name} ${member.last_name} — Member Report</title>
+      <style>body{font-family:sans-serif;padding:40px;color:#333}h1{font-size:24px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #ddd}th{background:#f5f5f5;font-size:13px;text-transform:uppercase;color:#666}</style></head>
+      <body>
+        <h1>${member.first_name} ${member.last_name}</h1>
+        <p><strong>Email:</strong> ${member.email || '—'}</p>
+        <p><strong>Status:</strong> ${member.status || '—'}</p>
+        <p><strong>Last Assessment:</strong> ${formatDate(member.last_assessment_date)}</p>
+        <table>
+          <tr><th>Gifts</th><td>${gifts || '—'}</td></tr>
+          <tr><th>Influencing Style</th><td>${passions || '—'}</td></tr>
+          ${member.myimpact_score != null ? `
+          <tr><th>MyImpact Score</th><td>${member.myimpact_score}</td></tr>
+          <tr><th>Character</th><td>${member.myimpact_character_score ?? '—'}</td></tr>
+          <tr><th>Calling</th><td>${member.myimpact_calling_score ?? '—'}</td></tr>
+          ` : ''}
+        </table>
+        <p style="margin-top:20px;font-size:12px;color:#999">Printed from GPS Admin Dashboard — ${churchSettings?.name || ''}</p>
+      </body></html>
+    `);
+    w.document.close();
+    w.print();
   };
 
   const adminMembers = members.filter((m) => m.role === 'admin' || m.role === 'master');
@@ -443,7 +593,7 @@ export function AdminDashboard() {
                     Gift Passion Story — Users &nbsp;|&nbsp; Admin Dashboard
                   </h2>
 
-                  {/* Search bar + Gold link button — responsive 3-tier layout */}
+                  {/* Search bar + Gold link button + Export — responsive 3-tier layout */}
                   <div className="flex flex-col gap-3 mb-8">
                     <div className="flex gap-3">
                       {/* Input */}
@@ -472,6 +622,14 @@ export function AdminDashboard() {
                       >
                         Access Unique Assessment Link
                       </button>
+                      {/* Export CSV — inline on desktop only */}
+                      <button
+                        onClick={handleExportCSV}
+                        disabled={isExporting}
+                        className="hidden lg:flex items-center h-[50px] px-6 bg-brand-charcoal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-charcoal/90 transition-colors whitespace-nowrap disabled:opacity-50"
+                      >
+                        {isExporting ? 'Exporting...' : 'Export CSV'}
+                      </button>
                     </div>
                     {/* Search button — mobile only, own row */}
                     <button
@@ -487,13 +645,26 @@ export function AdminDashboard() {
                     >
                       Access Unique Assessment Link
                     </button>
+                    {/* Export CSV — tablet + mobile, own row */}
+                    <button
+                      onClick={handleExportCSV}
+                      disabled={isExporting}
+                      className="lg:hidden h-[50px] w-full bg-brand-charcoal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-charcoal/90 transition-colors disabled:opacity-50"
+                    >
+                      {isExporting ? 'Exporting...' : 'Export CSV'}
+                    </button>
+                    {exportMsg && (
+                      <p className={`font-body text-sm ${exportMsg.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                        {exportMsg}
+                      </p>
+                    )}
                   </div>
 
                   {/* ── Table (desktop lg+) ── */}
                   <div className="hidden lg:block overflow-x-auto">
                     <div className="grid grid-cols-[180px_130px_120px_120px_1fr] gap-2 mb-2">
-                      <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Name</span>
-                      <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Last Assessment</span>
+                      <button onClick={() => handleSort('name')} className="font-body font-bold text-[16px] text-brand-gray-med uppercase text-left hover:text-brand-teal transition-colors cursor-pointer">Name{sortIndicator('name')}</button>
+                      <button onClick={() => handleSort('date')} className="font-body font-bold text-[16px] text-brand-gray-med uppercase text-left hover:text-brand-teal transition-colors cursor-pointer">Last Assessment{sortIndicator('date')}</button>
                       <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Gifts</span>
                       <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Influencing Style</span>
                       <span />
@@ -504,15 +675,15 @@ export function AdminDashboard() {
                       <div className="flex items-center justify-center py-12">
                         <div className="w-8 h-8 border-4 border-brand-teal border-t-transparent rounded-full animate-spin" />
                       </div>
-                    ) : members.length === 0 ? (
+                    ) : sortedMembers.length === 0 ? (
                       <p className="font-body text-base text-brand-gray-med py-8 text-center">No members found.</p>
                     ) : (
-                      members.map((member) => (
+                      sortedMembers.map((member) => (
                         <div key={member.id}>
                           <div className="grid grid-cols-[180px_130px_120px_120px_1fr] gap-2 items-center py-3">
-                            <span className="font-body font-bold text-lg text-brand-charcoal truncate">
+                            <button onClick={() => setSelectedMember(member)} className="font-body font-bold text-lg text-brand-teal truncate text-left hover:underline cursor-pointer">
                               {member.first_name} {member.last_name}
-                            </span>
+                            </button>
                             <span className="font-body font-bold text-lg text-brand-charcoal">
                               {formatDate(member.last_assessment_date)}
                             </span>
@@ -577,19 +748,19 @@ export function AdminDashboard() {
                       <div className="flex items-center justify-center py-12">
                         <div className="w-8 h-8 border-4 border-brand-teal border-t-transparent rounded-full animate-spin" />
                       </div>
-                    ) : members.length === 0 ? (
+                    ) : sortedMembers.length === 0 ? (
                       <p className="font-body text-base text-brand-gray-med py-8 text-center">No members found.</p>
                     ) : (
-                      members.map((member) => (
+                      sortedMembers.map((member) => (
                         <div key={member.id}>
                           <div className="py-4">
                             {/* Name + Last Assessment */}
                             <div className="flex justify-between items-start mb-3">
                               <div>
                                 <p className="font-body font-bold text-[16px] text-brand-gray-med uppercase mb-1">Name</p>
-                                <p className="font-body font-bold text-lg text-brand-charcoal">
+                                <button onClick={() => setSelectedMember(member)} className="font-body font-bold text-lg text-brand-teal text-left hover:underline cursor-pointer">
                                   {member.first_name} {member.last_name}
-                                </p>
+                                </button>
                               </div>
                               <div className="text-right">
                                 <p className="font-body font-bold text-[16px] text-brand-gray-med uppercase mb-1">Last Assessment</p>
@@ -745,7 +916,7 @@ export function AdminDashboard() {
                     MyImpact — Users &nbsp;|&nbsp; Admin Dashboard
                   </h2>
 
-                  {/* Search bar + Gold link button — responsive */}
+                  {/* Search bar + Gold link button + Export — responsive */}
                   <div className="flex flex-col gap-3 mb-8">
                     <div className="flex gap-3">
                       <div className="relative flex-1 lg:max-w-[484px]">
@@ -771,6 +942,13 @@ export function AdminDashboard() {
                       >
                         Access Unique Assessment Link
                       </button>
+                      <button
+                        onClick={handleExportCSV}
+                        disabled={isExporting}
+                        className="hidden lg:flex items-center h-[50px] px-6 bg-brand-charcoal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-charcoal/90 transition-colors whitespace-nowrap disabled:opacity-50"
+                      >
+                        {isExporting ? 'Exporting...' : 'Export CSV'}
+                      </button>
                     </div>
                     <button
                       onClick={handleSearch}
@@ -784,16 +962,28 @@ export function AdminDashboard() {
                     >
                       Access Unique Assessment Link
                     </button>
+                    <button
+                      onClick={handleExportCSV}
+                      disabled={isExporting}
+                      className="lg:hidden h-[50px] w-full bg-brand-charcoal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-charcoal/90 transition-colors disabled:opacity-50"
+                    >
+                      {isExporting ? 'Exporting...' : 'Export CSV'}
+                    </button>
+                    {exportMsg && (
+                      <p className={`font-body text-sm ${exportMsg.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                        {exportMsg}
+                      </p>
+                    )}
                   </div>
 
                   {/* ── Desktop table (lg+) ── */}
                   <div className="hidden lg:block overflow-x-auto">
                     <div className="grid grid-cols-[180px_130px_110px_110px_120px_1fr] gap-2 mb-2">
-                      <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Name</span>
-                      <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Last Assessment</span>
-                      <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Character</span>
-                      <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Calling</span>
-                      <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">MyImpact</span>
+                      <button onClick={() => handleSort('name')} className="font-body font-bold text-[16px] text-brand-gray-med uppercase text-left hover:text-brand-teal transition-colors cursor-pointer">Name{sortIndicator('name')}</button>
+                      <button onClick={() => handleSort('date')} className="font-body font-bold text-[16px] text-brand-gray-med uppercase text-left hover:text-brand-teal transition-colors cursor-pointer">Last Assessment{sortIndicator('date')}</button>
+                      <button onClick={() => handleSort('character')} className="font-body font-bold text-[16px] text-brand-gray-med uppercase text-left hover:text-brand-teal transition-colors cursor-pointer">Character{sortIndicator('character')}</button>
+                      <button onClick={() => handleSort('calling')} className="font-body font-bold text-[16px] text-brand-gray-med uppercase text-left hover:text-brand-teal transition-colors cursor-pointer">Calling{sortIndicator('calling')}</button>
+                      <button onClick={() => handleSort('myimpact')} className="font-body font-bold text-[16px] text-brand-gray-med uppercase text-left hover:text-brand-teal transition-colors cursor-pointer">MyImpact{sortIndicator('myimpact')}</button>
                       <span />
                     </div>
                     <hr className="border-brand-gray-light mb-2" />
@@ -802,15 +992,15 @@ export function AdminDashboard() {
                       <div className="flex items-center justify-center py-12">
                         <div className="w-8 h-8 border-4 border-brand-teal border-t-transparent rounded-full animate-spin" />
                       </div>
-                    ) : members.length === 0 ? (
+                    ) : sortedMembers.length === 0 ? (
                       <p className="font-body text-base text-brand-gray-med py-8 text-center">No members found.</p>
                     ) : (
-                      members.map((member) => (
+                      sortedMembers.map((member) => (
                         <div key={member.id}>
                           <div className="grid grid-cols-[180px_130px_110px_110px_120px_1fr] gap-2 items-center py-3">
-                            <span className="font-body font-bold text-lg text-brand-charcoal truncate">
+                            <button onClick={() => setSelectedMember(member)} className="font-body font-bold text-lg text-brand-teal truncate text-left hover:underline cursor-pointer">
                               {member.first_name} {member.last_name}
-                            </span>
+                            </button>
                             <span className="font-body font-bold text-lg text-brand-charcoal">
                               {formatDate(member.last_assessment_date)}
                             </span>
@@ -872,19 +1062,19 @@ export function AdminDashboard() {
                       <div className="flex items-center justify-center py-12">
                         <div className="w-8 h-8 border-4 border-brand-teal border-t-transparent rounded-full animate-spin" />
                       </div>
-                    ) : members.length === 0 ? (
+                    ) : sortedMembers.length === 0 ? (
                       <p className="font-body text-base text-brand-gray-med py-8 text-center">No members found.</p>
                     ) : (
-                      members.map((member) => (
+                      sortedMembers.map((member) => (
                         <div key={member.id}>
                           <div className="py-4">
                             {/* Name + Last Assessment */}
                             <div className="flex justify-between items-start mb-3">
                               <div>
                                 <p className="font-body font-bold text-[16px] text-brand-gray-med uppercase mb-1">Name</p>
-                                <p className="font-body font-bold text-lg text-brand-charcoal">
+                                <button onClick={() => setSelectedMember(member)} className="font-body font-bold text-lg text-brand-teal text-left hover:underline cursor-pointer">
                                   {member.first_name} {member.last_name}
-                                </p>
+                                </button>
                               </div>
                               <div className="text-right">
                                 <p className="font-body font-bold text-[16px] text-brand-gray-med uppercase mb-1">Last Assessment</p>
@@ -1227,6 +1417,299 @@ export function AdminDashboard() {
                 className="flex-1 h-[48px] bg-brand-teal text-white rounded-xl font-body font-bold hover:bg-brand-teal/90 disabled:opacity-50 transition-colors"
               >
                 {isTransferring ? 'Transferring...' : 'Confirm Transfer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Member Detail Slide-in Panel ── */}
+      {selectedMember && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-40"
+            onClick={() => setSelectedMember(null)}
+          />
+          <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-brand-gray-light">
+              <h2 className="font-heading font-bold text-xl text-brand-charcoal">
+                Member Details
+              </h2>
+              <button
+                onClick={() => setSelectedMember(null)}
+                className="text-brand-gray-med hover:text-brand-charcoal text-2xl font-bold leading-none"
+                aria-label="Close panel"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 px-6 py-6 space-y-5">
+              <div>
+                <p className="font-body text-sm text-brand-gray-med uppercase mb-1">Name</p>
+                <p className="font-body font-bold text-xl text-brand-charcoal">
+                  {selectedMember.first_name} {selectedMember.last_name}
+                </p>
+              </div>
+
+              <div>
+                <p className="font-body text-sm text-brand-gray-med uppercase mb-1">Email</p>
+                <p className="font-body font-bold text-base text-brand-charcoal">
+                  {selectedMember.email || '—'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="font-body text-sm text-brand-gray-med uppercase mb-1">Status</p>
+                  <p className="font-body font-bold text-base text-brand-charcoal capitalize">
+                    {selectedMember.status || '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-body text-sm text-brand-gray-med uppercase mb-1">Role</p>
+                  <p className="font-body font-bold text-base text-brand-charcoal capitalize">
+                    {selectedMember.is_primary_admin ? 'Primary Admin' : selectedMember.is_admin ? 'Admin' : 'Member'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="font-body text-sm text-brand-gray-med uppercase mb-1">Last Assessment</p>
+                <p className="font-body font-bold text-base text-brand-charcoal">
+                  {formatDate(selectedMember.last_assessment_date)}
+                </p>
+              </div>
+
+              <hr className="border-brand-gray-light" />
+
+              {/* GPS Data */}
+              {(selectedMember.top_gifts?.length > 0 || selectedMember.top_passions?.length > 0) && (
+                <div>
+                  <p className="font-heading font-bold text-lg text-brand-teal mb-3">GPS Assessment</p>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="font-body text-sm text-brand-gray-med uppercase mb-1">Gifts</p>
+                      <div className="flex gap-1 flex-wrap">
+                        {(selectedMember.top_gifts || []).map((g, i) => (
+                          <span key={i} className="inline-flex items-center h-8 px-3 bg-[rgba(167,185,211,0.5)] rounded-full font-body font-bold text-base text-brand-charcoal">
+                            {g.short_code || g.name}
+                          </span>
+                        ))}
+                        {(!selectedMember.top_gifts || selectedMember.top_gifts.length === 0) && (
+                          <span className="font-body text-brand-gray-med">—</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-body text-sm text-brand-gray-med uppercase mb-1">Influencing Style</p>
+                      <div className="flex gap-1 flex-wrap">
+                        {(selectedMember.top_passions || []).map((p, i) => (
+                          <span key={i} className="inline-flex items-center h-8 px-4 bg-[rgba(227,162,162,0.5)] rounded-full font-body font-bold text-base text-brand-charcoal">
+                            {p.name}
+                          </span>
+                        ))}
+                        {(!selectedMember.top_passions || selectedMember.top_passions.length === 0) && (
+                          <span className="font-body text-brand-gray-med">—</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MyImpact Data */}
+              {selectedMember.myimpact_score != null && (
+                <div>
+                  <p className="font-heading font-bold text-lg text-brand-teal mb-3">MyImpact Assessment</p>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center bg-brand-gray-lightest rounded-xl p-3">
+                      <p className="font-heading font-black text-2xl text-brand-charcoal">
+                        {selectedMember.myimpact_character_score?.toFixed(1) ?? '—'}
+                      </p>
+                      <p className="font-body text-xs text-brand-gray-med">Character</p>
+                    </div>
+                    <div className="text-center bg-brand-gray-lightest rounded-xl p-3">
+                      <p className="font-heading font-black text-2xl text-brand-charcoal">
+                        {selectedMember.myimpact_calling_score?.toFixed(1) ?? '—'}
+                      </p>
+                      <p className="font-body text-xs text-brand-gray-med">Calling</p>
+                    </div>
+                    <div className="text-center bg-brand-teal-light/30 rounded-xl p-3">
+                      <p className="font-heading font-black text-2xl text-brand-teal">
+                        {selectedMember.myimpact_score?.toFixed(0) ?? '—'}
+                      </p>
+                      <p className="font-body text-xs text-brand-gray-med">MyImpact</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="px-6 py-4 border-t border-brand-gray-light space-y-3">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleExportMemberCSV(selectedMember)}
+                  disabled={isMemberExporting}
+                  className="flex-1 h-[44px] bg-brand-charcoal text-white font-body font-bold text-base rounded-xl hover:bg-brand-charcoal/90 transition-colors disabled:opacity-50"
+                >
+                  {isMemberExporting ? 'Exporting...' : 'Export CSV'}
+                </button>
+                <button
+                  onClick={() => handlePrintMember(selectedMember)}
+                  className="flex-1 h-[44px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-base rounded-xl hover:bg-brand-gray-light/80 transition-colors"
+                >
+                  Print
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  handleViewResults(selectedMember);
+                  setSelectedMember(null);
+                }}
+                disabled={!hasResults(selectedMember)}
+                className={`w-full h-[44px] font-body font-bold text-base rounded-xl transition-colors ${
+                  hasResults(selectedMember)
+                    ? 'bg-brand-teal text-white hover:bg-brand-teal/90'
+                    : 'bg-brand-gray-light text-brand-gray-med cursor-not-allowed'
+                }`}
+              >
+                View Full Results
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Export CSV Modal with Filters ── */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 max-h-[90vh] overflow-y-auto">
+            <h2 className="font-heading font-bold text-2xl text-brand-charcoal mb-2">
+              Export Member Data
+            </h2>
+            <p className="font-body text-sm text-brand-gray-med mb-6">
+              Choose filters for your CSV export. Leave blank to export all data.
+            </p>
+
+            {/* Instrument filter */}
+            <label className="block font-body font-bold text-base text-brand-charcoal mb-2">Assessment Type</label>
+            <select
+              value={exportInstrument}
+              onChange={(e) => setExportInstrument(e.target.value)}
+              className="w-full h-[44px] bg-[rgba(136,192,195,0.17)] border border-brand-teal-light rounded-xl px-4 font-body font-bold text-base text-brand-charcoal mb-4"
+            >
+              <option value="">All Assessments</option>
+              <option value="gps">GPS Only</option>
+              <option value="myimpact">MyImpact Only</option>
+            </select>
+
+            {/* Date range */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block font-body font-bold text-base text-brand-charcoal mb-2">From Date</label>
+                <input
+                  type="date"
+                  value={exportDateFrom}
+                  onChange={(e) => setExportDateFrom(e.target.value)}
+                  className="w-full h-[44px] bg-[rgba(136,192,195,0.17)] border border-brand-teal-light rounded-xl px-4 font-body text-base text-brand-charcoal"
+                />
+              </div>
+              <div>
+                <label className="block font-body font-bold text-base text-brand-charcoal mb-2">To Date</label>
+                <input
+                  type="date"
+                  value={exportDateTo}
+                  onChange={(e) => setExportDateTo(e.target.value)}
+                  className="w-full h-[44px] bg-[rgba(136,192,195,0.17)] border border-brand-teal-light rounded-xl px-4 font-body text-base text-brand-charcoal"
+                />
+              </div>
+            </div>
+
+            {/* Export format (ChMS compatibility) */}
+            <label className="block font-body font-bold text-base text-brand-charcoal mb-2">Export Format</label>
+            <select
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value)}
+              className="w-full h-[44px] bg-[rgba(136,192,195,0.17)] border border-brand-teal-light rounded-xl px-4 font-body font-bold text-base text-brand-charcoal mb-6"
+            >
+              <option value="">Standard</option>
+              <option value="planning_center">Planning Center Compatible</option>
+              <option value="rock_rms">ROCK RMS Compatible</option>
+            </select>
+
+            {/* Filter summary */}
+            <div className="bg-brand-gray-lightest rounded-xl px-4 py-3 mb-4 font-body text-sm text-brand-charcoal">
+              <p className="font-bold mb-1">Export will include:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-brand-gray-med">
+                <li>{exportInstrument ? (exportInstrument === 'gps' ? 'GPS' : 'MyImpact') + ' assessments only' : 'All assessment types'}</li>
+                <li>{exportDateFrom || exportDateTo ? `Date range: ${exportDateFrom || 'beginning'} — ${exportDateTo || 'present'}` : 'All dates'}</li>
+                <li>Format: {exportFormat === 'planning_center' ? 'Planning Center' : exportFormat === 'rock_rms' ? 'ROCK RMS' : 'Standard'}</li>
+                <li>File: {churchSettings?.name?.replace(/\s+/g, '_') || 'Church'}_{exportInstrument ? exportInstrument.toUpperCase() : 'All'}_{new Date().toISOString().split('T')[0].replace(/-/g, '')}.csv</li>
+              </ul>
+            </div>
+
+            {/* CSV Preview */}
+            <div className="mb-6 border border-brand-gray-light rounded-xl overflow-hidden">
+              <p className="font-body font-bold text-xs text-brand-charcoal px-3 py-2 bg-brand-gray-lightest border-b border-brand-gray-light">
+                CSV Preview (sample row)
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs font-body">
+                  <thead>
+                    <tr className="bg-brand-gray-lightest/50">
+                      {(exportFormat === 'planning_center'
+                        ? ['first_name', 'last_name', 'email', 'campus', 'assessment_instrument', 'assessment_date', 'score_categories']
+                        : exportFormat === 'rock_rms'
+                        ? ['FirstName', 'LastName', 'Email', 'Campus', 'AssessmentInstrument', 'AssessmentDate', 'ScoreCategories']
+                        : ['First Name', 'Last Name', 'Email', 'Church Name', 'Assessment Instrument', 'Assessment Date', 'Score Categories']
+                      ).map((col) => (
+                        <th key={col} className="px-2 py-1.5 text-left text-brand-charcoal whitespace-nowrap border-b border-brand-gray-light">{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedMembers.length > 0 ? (
+                      <tr className="text-brand-gray-med">
+                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].first_name || '—'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].last_name || '—'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].email || '—'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{churchSettings?.name || '—'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{exportInstrument === 'myimpact' ? 'MyImpact' : 'GPS'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].last_assessment_date || '—'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].top_gifts?.[0]?.name || (sortedMembers[0].myimpact_score != null ? String(sortedMembers[0].myimpact_score) : '—')}</td>
+                      </tr>
+                    ) : (
+                      <tr><td colSpan={7} className="px-2 py-1.5 text-brand-gray-med italic">No members to preview</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {exportMsg && (
+              <p className={`font-body text-sm mb-4 ${exportMsg.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                {exportMsg}
+              </p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowExportModal(false); setExportMsg(''); }}
+                className="flex-1 h-[48px] border border-brand-gray-light rounded-xl font-body font-bold text-brand-charcoal hover:bg-gray-50 transition-colors"
+                disabled={isExporting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmExport}
+                disabled={isExporting}
+                className="flex-1 h-[48px] bg-brand-teal text-white rounded-xl font-body font-bold hover:bg-brand-teal/90 disabled:opacity-50 transition-colors"
+              >
+                {isExporting ? 'Exporting...' : 'Download CSV'}
               </button>
             </div>
           </div>
