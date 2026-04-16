@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.subscription import Subscription, Payment
 from app.models.organization import Organization
-from app.models.audit_log import AuditLog
+
 
 # Configure Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -261,19 +261,6 @@ class StripeService:
                 receipt_url=invoice.hosted_invoice_url
             )
             db.add(payment)
-            
-            # Log to audit
-            audit_log = AuditLog(
-                action="payment_succeeded",
-                target_type="organization",
-                target_id=subscription.organization_id,
-                details={
-                    "invoice_id": invoice.id,
-                    "amount": float(payment.amount),
-                    "currency": payment.currency
-                }
-            )
-            db.add(audit_log)
             db.commit()
     
     @staticmethod
@@ -298,19 +285,6 @@ class StripeService:
                 description="Payment failed"
             )
             db.add(payment)
-            
-            # Log to audit
-            audit_log = AuditLog(
-                action="payment_failed",
-                target_type="organization",
-                target_id=subscription.organization_id,
-                details={
-                    "invoice_id": invoice.id,
-                    "amount": float(payment.amount),
-                    "attempt_count": invoice.attempt_count
-                }
-            )
-            db.add(audit_log)
             db.commit()
     
     @staticmethod
