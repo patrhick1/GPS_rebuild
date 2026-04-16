@@ -195,44 +195,50 @@ class StripeService:
     @staticmethod
     def handle_subscription_updated(event: stripe.Event, db: Session) -> None:
         """Handle subscription updated webhook"""
-        subscription_data = event.data.object
-        
+        sub = event.data.object
+        if hasattr(sub, "to_dict"):
+            sub = sub.to_dict()
+
+        sub_id = sub.get("id")
+        items_data = sub.get("items", {}).get("data", [])
+        first_item = items_data[0] if items_data else {}
+        quantity = first_item.get("quantity", 1)
+        price_id = first_item.get("price", {}).get("id")
+        plan_obj = sub.get("plan") or {}
+        interval = plan_obj.get("interval")
+        metadata = sub.get("metadata") or {}
+
         # Find local subscription
         db_subscription = db.query(Subscription).filter(
-            Subscription.stripe_subscription_id == subscription_data.id
+            Subscription.stripe_subscription_id == sub_id
         ).first()
-        
-        if db_subscription:
-            db_subscription.status = subscription_data.status
-            db_subscription.current_period_start = datetime.fromtimestamp(subscription_data.current_period_start)
-            db_subscription.current_period_end = datetime.fromtimestamp(subscription_data.current_period_end)
-            db_subscription.cancel_at_period_end = subscription_data.cancel_at_period_end
-            db_subscription.quantity = subscription_data.items.data[0].quantity if subscription_data.items.data else 1
-            db_subscription.updated_at = datetime.now(timezone.utc)
 
+        if db_subscription:
+            db_subscription.status = sub.get("status")
+            db_subscription.current_period_start = datetime.fromtimestamp(sub["current_period_start"])
+            db_subscription.current_period_end = datetime.fromtimestamp(sub["current_period_end"])
+            db_subscription.cancel_at_period_end = sub.get("cancel_at_period_end", False)
+            db_subscription.quantity = quantity
+            db_subscription.updated_at = datetime.now(timezone.utc)
             db.commit()
         else:
             # New subscription from webhook — extract org from metadata
-            metadata = subscription_data.metadata
-            org_id = metadata.get("organization_id") if metadata else None
+            org_id = metadata.get("organization_id")
             if not org_id:
                 return
 
-            price_id = subscription_data.items.data[0].price.id if subscription_data.items.data else None
-            interval = subscription_data.plan.interval if subscription_data.plan else None
             plan = "yearly" if interval == "year" else "monthly"
-
             db_subscription = Subscription(
                 organization_id=org_id,
-                stripe_customer_id=subscription_data.customer,
-                stripe_subscription_id=subscription_data.id,
+                stripe_customer_id=sub.get("customer"),
+                stripe_subscription_id=sub_id,
                 stripe_price_id=price_id,
-                status=subscription_data.status,
+                status=sub.get("status"),
                 plan=plan,
-                quantity=subscription_data.items.data[0].quantity if subscription_data.items.data else 1,
-                current_period_start=datetime.fromtimestamp(subscription_data.current_period_start),
-                current_period_end=datetime.fromtimestamp(subscription_data.current_period_end),
-                cancel_at_period_end=subscription_data.cancel_at_period_end,
+                quantity=quantity,
+                current_period_start=datetime.fromtimestamp(sub["current_period_start"]),
+                current_period_end=datetime.fromtimestamp(sub["current_period_end"]),
+                cancel_at_period_end=sub.get("cancel_at_period_end", False),
             )
             db.add(db_subscription)
             db.commit()
@@ -240,25 +246,25 @@ class StripeService:
     @staticmethod
     def handle_invoice_payment_succeeded(event: stripe.Event, db: Session) -> None:
         """Handle successful payment webhook"""
-        invoice = event.data.object
-        
-        # Get organization from customer
-        customer_id = invoice.customer
+        inv = event.data.object
+        if hasattr(inv, "to_dict"):
+            inv = inv.to_dict()
+
+        customer_id = inv.get("customer")
         subscription = db.query(Subscription).filter(
             Subscription.stripe_customer_id == customer_id
         ).first()
-        
+
         if subscription:
-            # Create payment record
             payment = Payment(
                 organization_id=subscription.organization_id,
-                stripe_invoice_id=invoice.id,
-                stripe_payment_intent_id=invoice.payment_intent,
-                amount=invoice.amount_paid / 100,  # Convert from cents
-                currency=invoice.currency,
+                stripe_invoice_id=inv.get("id"),
+                stripe_payment_intent_id=inv.get("payment_intent"),
+                amount=inv.get("amount_paid", 0) / 100,
+                currency=inv.get("currency", "usd"),
                 status="succeeded",
-                description=invoice.description or "Subscription payment",
-                receipt_url=invoice.hosted_invoice_url
+                description=inv.get("description") or "Subscription payment",
+                receipt_url=inv.get("hosted_invoice_url")
             )
             db.add(payment)
             db.commit()
@@ -266,21 +272,22 @@ class StripeService:
     @staticmethod
     def handle_invoice_payment_failed(event: stripe.Event, db: Session) -> None:
         """Handle failed payment webhook"""
-        invoice = event.data.object
-        
-        customer_id = invoice.customer
+        inv = event.data.object
+        if hasattr(inv, "to_dict"):
+            inv = inv.to_dict()
+
+        customer_id = inv.get("customer")
         subscription = db.query(Subscription).filter(
             Subscription.stripe_customer_id == customer_id
         ).first()
-        
+
         if subscription:
-            # Create failed payment record
             payment = Payment(
                 organization_id=subscription.organization_id,
-                stripe_invoice_id=invoice.id,
-                stripe_payment_intent_id=invoice.payment_intent,
-                amount=invoice.amount_due / 100,
-                currency=invoice.currency,
+                stripe_invoice_id=inv.get("id"),
+                stripe_payment_intent_id=inv.get("payment_intent"),
+                amount=inv.get("amount_due", 0) / 100,
+                currency=inv.get("currency", "usd"),
                 status="failed",
                 description="Payment failed"
             )

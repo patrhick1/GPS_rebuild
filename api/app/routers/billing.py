@@ -3,6 +3,7 @@ Billing API endpoints for Stripe integration
 """
 from typing import Optional
 from datetime import datetime, timezone
+import logging
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -613,13 +614,16 @@ async def stripe_webhook(
         )
     
     # Handle event types
-    if event.type in ("customer.subscription.updated", "customer.subscription.created"):
-        stripe_service.handle_subscription_updated(event, db)
-    elif event.type == "customer.subscription.deleted":
-        stripe_service.handle_subscription_updated(event, db)
-    elif event.type == "invoice.payment_succeeded":
-        stripe_service.handle_invoice_payment_succeeded(event, db)
-    elif event.type == "invoice.payment_failed":
-        stripe_service.handle_invoice_payment_failed(event, db)
-    
+    try:
+        if event.type in ("customer.subscription.updated", "customer.subscription.created"):
+            stripe_service.handle_subscription_updated(event, db)
+        elif event.type == "customer.subscription.deleted":
+            stripe_service.handle_subscription_updated(event, db)
+        elif event.type == "invoice.payment_succeeded":
+            stripe_service.handle_invoice_payment_succeeded(event, db)
+        elif event.type == "invoice.payment_failed":
+            stripe_service.handle_invoice_payment_failed(event, db)
+    except Exception as e:
+        logging.error(f"Webhook handler error for {event.type}: {e}", exc_info=True)
+
     return {"status": "success"}
