@@ -209,7 +209,32 @@ class StripeService:
             db_subscription.cancel_at_period_end = subscription_data.cancel_at_period_end
             db_subscription.quantity = subscription_data.items.data[0].quantity if subscription_data.items.data else 1
             db_subscription.updated_at = datetime.now(timezone.utc)
-            
+
+            db.commit()
+        else:
+            # New subscription from webhook — extract org from metadata
+            metadata = subscription_data.metadata
+            org_id = metadata.get("organization_id") if metadata else None
+            if not org_id:
+                return
+
+            price_id = subscription_data.items.data[0].price.id if subscription_data.items.data else None
+            interval = subscription_data.plan.interval if subscription_data.plan else None
+            plan = "yearly" if interval == "year" else "monthly"
+
+            db_subscription = Subscription(
+                organization_id=org_id,
+                stripe_customer_id=subscription_data.customer,
+                stripe_subscription_id=subscription_data.id,
+                stripe_price_id=price_id,
+                status=subscription_data.status,
+                plan=plan,
+                quantity=subscription_data.items.data[0].quantity if subscription_data.items.data else 1,
+                current_period_start=datetime.fromtimestamp(subscription_data.current_period_start),
+                current_period_end=datetime.fromtimestamp(subscription_data.current_period_end),
+                cancel_at_period_end=subscription_data.cancel_at_period_end,
+            )
+            db.add(db_subscription)
             db.commit()
     
     @staticmethod
