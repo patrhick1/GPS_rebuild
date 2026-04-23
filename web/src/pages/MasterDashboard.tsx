@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useMaster, type ChurchMember } from '../context/MasterContext';
+import { useMaster, type ChurchMember, type UserSearchResult } from '../context/MasterContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import {
@@ -23,6 +23,7 @@ export function MasterDashboard() {
     dashboardStats, fetchDashboardStats,
     churches, fetchChurches, toggleChurchStatus, toggleChurchComp,
     transferPrimaryAdmin, fetchChurchMembers, createChurch,
+    addChurchAdmin, removeChurchAdmin, searchUsers,
     totalChurchPages,
     isLoading, error, clearError,
   } = useMaster();
@@ -53,6 +54,15 @@ export function MasterDashboard() {
     primary_admin_first_name: '',
     primary_admin_last_name: '',
   });
+
+  // Manage Admins modal state
+  const [manageAdminsChurch, setManageAdminsChurch] = useState<{ id: string; name: string } | null>(null);
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [adminSearchResults, setAdminSearchResults] = useState<UserSearchResult[]>([]);
+  const [adminSearchLoading, setAdminSearchLoading] = useState(false);
+  const [adminActionUserId, setAdminActionUserId] = useState<string | null>(null);
+  const [adminActionError, setAdminActionError] = useState<string | null>(null);
+  const [adminActionToast, setAdminActionToast] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -186,6 +196,77 @@ export function MasterDashboard() {
       setAddChurchError(err.response?.data?.detail || 'Failed to create church');
     } finally {
       setAddChurchSubmitting(false);
+    }
+  };
+
+  const handleOpenManageAdmins = (churchId: string, churchName: string) => {
+    setManageAdminsChurch({ id: churchId, name: churchName });
+    setAdminSearchQuery('');
+    setAdminSearchResults([]);
+    setAdminActionError(null);
+    setAdminActionToast(null);
+  };
+
+  const handleCloseManageAdmins = () => {
+    if (adminActionUserId) return;
+    setManageAdminsChurch(null);
+    setAdminSearchQuery('');
+    setAdminSearchResults([]);
+    setAdminActionError(null);
+  };
+
+  // Debounced user search
+  useEffect(() => {
+    if (!manageAdminsChurch) return;
+    const trimmed = adminSearchQuery.trim();
+    if (trimmed.length < 2) {
+      setAdminSearchResults([]);
+      return;
+    }
+    setAdminSearchLoading(true);
+    const handle = setTimeout(async () => {
+      try {
+        const results = await searchUsers(trimmed);
+        setAdminSearchResults(results);
+      } catch (err: any) {
+        setAdminActionError(err.response?.data?.detail || 'Search failed');
+      } finally {
+        setAdminSearchLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [adminSearchQuery, manageAdminsChurch, searchUsers]);
+
+  const refreshChurchMembers = async (churchId: string) => {
+    const members = await fetchChurchMembers(churchId);
+    setChurchMembers(members);
+  };
+
+  const handleAddAdmin = async (userId: string, displayName: string) => {
+    if (!manageAdminsChurch) return;
+    setAdminActionUserId(userId);
+    setAdminActionError(null);
+    try {
+      await addChurchAdmin(manageAdminsChurch.id, userId);
+      setAdminActionToast(`${displayName} is now an admin of ${manageAdminsChurch.name}`);
+      setTimeout(() => setAdminActionToast(null), 4000);
+      await refreshChurchMembers(manageAdminsChurch.id);
+      fetchChurches(churchPage, churchSearch);
+    } catch (err: any) {
+      setAdminActionError(err.response?.data?.detail || 'Failed to add admin');
+    } finally {
+      setAdminActionUserId(null);
+    }
+  };
+
+  const handleDemoteAdmin = async (churchId: string, memberId: string, memberName: string) => {
+    if (!window.confirm(`Demote ${memberName} from admin to member? They will keep access to the church but lose admin privileges.`)) return;
+    try {
+      await removeChurchAdmin(churchId, memberId);
+      await refreshChurchMembers(churchId);
+      fetchChurches(churchPage, churchSearch);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to demote admin');
     }
   };
 
@@ -622,9 +703,17 @@ export function MasterDashboard() {
                                     <tr>
                                       <td colSpan={5} className="px-0 py-0 bg-brand-gray-lightest/30">
                                         <div className="px-6 py-4">
-                                          <h4 className="font-heading font-bold text-base text-brand-teal uppercase mb-3">
-                                            Members
-                                          </h4>
+                                          <div className="flex items-center justify-between mb-3">
+                                            <h4 className="font-heading font-bold text-base text-brand-teal uppercase">
+                                              Members
+                                            </h4>
+                                            <button
+                                              onClick={() => handleOpenManageAdmins(church.id, church.name)}
+                                              className="text-xs font-body font-bold text-brand-gold hover:text-brand-gold/80 underline transition-colors"
+                                            >
+                                              + Add Admin
+                                            </button>
+                                          </div>
                                           {membersLoading ? (
                                             <p className="font-body text-sm text-brand-gray-med py-2">Loading members...</p>
                                           ) : churchMembers.length === 0 ? (
@@ -657,12 +746,22 @@ export function MasterDashboard() {
                                                         Primary
                                                       </span>
                                                     ) : (
-                                                      <button
-                                                        onClick={() => handleTransferPrimary(church.id, member.id, member.name)}
-                                                        className="text-xs font-body font-bold text-brand-gold hover:text-brand-gold/80 underline transition-colors"
-                                                      >
-                                                        Make Primary
-                                                      </button>
+                                                      <>
+                                                        <button
+                                                          onClick={() => handleTransferPrimary(church.id, member.id, member.name)}
+                                                          className="text-xs font-body font-bold text-brand-gold hover:text-brand-gold/80 underline transition-colors"
+                                                        >
+                                                          Make Primary
+                                                        </button>
+                                                        {member.role === 'admin' && (
+                                                          <button
+                                                            onClick={() => handleDemoteAdmin(church.id, member.id, member.name)}
+                                                            className="text-xs font-body font-bold text-red-600 hover:text-red-700 underline transition-colors"
+                                                          >
+                                                            Demote
+                                                          </button>
+                                                        )}
+                                                      </>
                                                     )}
                                                   </div>
                                                 </div>
@@ -837,6 +936,113 @@ export function MasterDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {manageAdminsChurch && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={handleCloseManageAdmins}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-[560px] w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-8 pb-4 border-b border-brand-gray-light">
+              <h3 className="font-heading font-medium text-[28px] leading-[34px] text-brand-teal mb-1">
+                Add Admin
+              </h3>
+              <p className="font-body text-sm text-brand-gray-med">
+                Search for an existing user to add as an admin of <span className="font-bold">{manageAdminsChurch.name}</span>.
+              </p>
+            </div>
+
+            <div className="p-8 pt-4 overflow-y-auto flex-1">
+              {adminActionError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 font-body text-sm">
+                  {adminActionError}
+                </div>
+              )}
+              {adminActionToast && (
+                <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl mb-4 font-body text-sm">
+                  {adminActionToast}
+                </div>
+              )}
+
+              <div className="relative mb-4">
+                <img
+                  src={searchIcon}
+                  alt=""
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 opacity-60"
+                />
+                <input
+                  type="text"
+                  placeholder="Search by name or email (min 2 chars)"
+                  value={adminSearchQuery}
+                  onChange={(e) => setAdminSearchQuery(e.target.value)}
+                  autoFocus
+                  className="w-full h-[44px] pl-4 pr-12 bg-white border border-brand-gray-light rounded-lg font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
+                />
+              </div>
+
+              {adminSearchLoading ? (
+                <p className="font-body text-sm text-brand-gray-med py-3 text-center">Searching...</p>
+              ) : adminSearchQuery.trim().length < 2 ? (
+                <p className="font-body text-sm text-brand-gray-med py-3 text-center">Type at least 2 characters to search.</p>
+              ) : adminSearchResults.length === 0 ? (
+                <p className="font-body text-sm text-brand-gray-med py-3 text-center">No users found.</p>
+              ) : (
+                <div className="space-y-1">
+                  {adminSearchResults.map((u) => {
+                    const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ') || '(no name)';
+                    const existing = churchMembers.find((m) => m.id === u.id);
+                    const alreadyAdmin = existing?.role === 'admin';
+                    const inFlight = adminActionUserId === u.id;
+                    return (
+                      <div
+                        key={u.id}
+                        className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-brand-gray-lightest transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-body font-bold text-base text-brand-charcoal truncate">
+                            {fullName}
+                          </div>
+                          <div className="font-body text-sm text-brand-gray-med truncate">
+                            {u.email}
+                          </div>
+                        </div>
+                        <div className="ml-3 shrink-0">
+                          {alreadyAdmin ? (
+                            <span className="text-xs font-body font-bold text-brand-teal bg-brand-teal/10 px-2 py-1 rounded">
+                              Already Admin
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleAddAdmin(u.id, fullName !== '(no name)' ? fullName : u.email)}
+                              disabled={inFlight}
+                              className="h-[36px] px-4 bg-brand-teal text-white font-body font-bold text-sm rounded-lg hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {inFlight ? 'Adding...' : existing ? 'Promote to Admin' : 'Add as Admin'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-brand-gray-light flex justify-end">
+              <button
+                onClick={handleCloseManageAdmins}
+                disabled={!!adminActionUserId}
+                className="h-[40px] px-5 border border-brand-gray-light text-brand-charcoal font-body font-bold rounded-lg hover:bg-brand-gray-lightest disabled:opacity-50 transition-colors"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

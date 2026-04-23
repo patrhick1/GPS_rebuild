@@ -75,6 +75,14 @@ export interface ChurchMember {
   is_primary_admin: boolean;
 }
 
+export interface UserSearchResult {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email: string;
+  organization?: { id: string; name: string; role?: string };
+}
+
 export interface CreateChurchInput {
   name: string;
   city?: string;
@@ -116,6 +124,7 @@ interface MasterContextType {
   removeChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   transferPrimaryAdmin: (churchId: string, userId: string) => Promise<void>;
   fetchChurchMembers: (churchId: string) => Promise<ChurchMember[]>;
+  searchUsers: (query: string) => Promise<UserSearchResult[]>;
   impersonateUser: (userId: string, reason: string) => Promise<string>;
   exportData: (type: string, filters?: any) => Promise<void>;
   clearError: () => void;
@@ -263,6 +272,15 @@ export function MasterProvider({ children }: { children: ReactNode }) {
     return response.data;
   }, []);
 
+  const searchUsers = useCallback(async (query: string): Promise<UserSearchResult[]> => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return [];
+    const response = await api.get('/master/users', {
+      params: { search: trimmed, per_page: 20 },
+    });
+    return response.data.users;
+  }, []);
+
   const impersonateUser = useCallback(async (userId: string, reason: string): Promise<string> => {
     const response = await api.post('/master/impersonate', {
       user_id: userId,
@@ -315,6 +333,7 @@ export function MasterProvider({ children }: { children: ReactNode }) {
         removeChurchAdmin,
         transferPrimaryAdmin,
         fetchChurchMembers,
+        searchUsers,
         impersonateUser,
         exportData,
         clearError
