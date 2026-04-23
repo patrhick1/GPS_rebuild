@@ -75,6 +75,24 @@ export interface ChurchMember {
   is_primary_admin: boolean;
 }
 
+export interface CreateChurchInput {
+  name: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  primary_admin_email: string;
+  primary_admin_first_name?: string;
+  primary_admin_last_name?: string;
+}
+
+export interface CreateChurchResult {
+  id: string;
+  name: string;
+  key: string;
+  primary_admin_email: string;
+  invited_new_user: boolean;
+}
+
 interface MasterContextType {
   stats: SystemStats | null;
   dashboardStats: DashboardStats | null;
@@ -93,6 +111,7 @@ interface MasterContextType {
   fetchAuditLog: (page?: number, filters?: any) => Promise<void>;
   toggleChurchStatus: (churchId: string, status: string) => Promise<void>;
   toggleChurchComp: (churchId: string, isComped: boolean) => Promise<void>;
+  createChurch: (data: CreateChurchInput) => Promise<CreateChurchResult>;
   addChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   removeChurchAdmin: (churchId: string, userId: string) => Promise<void>;
   transferPrimaryAdmin: (churchId: string, userId: string) => Promise<void>;
@@ -161,6 +180,17 @@ export function MasterProvider({ children }: { children: ReactNode }) {
       );
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to update comped status');
+    }
+  }, []);
+
+  const createChurch = useCallback(async (data: CreateChurchInput): Promise<CreateChurchResult> => {
+    setError(null);
+    try {
+      const response = await api.post('/master/churches', data);
+      return response.data;
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to create church');
+      throw err;
     }
   }, []);
 
@@ -280,6 +310,7 @@ export function MasterProvider({ children }: { children: ReactNode }) {
         fetchAuditLog,
         toggleChurchStatus,
         toggleChurchComp,
+        createChurch,
         addChurchAdmin,
         removeChurchAdmin,
         transferPrimaryAdmin,

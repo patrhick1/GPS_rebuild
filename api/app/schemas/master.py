@@ -3,7 +3,7 @@ Master Admin schemas
 """
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr
 import uuid
 
 
@@ -51,6 +51,24 @@ class ChurchListResponse(BaseModel):
     page: int
     per_page: int
     total_pages: int
+
+
+class CreateChurchRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=255)
+    city: Optional[str] = Field(None, max_length=255)
+    state: Optional[str] = Field(None, max_length=255)
+    country: Optional[str] = Field(None, max_length=255)
+    primary_admin_email: EmailStr
+    primary_admin_first_name: Optional[str] = Field(None, max_length=100)
+    primary_admin_last_name: Optional[str] = Field(None, max_length=100)
+
+
+class CreateChurchResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    key: str
+    primary_admin_email: str
+    invited_new_user: bool
 
 
 # User schemas

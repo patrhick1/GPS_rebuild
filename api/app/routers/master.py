@@ -10,9 +10,11 @@ from datetime import datetime, timedelta, timezone
 import csv
 import io
 
+import logging
+
 from app.core.database import get_db
 from app.core.rate_limits import limiter, MASTER_RATE, EXPORT_RATE
-from app.dependencies.auth import require_master
+from app.dependencies.auth import require_master, require_master_no_impersonation
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.membership import Membership
@@ -36,7 +38,12 @@ from app.schemas.master import (
     ImpersonateResponse,
     SystemExportRequest,
     MasterTransferPrimaryAdminRequest,
+    CreateChurchRequest,
+    CreateChurchResponse,
 )
+from app.services.auth_service import AuthService
+from app.services.email_service import send_primary_admin_welcome_email
+from app.services import notification_service
 
 router = APIRouter(prefix="/master", tags=["Master Admin"])
 
@@ -292,6 +299,124 @@ async def get_church_members(
         )
         for user, membership, role in members
     ]
+
+
+@router.post("/churches", response_model=CreateChurchResponse)
+@limiter.limit(MASTER_RATE)
+async def create_church(
+    request: Request,
+    body: CreateChurchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_master_no_impersonation),
+):
+    """Create a new church and assign a primary admin. Master admin only, no impersonation."""
+    import re
+
+    # 1. Generate unique key (mirrors claim-church logic)
+    base_key = re.sub(r'[^a-zA-Z0-9]+', '-', body.name.lower()).strip('-') or "church"
+    key = base_key
+    counter = 1
+    while db.query(Organization).filter(Organization.key == key).first():
+        key = f"{base_key}-{counter}"
+        counter += 1
+
+    # 2. Create Organization
+    organization = Organization(
+        name=body.name,
+        city=body.city,
+        state=body.state,
+        country=body.country,
+        key=key,
+    )
+    db.add(organization)
+    db.flush()
+
+    # 3. Resolve or create primary admin user (case-insensitive email match)
+    email_lower = body.primary_admin_email.lower()
+    user = db.query(User).filter(func.lower(User.email) == email_lower).first()
+    invited_new_user = False
+
+    if user is None:
+        user = User(
+            email=email_lower,
+            first_name=body.primary_admin_first_name,
+            last_name=body.primary_admin_last_name,
+            password_hash=None,
+            email_verified="N",
+            status="active",
+        )
+        db.add(user)
+        db.flush()
+        invited_new_user = True
+
+    # 4. Create primary-admin membership
+    admin_role = db.query(Role).filter(Role.name == "admin").first()
+    if not admin_role:
+        raise HTTPException(status_code=500, detail="Admin role not found")
+
+    existing_mem = db.query(Membership).filter(
+        Membership.user_id == user.id,
+        Membership.organization_id == organization.id,
+    ).first()
+    if existing_mem is None:
+        db.add(Membership(
+            user_id=user.id,
+            organization_id=organization.id,
+            role_id=admin_role.id,
+            is_primary_admin=True,
+            status="active",
+        ))
+
+    # 5. Audit log
+    db.add(AuditLog(
+        user_id=current_user.id,
+        action="master_create_church",
+        target_type="organization",
+        target_id=organization.id,
+        details={
+            "organization_name": organization.name,
+            "organization_key": organization.key,
+            "primary_admin_email": email_lower,
+            "invited_new_user": invited_new_user,
+        },
+    ))
+
+    db.commit()
+
+    # 6. Side effects (after commit so a send failure doesn't roll back the church)
+    if invited_new_user:
+        try:
+            auth_service = AuthService(db)
+            token = auth_service.create_password_reset_token(email_lower)
+            if token:
+                send_primary_admin_welcome_email(
+                    to_email=email_lower,
+                    church_name=organization.name,
+                    reset_token=token,
+                )
+        except Exception as e:
+            logging.error(f"Welcome email failed for church {organization.id}: {e}")
+    else:
+        try:
+            notification_service.create_notification(
+                db=db,
+                user_id=user.id,
+                type="admin_assigned",
+                title=f"You're now primary admin of {organization.name}",
+                message="A platform admin has assigned you as primary admin of a new church. Open your dashboard to get started.",
+                link="/admin",
+            )
+            db.commit()
+        except Exception as e:
+            logging.error(f"Notification failed for user {user.id}: {e}")
+
+    return CreateChurchResponse(
+        id=organization.id,
+        name=organization.name,
+        key=organization.key,
+        primary_admin_email=email_lower,
+        invited_new_user=invited_new_user,
+    )
 
 
 @router.post("/churches/{church_id}/admins/{user_id}")

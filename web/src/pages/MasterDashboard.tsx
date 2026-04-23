@@ -22,7 +22,7 @@ export function MasterDashboard() {
   const {
     dashboardStats, fetchDashboardStats,
     churches, fetchChurches, toggleChurchStatus, toggleChurchComp,
-    transferPrimaryAdmin, fetchChurchMembers,
+    transferPrimaryAdmin, fetchChurchMembers, createChurch,
     totalChurchPages,
     isLoading, error, clearError,
   } = useMaster();
@@ -38,6 +38,21 @@ export function MasterDashboard() {
   const [expandedChurchId, setExpandedChurchId] = useState<string | null>(null);
   const [churchMembers, setChurchMembers] = useState<ChurchMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
+
+  // Add Church modal state
+  const [showAddChurch, setShowAddChurch] = useState(false);
+  const [addChurchSubmitting, setAddChurchSubmitting] = useState(false);
+  const [addChurchError, setAddChurchError] = useState<string | null>(null);
+  const [addChurchToast, setAddChurchToast] = useState<string | null>(null);
+  const [newChurchForm, setNewChurchForm] = useState({
+    name: '',
+    city: '',
+    state: '',
+    country: '',
+    primary_admin_email: '',
+    primary_admin_first_name: '',
+    primary_admin_last_name: '',
+  });
 
   useEffect(() => {
     fetchDashboardStats();
@@ -107,6 +122,71 @@ export function MasterDashboard() {
   const handleLogout = () => {
     setMenuOpen(false);
     logout();
+  };
+
+  const resetAddChurchForm = () => {
+    setNewChurchForm({
+      name: '',
+      city: '',
+      state: '',
+      country: '',
+      primary_admin_email: '',
+      primary_admin_first_name: '',
+      primary_admin_last_name: '',
+    });
+    setAddChurchError(null);
+  };
+
+  const handleOpenAddChurch = () => {
+    resetAddChurchForm();
+    setShowAddChurch(true);
+  };
+
+  const handleCloseAddChurch = () => {
+    if (addChurchSubmitting) return;
+    setShowAddChurch(false);
+    resetAddChurchForm();
+  };
+
+  const handleSubmitAddChurch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddChurchError(null);
+
+    if (!newChurchForm.name.trim() || newChurchForm.name.trim().length < 2) {
+      setAddChurchError('Church name is required (min 2 characters)');
+      return;
+    }
+    if (!newChurchForm.primary_admin_email.trim()) {
+      setAddChurchError('Primary admin email is required');
+      return;
+    }
+
+    setAddChurchSubmitting(true);
+    try {
+      const payload = {
+        name: newChurchForm.name.trim(),
+        city: newChurchForm.city.trim() || undefined,
+        state: newChurchForm.state.trim() || undefined,
+        country: newChurchForm.country.trim() || undefined,
+        primary_admin_email: newChurchForm.primary_admin_email.trim(),
+        primary_admin_first_name: newChurchForm.primary_admin_first_name.trim() || undefined,
+        primary_admin_last_name: newChurchForm.primary_admin_last_name.trim() || undefined,
+      };
+      const result = await createChurch(payload);
+      setShowAddChurch(false);
+      resetAddChurchForm();
+      setAddChurchToast(
+        result.invited_new_user
+          ? `Church created — setup email sent to ${result.primary_admin_email}`
+          : `Church created — ${result.primary_admin_email} has been notified in-app`
+      );
+      setTimeout(() => setAddChurchToast(null), 6000);
+      fetchChurches(churchPage, churchSearch);
+    } catch (err: any) {
+      setAddChurchError(err.response?.data?.detail || 'Failed to create church');
+    } finally {
+      setAddChurchSubmitting(false);
+    }
   };
 
   // Chart data
@@ -421,7 +501,19 @@ export function MasterDashboard() {
                     >
                       Search
                     </button>
+                    <button
+                      onClick={handleOpenAddChurch}
+                      className="h-[50px] px-5 bg-brand-gold text-white font-body font-bold text-lg rounded-xl hover:bg-brand-gold/90 transition-colors whitespace-nowrap"
+                    >
+                      + Add Church
+                    </button>
                   </div>
+
+                  {addChurchToast && (
+                    <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl mb-6 font-body">
+                      {addChurchToast}
+                    </div>
+                  )}
 
                   {/* Table */}
                   {isLoading ? (
@@ -597,6 +689,157 @@ export function MasterDashboard() {
           </div>
         </section>
       </main>
+
+      {showAddChurch && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={handleCloseAddChurch}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-[560px] w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <form onSubmit={handleSubmitAddChurch} className="p-8">
+              <h3 className="font-heading font-medium text-[28px] leading-[34px] text-brand-teal mb-2">
+                Add a Church
+              </h3>
+              <p className="font-body text-sm text-brand-gray-med mb-6">
+                If the primary admin already has a GPS account, they'll be attached and notified in-app.
+                Otherwise, a welcome email with a set-password link will be sent.
+              </p>
+
+              {addChurchError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 font-body text-sm">
+                  {addChurchError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block font-body font-bold text-sm text-brand-charcoal mb-1">
+                    Church Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newChurchForm.name}
+                    onChange={(e) => setNewChurchForm({ ...newChurchForm, name: e.target.value })}
+                    className="w-full h-[44px] px-4 bg-white border border-brand-gray-light rounded-lg font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
+                    required
+                    minLength={2}
+                    maxLength={255}
+                    disabled={addChurchSubmitting}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-body font-bold text-sm text-brand-charcoal mb-1">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={newChurchForm.city}
+                      onChange={(e) => setNewChurchForm({ ...newChurchForm, city: e.target.value })}
+                      className="w-full h-[44px] px-4 bg-white border border-brand-gray-light rounded-lg font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
+                      maxLength={255}
+                      disabled={addChurchSubmitting}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-body font-bold text-sm text-brand-charcoal mb-1">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      value={newChurchForm.state}
+                      onChange={(e) => setNewChurchForm({ ...newChurchForm, state: e.target.value })}
+                      className="w-full h-[44px] px-4 bg-white border border-brand-gray-light rounded-lg font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
+                      maxLength={255}
+                      disabled={addChurchSubmitting}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-body font-bold text-sm text-brand-charcoal mb-1">
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      value={newChurchForm.country}
+                      onChange={(e) => setNewChurchForm({ ...newChurchForm, country: e.target.value })}
+                      className="w-full h-[44px] px-4 bg-white border border-brand-gray-light rounded-lg font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
+                      maxLength={255}
+                      disabled={addChurchSubmitting}
+                    />
+                  </div>
+                </div>
+
+                <hr className="border-brand-gray-light my-2" />
+
+                <div>
+                  <label className="block font-body font-bold text-sm text-brand-charcoal mb-1">
+                    Primary Admin Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={newChurchForm.primary_admin_email}
+                    onChange={(e) => setNewChurchForm({ ...newChurchForm, primary_admin_email: e.target.value })}
+                    className="w-full h-[44px] px-4 bg-white border border-brand-gray-light rounded-lg font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
+                    required
+                    disabled={addChurchSubmitting}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-body font-bold text-sm text-brand-charcoal mb-1">
+                      First Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newChurchForm.primary_admin_first_name}
+                      onChange={(e) => setNewChurchForm({ ...newChurchForm, primary_admin_first_name: e.target.value })}
+                      className="w-full h-[44px] px-4 bg-white border border-brand-gray-light rounded-lg font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
+                      maxLength={100}
+                      disabled={addChurchSubmitting}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-body font-bold text-sm text-brand-charcoal mb-1">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newChurchForm.primary_admin_last_name}
+                      onChange={(e) => setNewChurchForm({ ...newChurchForm, primary_admin_last_name: e.target.value })}
+                      className="w-full h-[44px] px-4 bg-white border border-brand-gray-light rounded-lg font-body text-base text-brand-charcoal focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
+                      maxLength={100}
+                      disabled={addChurchSubmitting}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end mt-8">
+                <button
+                  type="button"
+                  onClick={handleCloseAddChurch}
+                  disabled={addChurchSubmitting}
+                  className="h-[44px] px-5 border border-brand-gray-light text-brand-charcoal font-body font-bold rounded-lg hover:bg-brand-gray-lightest disabled:opacity-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addChurchSubmitting}
+                  className="h-[44px] px-6 bg-brand-teal text-white font-body font-bold rounded-lg hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {addChurchSubmitting ? 'Creating...' : 'Create Church'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

@@ -512,6 +512,53 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
         logger.error("Failed to send password reset email to %s: %s", to_email, exc)
 
 
+def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_token: str) -> None:
+    """Send a welcome email to a newly-created primary admin — includes a set-password link."""
+    if not _get_client():
+        return
+    if _is_blocked_email(to_email):
+        logger.info("Skipped email to blocked/test address: %s", to_email)
+        return
+
+    setup_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}&welcome=1"
+
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a3a4a;">Welcome to GPS &mdash; {church_name}</h2>
+      <p>A platform admin has set you up as the <strong>primary admin</strong> of
+         <strong>{church_name}</strong> on the Gift, Passion, Story assessment platform.</p>
+      <p>Click the button below to set your password and log in:</p>
+      <p style="text-align: center; margin: 32px 0;">
+        <a href="{setup_url}"
+           style="background-color: #1a3a4a; color: white; padding: 14px 28px;
+                  text-decoration: none; border-radius: 6px; font-size: 16px;">
+          Set Up My Account
+        </a>
+      </p>
+      <p style="color: #666; font-size: 14px;">
+        This link expires in 24 hours. If it expires, use &ldquo;Forgot password&rdquo;
+        on the login page to request a new one.
+      </p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px;">
+        Gift, Passion, Story Assessment Platform &mdash;
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+      </p>
+    </div>
+    """
+
+    try:
+        resend.Emails.send({
+            "from": settings.EMAIL_FROM,
+            "to": [to_email],
+            "subject": f"You're the primary admin of {church_name} on GPS",
+            "html": html,
+        })
+        logger.info("Primary admin welcome email sent to %s", to_email)
+    except Exception as exc:
+        logger.error("Failed to send welcome email to %s: %s", to_email, exc)
+
+
 def send_membership_approved_email(to_email: str, first_name: str, org_name: str) -> None:
     """Notify a user that their church membership request was approved."""
     if not _get_client():
