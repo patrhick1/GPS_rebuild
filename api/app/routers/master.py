@@ -43,7 +43,6 @@ from app.schemas.master import (
 )
 from app.services.auth_service import AuthService
 from app.services.email_service import send_primary_admin_welcome_email
-from app.services import notification_service
 
 router = APIRouter(prefix="/master", tags=["Master Admin"])
 
@@ -397,18 +396,9 @@ async def create_church(
         except Exception as e:
             logging.error(f"Welcome email failed for church {organization.id}: {e}")
     else:
-        try:
-            notification_service.create_notification(
-                db=db,
-                user_id=user.id,
-                type="admin_assigned",
-                title=f"You're now primary admin of {organization.name}",
-                message="A platform admin has assigned you as primary admin of a new church. Open your dashboard to get started.",
-                link="/admin",
-            )
-            db.commit()
-        except Exception as e:
-            logging.error(f"Notification failed for user {user.id}: {e}")
+        logging.info(
+            f"Existing user {user.id} attached as primary admin of church {organization.id} ({organization.name})"
+        )
 
     return CreateChurchResponse(
         id=organization.id,
