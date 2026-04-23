@@ -505,10 +505,41 @@ async def remove_payment_method(
     current_user: User = Depends(require_primary_admin_no_impersonation)
 ):
     """Remove a payment method"""
-    
+
     try:
         stripe_service.detach_payment_method(payment_method_id)
         return {"message": "Payment method removed"}
+    except Exception as e:
+        raise handle_stripe_exception(e)
+
+
+@router.post("/portal")
+@limiter.limit(ADMIN_RATE)
+async def create_billing_portal(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_primary_admin_no_impersonation)
+):
+    """Create a Stripe Customer Portal session — primary admin only, no impersonation"""
+    membership = db.query(Membership).filter(
+        Membership.user_id == current_user.id,
+        Membership.is_primary_admin == True
+    ).first()
+
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No organization found"
+        )
+
+    customer = stripe_service.get_or_create_customer(membership.organization, current_user.email)
+
+    try:
+        session = stripe_service.create_billing_portal_session(
+            customer_id=customer.id,
+            return_url=f"{settings.FRONTEND_URL}/billing",
+        )
+        return {"url": session.url}
     except Exception as e:
         raise handle_stripe_exception(e)
 

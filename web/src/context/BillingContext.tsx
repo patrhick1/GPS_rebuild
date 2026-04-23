@@ -81,6 +81,8 @@ interface BillingContextType {
   reactivateSubscription: () => Promise<void>;
   addPaymentMethod: (paymentMethodId: string) => Promise<void>;
   removePaymentMethod: (paymentMethodId: string) => Promise<void>;
+  setDefaultPaymentMethod: (paymentMethodId: string) => Promise<void>;
+  openBillingPortal: () => Promise<void>;
 }
 
 const BillingContext = createContext<BillingContextType | undefined>(undefined);
@@ -203,6 +205,34 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchSubscription]);
 
+  const setDefaultPaymentMethod = useCallback(async (paymentMethodId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await api.post(`/billing/payment-method?payment_method_id=${paymentMethodId}&set_default=true`);
+      await fetchSubscription();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to set default payment method');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchSubscription]);
+
+  const openBillingPortal = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { data } = await api.post('/billing/portal');
+      window.location.href = data.url;
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to open billing portal');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   return (
     <BillingContext.Provider value={{
       subscription,
@@ -218,7 +248,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       cancelSubscription,
       reactivateSubscription,
       addPaymentMethod,
-      removePaymentMethod
+      removePaymentMethod,
+      setDefaultPaymentMethod,
+      openBillingPortal
     }}>
       {children}
     </BillingContext.Provider>

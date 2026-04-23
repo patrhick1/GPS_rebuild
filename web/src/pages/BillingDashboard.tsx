@@ -135,6 +135,101 @@ function CheckoutForm({
   );
 }
 
+/* ─────────────────────── Add Card Form (inside Elements) ─────────────────────── */
+
+function AddCardForm({
+  onSuccess,
+  onCancel,
+}: {
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const { addPaymentMethod } = useBilling();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) return;
+
+    try {
+      const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+      });
+
+      if (pmError) {
+        setError(pmError.message || 'Failed to process card');
+        setIsProcessing(false);
+        return;
+      }
+
+      await addPaymentMethod(paymentMethod.id);
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add card. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label className="block font-body font-bold text-base text-brand-charcoal mb-2">
+          Card Details
+        </label>
+        <div className="bg-[rgba(136,192,195,0.17)] border border-brand-teal-light rounded-xl p-4">
+          <CardElement
+            options={{
+              style: {
+                base: {
+                  fontSize: '16px',
+                  fontFamily: 'Mulish, sans-serif',
+                  color: '#3F4644',
+                  '::placeholder': { color: '#797E7C' },
+                },
+                invalid: { color: '#dc2626' },
+              },
+            }}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <p className="font-body text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl">
+          {error}
+        </p>
+      )}
+
+      <div className="flex items-center gap-4">
+        <button
+          type="submit"
+          disabled={!stripe || isProcessing}
+          className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isProcessing ? 'Adding...' : 'Add Card'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-[50px] px-6 bg-white border border-brand-gray-light text-brand-charcoal font-body font-bold text-base rounded-xl hover:bg-gray-50 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /* ─────────────────────── Main Billing Dashboard ─────────────────────── */
 
 export function BillingDashboard() {
@@ -150,11 +245,16 @@ export function BillingDashboard() {
     fetchConfig,
     cancelSubscription,
     reactivateSubscription,
+    removePaymentMethod,
+    setDefaultPaymentMethod,
+    openBillingPortal,
   } = useBilling();
 
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices'>('overview');
   const [isExporting, setIsExporting] = useState(false);
+  const [removeCardConfirmId, setRemoveCardConfirmId] = useState<string | null>(null);
+  const [showAddCard, setShowAddCard] = useState(false);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -208,6 +308,39 @@ export function BillingDashboard() {
       setActionMessage({ type: 'error', text: 'Failed to reactivate subscription.' });
     }
   };
+
+  const handleMakeDefault = async (paymentMethodId: string) => {
+    try {
+      setActionMessage(null);
+      await setDefaultPaymentMethod(paymentMethodId);
+      setActionMessage({ type: 'success', text: 'Default payment method updated.' });
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to update default payment method.' });
+    }
+  };
+
+  const handleRemoveCard = async (paymentMethodId: string) => {
+    try {
+      setActionMessage(null);
+      await removePaymentMethod(paymentMethodId);
+      setRemoveCardConfirmId(null);
+      setActionMessage({ type: 'success', text: 'Payment method removed.' });
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to remove payment method.' });
+    }
+  };
+
+  const handleOpenPortal = async () => {
+    try {
+      setActionMessage(null);
+      await openBillingPortal();
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to open billing portal. Please try again.' });
+    }
+  };
+
+  const formatCardBrand = (brand: string) =>
+    brand.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
   const formatDate = (timestamp: number | string | null) => {
     if (!timestamp) return 'N/A';
@@ -598,16 +731,120 @@ export function BillingDashboard() {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <p className="font-body text-base text-brand-gray-med">
                         Need to make changes to your subscription?
                       </p>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={handleOpenPortal}
+                          disabled={isLoading}
+                          className="h-[44px] px-6 bg-brand-teal text-white font-body font-bold text-base rounded-xl hover:bg-brand-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Manage Billing in Stripe
+                        </button>
+                        <button
+                          onClick={() => setShowCancelConfirm(true)}
+                          className="h-[44px] px-6 bg-white border border-red-300 text-red-600 font-body font-bold text-base rounded-xl hover:bg-red-50 transition-colors"
+                        >
+                          Cancel Subscription
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Payment Methods Management */}
+                <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-heading font-black text-xl text-brand-charcoal">
+                      Payment Methods
+                    </h3>
+                    {!showAddCard && (
                       <button
-                        onClick={() => setShowCancelConfirm(true)}
-                        className="h-[44px] px-6 bg-white border border-red-300 text-red-600 font-body font-bold text-base rounded-xl hover:bg-red-50 transition-colors"
+                        onClick={() => setShowAddCard(true)}
+                        className="h-[40px] px-5 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-sm rounded-xl hover:bg-brand-teal hover:text-white transition-colors"
                       >
-                        Cancel Subscription
+                        + Add Card
                       </button>
+                    )}
+                  </div>
+
+                  {subscription.payment_methods && subscription.payment_methods.length > 0 ? (
+                    <ul className="divide-y divide-brand-gray-light">
+                      {subscription.payment_methods.map((pm) => {
+                        const isOnlyCard = subscription.payment_methods.length === 1;
+                        const disableRemove = pm.is_default && isOnlyCard;
+                        return (
+                          <li key={pm.id} className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span className="font-heading font-black text-lg text-brand-charcoal">
+                                {formatCardBrand(pm.brand)}
+                              </span>
+                              <span className="font-body text-base text-brand-gray-med">
+                                **** {pm.last4}
+                              </span>
+                              <span className="font-body text-sm text-brand-gray-med">
+                                Expires {String(pm.exp_month).padStart(2, '0')}/{String(pm.exp_year).slice(-2)}
+                              </span>
+                              {pm.is_default && (
+                                <span className="px-2.5 py-0.5 rounded-full font-body font-bold text-xs uppercase bg-brand-teal/10 text-brand-teal">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {!pm.is_default && (
+                                <button
+                                  onClick={() => handleMakeDefault(pm.id)}
+                                  disabled={isLoading}
+                                  className="h-[36px] px-4 bg-white border border-brand-teal text-brand-teal font-body font-bold text-sm rounded-lg hover:bg-brand-teal/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Make Default
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setRemoveCardConfirmId(pm.id)}
+                                disabled={disableRemove || isLoading}
+                                title={disableRemove ? 'Cannot remove your only payment method' : undefined}
+                                className="h-[36px] px-4 bg-white border border-red-300 text-red-600 font-body font-bold text-sm rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : subscription.organization.card_brand ? (
+                    <div className="py-2 flex items-center gap-3">
+                      <span className="font-heading font-black text-lg text-brand-charcoal capitalize">
+                        {subscription.organization.card_brand}
+                      </span>
+                      <span className="font-body text-base text-brand-gray-med">
+                        **** {subscription.organization.card_last_four}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="font-body text-base text-brand-gray-med py-2">
+                      No payment methods on file.
+                    </p>
+                  )}
+
+                  {showAddCard && config?.publishable_key && (
+                    <div className="mt-6 pt-6 border-t border-brand-gray-light">
+                      <h4 className="font-heading font-black text-base text-brand-charcoal mb-4">
+                        Add a new card
+                      </h4>
+                      <Elements stripe={getStripePromise(config.publishable_key)}>
+                        <AddCardForm
+                          onSuccess={() => {
+                            setShowAddCard(false);
+                            setActionMessage({ type: 'success', text: 'Payment method added.' });
+                          }}
+                          onCancel={() => setShowAddCard(false)}
+                        />
+                      </Elements>
                     </div>
                   )}
                 </div>
@@ -675,6 +912,35 @@ export function BillingDashboard() {
       </main>
 
       <Footer />
+
+      {/* Remove card confirmation modal */}
+      {removeCardConfirmId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <h2 className="font-heading font-black text-2xl text-brand-charcoal mb-3">
+              Remove Payment Method?
+            </h2>
+            <p className="font-body text-base text-brand-gray-med mb-6">
+              This will detach the card from your account. You can add it again later if needed.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setRemoveCardConfirmId(null)}
+                className="h-[50px] bg-brand-teal text-white font-body font-bold text-base rounded-xl hover:bg-brand-teal/90 transition-colors"
+              >
+                Keep Card
+              </button>
+              <button
+                onClick={() => handleRemoveCard(removeCardConfirmId)}
+                disabled={isLoading}
+                className="h-[50px] bg-white border border-red-300 text-red-600 font-body font-bold text-base rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Remove Card
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel confirmation modal */}
       {showCancelConfirm && (

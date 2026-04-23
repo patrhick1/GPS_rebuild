@@ -144,6 +144,14 @@ class StripeService:
             customer=customer_id,
             payment_method_types=["card"]
         )
+
+    @staticmethod
+    def create_billing_portal_session(customer_id: str, return_url: str) -> stripe.billing_portal.Session:
+        """Create a Stripe-hosted billing portal session for self-service management"""
+        return stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=return_url,
+        )
     
     @staticmethod
     def get_payment_methods(customer_id: str) -> list:
