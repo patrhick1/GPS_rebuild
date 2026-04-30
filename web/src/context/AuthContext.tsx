@@ -27,6 +27,7 @@ interface User {
   organization_name?: string;
   is_primary_admin?: boolean;
   locale?: string;
+  onboarding_completed?: boolean;
 }
 
 interface ChurchRegisterData {

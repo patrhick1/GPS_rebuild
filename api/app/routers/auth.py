@@ -423,6 +423,17 @@ async def update_profile(
     return current_user
 
 
+@router.post("/onboarding-complete")
+async def complete_onboarding(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Mark the current user's onboarding guide as completed."""
+    current_user.onboarding_completed = True
+    db.commit()
+    return {"message": "Onboarding completed"}
+
+
 @router.get("/org/{org_key}")
 async def get_org_by_key(org_key: str, db: Session = Depends(get_db)):
     """Return public org info for the registration page church-link flow."""

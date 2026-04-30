@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, api } from '../context/AuthContext';
 import { useDashboard } from '../context/DashboardContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { OnboardingGuide } from '../components/OnboardingGuide';
 import goldMenuIcon from '../../Graphics for Dev/Icons/Gold Menu Icon.svg';
 import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 
@@ -13,6 +14,30 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Onboarding state — show guide for first-time users (no assessments taken yet)
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (
+      summary &&
+      summary.stats.total_assessments === 0 &&
+      history.length === 0 &&
+      myimpactHistory.length === 0 &&
+      !user?.onboarding_completed
+    ) {
+      setShowOnboarding(true);
+    }
+  }, [summary, history, myimpactHistory, user?.onboarding_completed]);
+
+  const dismissOnboarding = async () => {
+    setShowOnboarding(false);
+    try {
+      await api.post('/auth/onboarding-complete');
+    } catch {
+      // Non-critical — guide won't reappear if assessments exist anyway
+    }
+  };
 
   // Export state
   const [isExportingMyData, setIsExportingMyData] = useState(false);
@@ -136,6 +161,10 @@ export function Dashboard() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+
+      {showOnboarding && (
+        <OnboardingGuide firstName={firstName} onDismiss={dismissOnboarding} />
+      )}
 
       <main className="flex-1 bg-white">
         {error && (

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey
+from sqlalchemy import Boolean, Column, String, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -22,6 +22,7 @@ class User(Base):
     status = Column(String(20), nullable=False, default="active")  # active, invited, locked, deleted
     email_verified = Column(String(1), nullable=False, default="N")  # Y or N
     stripe_id = Column(String(255), nullable=True)
+    onboarding_completed = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

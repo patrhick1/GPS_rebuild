@@ -64,6 +64,7 @@ class UserResponse(UserBase):
     id: uuid.UUID
     status: str
     email_verified: str = "N"
+    onboarding_completed: bool = False
     created_at: datetime
 
     class Config:
