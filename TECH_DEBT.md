@@ -29,7 +29,7 @@
 7. ~~Stripe webhook has zero idempotency — duplicate Payment rows on every retry~~ ([2.2](#22-payments--stripe)). **(DONE: B5)**
 8. ~~Stripe webhook returns 200 on handler errors — silently drops events~~ ([2.2](#22-payments--stripe)). **(DONE: B5)**
 9. ~~Subscribe is non-atomic across double-click — orphan Stripe sub keeps charging~~ ([2.2](#22-payments--stripe)). **(DONE: B5)**
-10. Stripe SDK v14 broke `current_period_*` access — silent None writes throughout billing ([2.2](#22-payments--stripe), [2.1](#21-auth)).
+10. ~~Stripe SDK v14 broke `current_period_*` access — silent None writes throughout billing~~ ([2.2](#22-payments--stripe), [2.1](#21-auth)). **(DONE: B4)**
 11. ~~CSRF via cookie-fallback auth on Form-encoded endpoints~~ ([2.1](#21-auth)). **(DONE: B6)**
 12. ~~Access token stored in localStorage despite "memory only" comment + no CSP~~ ([2.10](#210-ui-patterns)). **(DONE: B6)**
 13. ~~CSV exports unprotected against formula injection — `sanitize_for_csv` defined but never called~~ ([1c](#1c-unused-code--deps), [2.5](#25-admin--master)). **(DONE: B8)**
