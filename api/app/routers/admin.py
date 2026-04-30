@@ -45,6 +45,7 @@ from app.schemas.assessment import GradedAssessmentResponse, GradedMyImpactRespo
 from app.services.scoring_service import ScoringService
 from app.services.myimpact_scoring_service import MyImpactScoringService
 from app.services.email_service import send_invite_email, send_membership_approved_email, send_membership_declined_email
+from app.services import notification_service
 
 router = APIRouter(prefix="/admin", tags=["Church Admin"])
 
@@ -857,7 +858,7 @@ async def approve_pending(
     membership.status = "active"
     db.commit()
 
-    # Notify the user via email
+    # Notify the user via email and in-app
     member_user = db.query(User).filter(User.id == membership.user_id).first()
     if member_user:
         send_membership_approved_email(
@@ -865,6 +866,17 @@ async def approve_pending(
             first_name=member_user.first_name or "there",
             org_name=org.name,
         )
+        try:
+            notification_service.create_notification(
+                db,
+                user_id=member_user.id,
+                type="membership_approved",
+                title=f"Welcome to {org.name}!",
+                message=f"Your request to join {org.name} has been approved.",
+                link="/dashboard",
+            )
+        except Exception:
+            pass  # Non-fatal
 
     return {"message": "Member approved"}
 
@@ -896,7 +908,7 @@ async def decline_pending(
     membership.status = "declined"
     db.commit()
 
-    # Notify the user via email
+    # Notify the user via email and in-app
     member_user = db.query(User).filter(User.id == membership.user_id).first()
     if member_user:
         send_membership_declined_email(
@@ -904,6 +916,17 @@ async def decline_pending(
             first_name=member_user.first_name or "there",
             org_name=org.name,
         )
+        try:
+            notification_service.create_notification(
+                db,
+                user_id=member_user.id,
+                type="membership_declined",
+                title="Membership Request Update",
+                message=f"Your request to join {org.name} was not approved.",
+                link="/account",
+            )
+        except Exception:
+            pass  # Non-fatal
 
     return {"message": "Member request declined"}
 

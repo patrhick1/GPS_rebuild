@@ -31,6 +31,7 @@ from app.services.email_service import (
 )
 from app.models.membership import Membership
 from app.core.config import settings
+from app.services import notification_service
 from app.schemas.assessment import (
     AssessmentCreate,
     AssessmentResponse,
@@ -69,6 +70,7 @@ def _notify_org_admins(db: Session, current_user: User, assessment: Assessment) 
         member_name = f"{current_user.first_name} {current_user.last_name}".strip()
         org_name = member_membership.organization.name
         dashboard_url = f"{settings.FRONTEND_URL}/admin"
+        instrument_label = "MyImpact" if assessment.instrument_type == "myimpact" else "GPS"
         for am in admin_memberships:
             send_assessment_notification_email(
                 to_email=am.user.email,
@@ -78,6 +80,17 @@ def _notify_org_admins(db: Session, current_user: User, assessment: Assessment) 
                 instrument_type=assessment.instrument_type,
                 dashboard_url=dashboard_url,
             )
+            try:
+                notification_service.create_notification(
+                    db,
+                    user_id=am.user.id,
+                    type="assessment_completed",
+                    title=f"{member_name} completed {instrument_label}",
+                    message=f"{member_name} just completed a {instrument_label} assessment.",
+                    link="/admin",
+                )
+            except Exception:
+                pass
     except Exception as exc:
         logger.error("Failed to notify org admins: %s", exc)
 
@@ -338,6 +351,17 @@ async def submit_assessment(
             )
         except Exception as exc:
             logger.error("Failed to send MyImpact result email to %s: %s", current_user.email, exc)
+        try:
+            notification_service.create_notification(
+                db,
+                user_id=current_user.id,
+                type="myimpact_result",
+                title="MyImpact Results Ready",
+                message="Your MyImpact assessment results are now available.",
+                link=f"/myimpact-results?id={assessment.id}",
+            )
+        except Exception:
+            pass
         return response
     else:
         # GPS assessment
@@ -367,6 +391,17 @@ async def submit_assessment(
             )
         except Exception as exc:
             logger.error("Failed to send GPS result email to %s: %s", current_user.email, exc)
+        try:
+            notification_service.create_notification(
+                db,
+                user_id=current_user.id,
+                type="gps_result",
+                title="GPS Results Ready",
+                message="Your GPS assessment results are now available.",
+                link=f"/assessment-results?id={assessment.id}",
+            )
+        except Exception:
+            pass
         return response
 
 

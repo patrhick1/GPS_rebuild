@@ -5,7 +5,9 @@ import { DashboardProvider } from './context/DashboardContext';
 import { AdminProvider } from './context/AdminContext';
 import { MasterProvider } from './context/MasterContext';
 import { BillingProvider } from './context/BillingContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { PrivateRoute } from './components/PrivateRoute';
+import { Toaster } from 'sonner';
 
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -41,6 +43,8 @@ function DefaultRedirect() {
 function App() {
   return (
     <AuthProvider>
+      <NotificationProvider>
+      <Toaster position="top-right" richColors />
       <Router>
         <Routes>
           {/* Public routes */}
@@ -188,6 +192,7 @@ function App() {
           <Route path="/" element={<DefaultRedirect />} />
         </Routes>
       </Router>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

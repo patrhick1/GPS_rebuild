@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { NotificationBell } from './NotificationBell';
 import dmLogo from '../../Graphics for Dev/Logos/Disciples+Made+Logo+Horizontal 1.svg';
 import gpsLogo from '../../Graphics for Dev/Logos/gps-logo 1.svg';
 import myImpactLogo from '../../Graphics for Dev/Logos/MyImpact Logo.svg';
@@ -21,20 +22,24 @@ export function Navbar() {
           <img src={dmLogo} alt="Disciples Made" className="h-10" />
         </button>
 
-        {/* Right: GPS + MyImpact logos (desktop) */}
+        {/* Right: GPS + MyImpact logos + notification bell (desktop) */}
         <div className="hidden md:flex items-center gap-6">
           <img src={gpsLogo} alt="GPS" className="h-[35px]" />
           <img src={myImpactLogo} alt="MyImpact" className="h-[35px]" />
+          {user && user.email_verified === 'Y' && <NotificationBell />}
         </div>
 
-        {/* Hamburger (mobile) */}
-        <button
-          className="md:hidden p-2"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Toggle menu"
-        >
-          <img src={hamburgerIcon} alt="Menu" className="h-6 w-6" />
-        </button>
+        {/* Mobile: notification bell + hamburger */}
+        <div className="md:hidden flex items-center gap-2">
+          {user && user.email_verified === 'Y' && <NotificationBell />}
+          <button
+            className="p-2"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Toggle menu"
+          >
+            <img src={hamburgerIcon} alt="Menu" className="h-6 w-6" />
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}
