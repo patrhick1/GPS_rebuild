@@ -24,7 +24,7 @@ from app.models.organization import Organization
 from app.models.subscription import Subscription, Payment
 from app.models.membership import Membership
 from app.models.audit_log import AuditLog
-from app.services.stripe_service import stripe_service
+from app.services.stripe_service import stripe_service, _period_dates
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
@@ -127,19 +127,26 @@ async def get_subscription(
             }
         }
     
-    # If still incomplete, re-sync from Stripe (webhooks may not have fired in dev)
+    # If still incomplete, re-sync from Stripe (webhooks may not have fired in dev).
+    # Stripe errors are logged and surfaced — silently swallowing them
+    # was hiding the v14 period-date schema change (silent KeyError).
     if subscription.status == "incomplete" and subscription.stripe_subscription_id:
         try:
             stripe_sub = stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+        except stripe.error.StripeError as exc:
+            logging.getLogger(__name__).warning(
+                "Failed to refresh Stripe sub %s: %s",
+                subscription.stripe_subscription_id, exc
+            )
+        else:
             if stripe_sub.status != subscription.status:
                 subscription.status = stripe_sub.status
-                if stripe_sub.get("current_period_start"):
-                    subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
-                if stripe_sub.get("current_period_end"):
-                    subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
+                cps, cpe = _period_dates(stripe_sub)
+                if cps is not None:
+                    subscription.current_period_start = cps
+                if cpe is not None:
+                    subscription.current_period_end = cpe
                 db.commit()
-        except Exception:
-            pass
 
     # Get upcoming invoice if subscription is active
     upcoming_invoice = None

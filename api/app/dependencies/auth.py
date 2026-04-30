@@ -364,20 +364,30 @@ async def require_view_subscription(
             detail="no_subscription",
         )
 
-    # Auto-sync incomplete subscriptions from Stripe
+    # Auto-sync incomplete subscriptions from Stripe.
+    # Stripe errors are surfaced to the caller — silently dropping them
+    # left users locked out indefinitely when the period-date schema
+    # changed in API v2026-02-25 (silent KeyError).
     if sub.status == "incomplete" and sub.stripe_subscription_id:
+        import logging
+        import stripe
+        from app.services.stripe_service import _period_dates
         try:
-            import stripe
             stripe_sub = stripe.Subscription.retrieve(sub.stripe_subscription_id)
+        except stripe.error.StripeError as exc:
+            # Network or auth issue talking to Stripe — log but don't 500
+            # the gating check; the user can retry.
+            logging.getLogger(__name__).warning(
+                "Failed to refresh Stripe sub %s: %s", sub.stripe_subscription_id, exc
+            )
+        else:
             if stripe_sub.status != sub.status:
-                from datetime import datetime
                 sub.status = stripe_sub.status
-                if stripe_sub.get("current_period_start"):
-                    sub.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
-                if stripe_sub.get("current_period_end"):
-                    sub.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
+                cps, cpe = _period_dates(stripe_sub)
+                if cps is not None:
+                    sub.current_period_start = cps
+                if cpe is not None:
+                    sub.current_period_end = cpe
                 db.commit()
-        except Exception:
-            pass
 
     return current_user

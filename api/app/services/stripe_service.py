@@ -14,6 +14,35 @@ from app.models.organization import Organization
 
 # Configure Stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
+# Default Stripe SDK timeout is 80 seconds; cap at 10 so a Stripe stall
+# doesn't hold a request worker open for over a minute. Two automatic
+# retries on transient network errors.
+stripe.max_network_retries = 2
+stripe.api_request_timeout = 10
+
+
+def _period_dates(sub) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Extract (current_period_start, current_period_end) from a Stripe Subscription.
+
+    Stripe API version 2026-02-25+ moved these fields off the top-level
+    Subscription object onto subscription.items.data[0]. This helper
+    handles both old and new payload shapes via .get() lookups, so the
+    read path doesn't break when the API version rolls forward.
+    """
+    if sub is None:
+        return None, None
+    items = (sub.get("items") or {}).get("data") or []
+    if items:
+        first = items[0] or {}
+        cps = first.get("current_period_start")
+        cpe = first.get("current_period_end")
+    else:
+        cps = sub.get("current_period_start")
+        cpe = sub.get("current_period_end")
+    return (
+        datetime.fromtimestamp(cps) if cps else None,
+        datetime.fromtimestamp(cpe) if cpe else None,
+    )
 
 
 class StripeService:
@@ -82,6 +111,7 @@ class StripeService:
         )
         
         # Create local subscription record
+        cps, cpe = _period_dates(subscription)
         db_subscription = Subscription(
             organization_id=organization.id,
             stripe_customer_id=customer.id,
@@ -90,8 +120,8 @@ class StripeService:
             status=subscription.status,
             plan=plan,
             quantity=quantity,
-            current_period_start=datetime.fromtimestamp(subscription.current_period_start) if subscription.get("current_period_start") else None,
-            current_period_end=datetime.fromtimestamp(subscription.current_period_end) if subscription.get("current_period_end") else None,
+            current_period_start=cps,
+            current_period_end=cpe,
             trial_start=datetime.fromtimestamp(subscription.trial_start) if subscription.trial_start else None,
             trial_end=datetime.fromtimestamp(subscription.trial_end) if subscription.trial_end else None,
         )
@@ -177,7 +207,7 @@ class StripeService:
             params = {"customer": customer_id}
             if subscription_id:
                 params["subscription"] = subscription_id
-            return stripe.Invoice.upcoming_preview(**params)
+            return stripe.Invoice.create_preview(**params)
         except Exception:
             return None
     
@@ -221,10 +251,11 @@ class StripeService:
             Subscription.stripe_subscription_id == sub_id
         ).first()
 
+        cps, cpe = _period_dates(sub)
         if db_subscription:
             db_subscription.status = sub.get("status")
-            db_subscription.current_period_start = datetime.fromtimestamp(sub["current_period_start"])
-            db_subscription.current_period_end = datetime.fromtimestamp(sub["current_period_end"])
+            db_subscription.current_period_start = cps
+            db_subscription.current_period_end = cpe
             db_subscription.cancel_at_period_end = sub.get("cancel_at_period_end", False)
             db_subscription.quantity = quantity
             db_subscription.updated_at = datetime.now(timezone.utc)
@@ -244,8 +275,8 @@ class StripeService:
                 status=sub.get("status"),
                 plan=plan,
                 quantity=quantity,
-                current_period_start=datetime.fromtimestamp(sub["current_period_start"]),
-                current_period_end=datetime.fromtimestamp(sub["current_period_end"]),
+                current_period_start=cps,
+                current_period_end=cpe,
                 cancel_at_period_end=sub.get("cancel_at_period_end", False),
             )
             db.add(db_subscription)
