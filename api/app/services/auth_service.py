@@ -440,13 +440,23 @@ class AuthService:
         self.db.commit()
         return True
 
-    def delete_account(self, user: User):
+    def delete_account(self, user: User, password: str):
         """
         Soft-delete a user account: anonymize PII, revoke tokens,
         remove memberships, and cancel any Stripe subscription.
+
+        Requires the current password as defense against stolen-token
+        deletion. A valid access token alone is not enough.
         """
         import logging
         logger = logging.getLogger(__name__)
+
+        # Reauth: verify password before any destructive action.
+        if not user.password_hash or not verify_password(password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect.",
+            )
 
         # Block deletion if user is a primary admin
         primary_membership = self.db.query(Membership).filter(

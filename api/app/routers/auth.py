@@ -194,6 +194,7 @@ async def login(
 
 
 @router.post("/refresh", response_model=Token)
+@limiter.limit(AUTHENTICATED_RATE)
 async def refresh_token(
     request: Request,
     response: Response,
@@ -237,6 +238,7 @@ async def refresh_token(
 
 
 @router.post("/logout")
+@limiter.limit(AUTHENTICATED_RATE)
 async def logout(
     request: Request,
     response: Response,
@@ -343,7 +345,9 @@ async def resend_verification(
 
 
 @router.post("/change-password")
+@limiter.limit(AUTHENTICATED_RATE)
 async def change_password(
+    request: Request,
     password_data: PasswordChange,
     current_user: User = Depends(get_current_active_user_no_impersonation),
     db: Session = Depends(get_db),
@@ -403,7 +407,7 @@ async def delete_account(
         )
 
     auth_service = AuthService(db)
-    auth_service.delete_account(current_user)
+    auth_service.delete_account(current_user, data.password)
 
     log_audit_event(
         db=db,
@@ -467,7 +471,9 @@ async def update_profile(
 
 
 @router.post("/onboarding-complete")
+@limiter.limit(AUTHENTICATED_RATE)
 async def complete_onboarding(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -478,7 +484,8 @@ async def complete_onboarding(
 
 
 @router.get("/org/{org_key}")
-async def get_org_by_key(org_key: str, db: Session = Depends(get_db)):
+@limiter.limit(PUBLIC_AUTH_RATE)
+async def get_org_by_key(request: Request, org_key: str, db: Session = Depends(get_db)):
     """Return public org info for the registration page church-link flow."""
     org = db.query(Organization).filter(
         Organization.key == org_key,
@@ -490,7 +497,9 @@ async def get_org_by_key(org_key: str, db: Session = Depends(get_db)):
 
 
 @router.post("/password-strength", response_model=PasswordStrengthResponse)
+@limiter.limit(PUBLIC_AUTH_RATE)
 async def check_password_strength(
+    request: Request,
     password: str = Form(...),
     email: str = Form(""),
     first_name: str = Form(""),

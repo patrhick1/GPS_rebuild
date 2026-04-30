@@ -2,7 +2,7 @@
 Admin schemas
 """
 from datetime import datetime
-from typing import Optional, List
+from typing import Literal, Optional, List
 from pydantic import BaseModel
 import uuid
 
@@ -55,7 +55,10 @@ class MemberListResponse(BaseModel):
 
 
 class MemberUpdate(BaseModel):
-    role: Optional[str] = None
+    # IMPORTANT: "master" is intentionally excluded — promotion to master role
+    # must happen via the master admin panel, never via a church admin's PUT.
+    # Pydantic rejects any other value with 422 before the router is reached.
+    role: Optional[Literal["user", "member", "admin"]] = None
     status: Optional[str] = None
 
 

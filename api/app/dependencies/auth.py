@@ -212,12 +212,28 @@ def require_admin_no_impersonation(
     )
 
 
-def require_master(current_user: User = Depends(get_current_verified_user)) -> User:
+def _has_master_membership(user: "User", db: Session) -> bool:
+    """Return True if `user` has any membership whose role is 'master'.
+
+    Querying directly avoids the brittle `memberships[0]` ordering bug —
+    a master admin who once held a different membership (e.g., legacy
+    member of a church before being promoted) had non-deterministic
+    pass/fail behavior depending on insertion order.
+    """
+    return db.query(Membership).join(Role).filter(
+        Membership.user_id == user.id,
+        Role.name == "master",
+    ).first() is not None
+
+
+def require_master(
+    current_user: User = Depends(get_current_verified_user),
+    db: Session = Depends(get_db),
+) -> User:
     """Dependency to require master role (email must be verified)."""
-    membership = current_user.memberships[0] if current_user.memberships else None
-    if membership and membership.role and membership.role.name == "master":
+    if _has_master_membership(current_user, db):
         return current_user
-    
+
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Master admin access required",
@@ -225,13 +241,13 @@ def require_master(current_user: User = Depends(get_current_verified_user)) -> U
 
 
 def require_master_no_impersonation(
-    current_user: User = Depends(get_current_user_no_impersonation)
+    current_user: User = Depends(get_current_user_no_impersonation),
+    db: Session = Depends(get_db),
 ) -> User:
     """Require master role, rejecting impersonation tokens."""
-    membership = current_user.memberships[0] if current_user.memberships else None
-    if membership and membership.role and membership.role.name == "master":
+    if _has_master_membership(current_user, db):
         return current_user
-    
+
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Master admin access required",
@@ -365,15 +381,3 @@ async def require_view_subscription(
             pass
 
     return current_user
-
-
-def get_optional_user(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-) -> User | None:
-    """Dependency to optionally get current user (returns None if not authenticated)."""
-    try:
-        return get_current_user(request, credentials, db)
-    except HTTPException:
-        return None

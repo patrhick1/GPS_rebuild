@@ -56,6 +56,7 @@ export function Account() {
   // Account deletion state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
@@ -174,11 +175,13 @@ export function Account() {
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'DELETE') return;
+    if (deleteConfirm !== 'DELETE' || !deletePassword) return;
     setDeleting(true);
     setDeleteError('');
     try {
-      await api.delete('/auth/account', { data: { confirmation: deleteConfirm } });
+      await api.delete('/auth/account', {
+        data: { password: deletePassword, confirmation: deleteConfirm },
+      });
       logout();
     } catch (err: any) {
       setDeleteError(err.response?.data?.detail || 'Failed to delete account');
@@ -574,7 +577,7 @@ export function Account() {
             </p>
             <button
               type="button"
-              onClick={() => { setDeleteModalOpen(true); setDeleteConfirm(''); setDeleteError(''); }}
+              onClick={() => { setDeleteModalOpen(true); setDeleteConfirm(''); setDeletePassword(''); setDeleteError(''); }}
               className="h-[50px] px-8 bg-red-600 text-white font-body font-bold text-lg rounded-xl hover:bg-red-700 transition-colors"
             >
               Delete My Account
@@ -599,6 +602,17 @@ export function Account() {
                 <li>Assessment data will be anonymized, not deleted</li>
               </ul>
               <p className="font-body font-bold text-sm text-brand-charcoal mb-2">
+                Enter your current password:
+              </p>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Password"
+                autoComplete="current-password"
+                className="w-full h-[50px] px-5 border border-brand-gray-light rounded-xl font-body text-lg text-brand-charcoal placeholder:text-brand-charcoal/30 focus:outline-none focus:ring-2 focus:ring-red-300 mb-4"
+              />
+              <p className="font-body font-bold text-sm text-brand-charcoal mb-2">
                 Type <span className="text-red-600">DELETE</span> to confirm:
               </p>
               <input
@@ -622,7 +636,7 @@ export function Account() {
                 <button
                   type="button"
                   onClick={handleDeleteAccount}
-                  disabled={deleteConfirm !== 'DELETE' || deleting}
+                  disabled={deleteConfirm !== 'DELETE' || !deletePassword || deleting}
                   className="h-[50px] px-8 bg-red-600 text-white font-body font-bold text-lg rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {deleting ? 'Deleting...' : 'Delete Account'}

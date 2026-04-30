@@ -402,6 +402,13 @@ async def update_member(
     
     # Update role if provided
     if update.role:
+        # Defense-in-depth: Pydantic already rejects "master" via Literal,
+        # but reject explicitly here too in case the schema is ever loosened.
+        if update.role == "master":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Master role cannot be assigned via this endpoint."
+            )
         role = db.query(Role).filter(Role.name == update.role).first()
         if role:
             membership.role_id = role.id

@@ -540,98 +540,11 @@ def _get_all_passions_detail(db: Session, result: AssessmentResult):
 
 
 # Admin Upgrade Endpoint
-
-@router.post("/upgrade-to-admin")
-@limiter.limit(AUTHENTICATED_RATE)
-async def upgrade_to_admin(
-    request: Request,
-    church_name: str,
-    city: str,
-    state: Optional[str] = None,
-    country: str = "USA",
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_verified_user)
-):
-    """Upgrade user to church admin by creating a new organization"""
-    
-    # Check if user is already associated with an organization
-    existing_membership = db.query(Membership).filter(
-        Membership.user_id == current_user.id,
-        Membership.organization_id != None
-    ).first()
-    
-    if existing_membership:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You are already associated with an organization"
-        )
-    
-    # Generate unique key for the organization
-    import re
-    base_key = re.sub(r'[^a-zA-Z0-9]+', '-', church_name.lower()).strip('-')
-    key = base_key
-    counter = 1
-    
-    # Ensure key is unique
-    while db.query(Organization).filter(Organization.key == key).first():
-        key = f"{base_key}-{counter}"
-        counter += 1
-    
-    # Create new organization
-    organization = Organization(
-        name=church_name,
-        city=city,
-        state=state,
-        country=country,
-        key=key,
-    )
-    db.add(organization)
-    db.flush()  # Get organization ID
-    
-    # Get admin role
-    from app.models.role import Role
-    admin_role = db.query(Role).filter(Role.name == "admin").first()
-    
-    if not admin_role:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Admin role not found"
-        )
-    
-    # Create or update membership as primary admin
-    existing_user_membership = db.query(Membership).filter(
-        Membership.user_id == current_user.id
-    ).first()
-    
-    if existing_user_membership:
-        existing_user_membership.organization_id = organization.id
-        existing_user_membership.role_id = admin_role.id
-        existing_user_membership.is_primary_admin = True
-        existing_user_membership.status = "active"
-    else:
-        membership = Membership(
-            user_id=current_user.id,
-            organization_id=organization.id,
-            role_id=admin_role.id,
-            is_primary_admin=True,  # First admin is primary
-            status="active"
-        )
-        db.add(membership)
-    
-    db.commit()
-    
-    return {
-        "message": "Successfully upgraded to church admin",
-        "organization": {
-            "id": organization.id,
-            "name": organization.name,
-            "key": organization.key,
-            "city": organization.city,
-            "state": organization.state,
-            "country": organization.country,
-        },
-        "is_primary_admin": True
-    }
+# NOTE: POST /dashboard/upgrade-to-admin was removed in B3 (auth-gap).
+# Use POST /auth/upgrade/church instead — it handles existing-membership
+# transfer logic, Stripe-cancel-orphan-sub, and audit logging that this
+# inline path was missing. Web frontend already uses the auth path
+# (AuthContext.upgradeToChurchAdmin).
 
 
 # Church Linking Endpoints

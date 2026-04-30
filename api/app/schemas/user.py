@@ -152,6 +152,10 @@ class PasswordChange(BaseModel):
 
 # Schema for account deletion request
 class AccountDeleteRequest(BaseModel):
+    # Password reauth is required even with a valid access token: a stolen
+    # token (XSS, public-computer leftover session, malware) would otherwise
+    # be enough to permanently soft-delete the account.
+    password: str = Field(..., min_length=1, description="Current account password")
     confirmation: str = Field(..., description="Must be the string 'DELETE' to confirm")
 
 
