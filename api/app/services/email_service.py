@@ -82,7 +82,7 @@ def send_verification_email(to_email: str, first_name: str, verification_token: 
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
         Gift, Passion, Story Assessment Platform &mdash;
-        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
     """
@@ -137,7 +137,7 @@ def send_invite_email(
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
         Gift, Passion, Story Assessment Platform &mdash;
-        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
     """
@@ -188,7 +188,7 @@ def send_assessment_notification_email(
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
         Gift, Passion, Story Assessment Platform &mdash;
-        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
     """
@@ -305,7 +305,7 @@ def send_gps_result_email(to_email: str, first_name: str, result, results_url: s
         <hr style="border:none; border-top:1px solid #eee; margin:32px 0;" />
         <p style="color:#999; font-size:12px; text-align:center;">
           Gift, Passion, Story Assessment Platform &mdash;
-          <a href="{settings.FRONTEND_URL}" style="color:#999;">giftpassionstory.com</a>
+          <a href="{settings.FRONTEND_URL}" style="color:#999;">disciplesmade.com</a>
         </p>
       </div>
     </div>
@@ -447,7 +447,7 @@ def send_myimpact_result_email(to_email: str, first_name: str, result, results_u
         <hr style="border:none; border-top:1px solid #eee; margin:32px 0;" />
         <p style="color:#999; font-size:12px; text-align:center;">
           Gift, Passion, Story Assessment Platform &mdash;
-          <a href="{settings.FRONTEND_URL}" style="color:#999;">giftpassionstory.com</a>
+          <a href="{settings.FRONTEND_URL}" style="color:#999;">disciplesmade.com</a>
         </p>
       </div>
     </div>
@@ -495,7 +495,7 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
         Gift, Passion, Story Assessment Platform &mdash;
-        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
     """
@@ -542,7 +542,7 @@ def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_toke
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
         Gift, Passion, Story Assessment Platform &mdash;
-        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
     """
@@ -585,7 +585,7 @@ def send_membership_approved_email(to_email: str, first_name: str, org_name: str
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
         Gift, Passion, Story Assessment Platform &mdash;
-        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
     """
@@ -629,7 +629,7 @@ def send_membership_declined_email(to_email: str, first_name: str, org_name: str
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
         Gift, Passion, Story Assessment Platform &mdash;
-        <a href="{settings.FRONTEND_URL}" style="color: #999;">giftpassionstory.com</a>
+        <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
     """

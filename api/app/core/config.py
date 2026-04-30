@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     
     # Resend (Email)
     RESEND_API_KEY: Optional[str] = None
-    EMAIL_FROM: str = "noreply@giftpassionstory.com"
+    EMAIL_FROM: str = "noreply@disciplesmade.com"
     
     # Frontend URL
     FRONTEND_URL: str = "http://localhost:5173"

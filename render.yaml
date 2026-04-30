@@ -5,13 +5,21 @@ services:
     runtime: docker
     dockerfilePath: ./api/Dockerfile
     dockerContext: ./api
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         sync: false
       - key: SECRET_KEY
         generateValue: true
+      # FRONTEND_URL is the base for every email link (password reset, invite, verification, results).
+      # Staging: Render default subdomain. Production: swap to https://dashboard.disciplesmade.com
+      # when the custom domain ships, and add it to CORS_ORIGINS below.
+      - key: FRONTEND_URL
+        value: "https://gps-web.onrender.com"
       - key: CORS_ORIGINS
-        value: "https://gps-web.onrender.com,https://assessments.giftpassionstory.com"
+        value: "https://gps-web.onrender.com,https://dashboard.disciplesmade.com"
+      # Stripe / Resend secrets are configured in the Render UI (sync: false equivalent).
+      # EMAIL_FROM is intentionally unset — code default is noreply@disciplesmade.com.
 
   # React Frontend (static site)
   - type: web
