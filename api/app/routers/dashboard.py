@@ -11,6 +11,7 @@ import io
 
 from app.core.database import get_db
 from app.core.rate_limits import limiter, AUTHENTICATED_RATE
+from app.core.sanitization import sanitize_for_csv
 from app.dependencies.auth import get_current_verified_user
 from app.models.user import User
 from app.models.assessment import Assessment
@@ -342,7 +343,10 @@ async def export_assessments_csv(
     output = io.StringIO()
     writer = csv.writer(output)
 
-    writer.writerow([
+    def _safe_row(cells):
+        writer.writerow([sanitize_for_csv(c) for c in cells])
+
+    _safe_row([
         "First Name", "Last Name", "Email", "Church Name",
         "Assessment Instrument", "Assessment Date",
         "Gift 1", "Gift 1 Score", "Gift 2", "Gift 2 Score",
@@ -362,7 +366,7 @@ async def export_assessments_csv(
 
         if assessment.instrument_type == "myimpact":
             mi = assessment.myimpact_results
-            writer.writerow(base + [
+            _safe_row(base + [
                 "MyImpact", completed,
                 "", "", "", "",
                 "", "", "", "",
@@ -402,7 +406,7 @@ async def export_assessments_csv(
             while len(passions) < 2:
                 passions.append(("", ""))
 
-            writer.writerow(base + [
+            _safe_row(base + [
                 "GPS", completed,
                 gifts[0][0], gifts[0][1], gifts[1][0], gifts[1][1],
                 passions[0][0], passions[0][1], passions[1][0], passions[1][1],

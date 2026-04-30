@@ -15,6 +15,7 @@ import string
 from app.core.database import get_db
 from app.core.rate_limits import limiter, ADMIN_RATE
 from app.core.audit import audit_action
+from app.core.sanitization import sanitize_for_csv
 from app.dependencies.auth import require_admin, require_active_subscription, require_view_subscription, require_primary_admin
 from app.models.user import User
 from app.models.organization import Organization
@@ -1123,12 +1124,17 @@ async def export_church_data(
     output = io.StringIO()
     writer = csv.writer(output)
 
+    # Wrap every cell with sanitize_for_csv to block formula injection
+    # (=, +, -, @ prefixes that Excel/LibreOffice would execute as formulas).
+    def _safe_row(cells):
+        writer.writerow([sanitize_for_csv(c) for c in cells])
+
     # Header row — field names compatible with Planning Center and ROCK RMS import schemas.
     # Planning Center recognizes: first_name, last_name, email (core person fields).
     # ROCK RMS recognizes: FirstName, LastName, Email (core person fields).
     # Assessment-specific columns are mapped as custom/attribute fields by both platforms.
     if format == "planning_center":
-        writer.writerow([
+        _safe_row([
             "first_name", "last_name", "email", "campus",
             "membership_type", "membership_date",
             "assessment_instrument", "assessment_date",
@@ -1147,7 +1153,7 @@ async def export_church_data(
         # ROCK RMS Individual.csv format: 30 standard columns in exact order,
         # then custom Person Attribute columns for assessment data.
         # See: https://github.com/KingdomFirst/Excavator/wiki/3.-CSV-Import
-        writer.writerow([
+        _safe_row([
             # --- 30 standard Individual.csv columns ---
             "FamilyId", "FamilyName", "CreatedDate", "PersonId", "Prefix",
             "FirstName", "NickName", "MiddleName", "LastName", "Suffix",
@@ -1169,7 +1175,7 @@ async def export_church_data(
             "People", "Cause", "Abilities",
         ])
     else:
-        writer.writerow([
+        _safe_row([
             "First Name", "Last Name", "Email", "Church Name",
             "Member Status", "Joined Date",
             "Assessment Instrument", "Assessment Date",
@@ -1259,7 +1265,7 @@ async def export_church_data(
             # ROCK RMS: 22 custom attrs (instrument, date, 8 gifts, 6 passions, 3 MI, 3 PCA)
             # Standard/Planning Center: 23 (same + raw answers JSON)
             empty_count = 22 if format == "rock_rms" else 23
-            writer.writerow(base + [""] * empty_count)
+            _safe_row(base + [""] * empty_count)
             continue
 
         completed = assessment.completed_at.strftime("%Y-%m-%d") if assessment.completed_at else ""
@@ -1291,7 +1297,7 @@ async def export_church_data(
             ]
             if format != "rock_rms":
                 assessment_cols.append(raw_json)
-            writer.writerow(base + assessment_cols)
+            _safe_row(base + assessment_cols)
         else:
             r = assessment.results
             gifts = []
@@ -1335,7 +1341,7 @@ async def export_church_data(
             ]
             if format != "rock_rms":
                 assessment_cols.append(raw_json)
-            writer.writerow(base + assessment_cols)
+            _safe_row(base + assessment_cols)
 
     output.seek(0)
     date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
@@ -1373,7 +1379,10 @@ async def export_member_data(
     output = io.StringIO()
     writer = csv.writer(output)
 
-    writer.writerow([
+    def _safe_row(cells):
+        writer.writerow([sanitize_for_csv(c) for c in cells])
+
+    _safe_row([
         "First Name", "Last Name", "Email", "Church Name",
         "Assessment Instrument", "Assessment Date",
         "Gift 1", "Gift 1 Score", "Gift 2", "Gift 2 Score",
@@ -1413,7 +1422,7 @@ async def export_member_data(
 
         if assessment.instrument_type == "myimpact":
             mi = assessment.myimpact_results
-            writer.writerow(base + [
+            _safe_row(base + [
                 "MyImpact", completed,
                 "", "", "", "", "", "", "", "",
                 "", "", "", "", "", "",
@@ -1454,7 +1463,7 @@ async def export_member_data(
             while len(passions) < 3:
                 passions.append(("", ""))
 
-            writer.writerow(base + [
+            _safe_row(base + [
                 "GPS", completed,
                 gifts[0][0], gifts[0][1], gifts[1][0], gifts[1][1],
                 gifts[2][0], gifts[2][1], gifts[3][0], gifts[3][1],
@@ -1466,7 +1475,7 @@ async def export_member_data(
             ])
 
     if not assessments:
-        writer.writerow([
+        _safe_row([
             user.first_name or "", user.last_name or "", user.email or "",
             org.name or "", "", "",
         ] + [""] * 20 + [membership.status, ""])

@@ -2,7 +2,7 @@
 Input sanitization utilities to prevent XSS and other injection attacks.
 """
 import re
-from typing import Optional
+from typing import Any, Optional
 
 
 def sanitize_user_input(text: Optional[str]) -> Optional[str]:
@@ -34,25 +34,32 @@ def sanitize_user_input(text: Optional[str]) -> Optional[str]:
     return text
 
 
-def sanitize_for_csv(text: Optional[str]) -> Optional[str]:
+def sanitize_for_csv(value: Any) -> Optional[str]:
     """
-    Sanitize text for CSV export to prevent formula injection.
-    
-    Prefixes potentially dangerous characters to prevent Excel/LibreOffice
-    from executing them as formulas.
-    
+    Sanitize a CSV cell value to prevent formula injection.
+
+    Prefixes potentially dangerous characters with a single quote so
+    Excel / LibreOffice / Google Sheets render them as text instead of
+    executing them as formulas. Accepts any type — non-string values
+    are coerced via str() and passed through unchanged unless they
+    happen to start with a dangerous character (e.g., a negative
+    number stringified as "-5" gets the prefix and renders as text).
+
     Args:
-        text: Text to be included in CSV export
-        
+        value: Cell value of any type. None returns None.
+
     Returns:
-        Sanitized text safe for CSV export
+        Sanitized string safe for CSV export, or None if input was None.
     """
-    if text is None:
+    if value is None:
         return None
-    
-    # Prefix potentially dangerous characters that could be interpreted as formulas
+
+    text = value if isinstance(value, str) else str(value)
+
+    # Prefix potentially dangerous characters that could be interpreted as formulas.
+    # Excel formula triggers: =, +, -, @. Tab/CR can break out of cells.
     dangerous_prefixes = ('=', '+', '-', '@', '\t', '\r')
     if text.startswith(dangerous_prefixes):
         text = "'" + text
-    
+
     return text

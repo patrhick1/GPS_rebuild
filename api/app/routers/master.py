@@ -14,6 +14,7 @@ import logging
 
 from app.core.database import get_db
 from app.core.rate_limits import limiter, MASTER_RATE, EXPORT_RATE
+from app.core.sanitization import sanitize_for_csv
 from app.dependencies.auth import require_master, require_master_no_impersonation
 from app.models.user import User
 from app.models.organization import Organization
@@ -869,17 +870,24 @@ async def system_export(
     
     output = io.StringIO()
     writer = csv.writer(output)
-    
+
+    # Wrap every cell with sanitize_for_csv: prevents Excel/LibreOffice
+    # from executing user-controlled strings starting with =, +, -, @
+    # as formulas (CVE-2014-3524 / CVE-2017-11774 class). Headers are
+    # static and safe but it's cheap to be uniform.
+    def _row(*cells):
+        writer.writerow([sanitize_for_csv(c) for c in cells])
+
     if export_type == "users":
-        writer.writerow(["ID", "Email", "First Name", "Last Name", "Status", "Organization", "Role", "Created At"])
-        
+        _row("ID", "Email", "First Name", "Last Name", "Status", "Organization", "Role", "Created At")
+
         users = db.query(User).all()
         for user in users:
             membership = db.query(Membership).filter(Membership.user_id == user.id).first()
             org_name = membership.organization.name if membership and membership.organization else "Independent"
             role_name = membership.role.name if membership and membership.role else "N/A"
-            
-            writer.writerow([
+
+            _row(
                 str(user.id),
                 user.email,
                 user.first_name,
@@ -888,10 +896,10 @@ async def system_export(
                 org_name,
                 role_name,
                 user.created_at.isoformat() if user.created_at else ""
-            ])
+            )
     
     elif export_type == "assessments":
-        writer.writerow(["Assessment ID", "User Email", "Church", "Instrument", "Completed At", "Gift 1", "Score 1", "Gift 2", "Score 2", "Style 1", "Score 1", "Style 2", "Score 2"])
+        _row("Assessment ID", "User Email", "Church", "Instrument", "Completed At", "Gift 1", "Score 1", "Gift 2", "Score 2", "Style 1", "Score 1", "Style 2", "Score 2")
 
         assessment_q = db.query(Assessment, User, AssessmentResult).join(
             User, Assessment.user_id == User.id
@@ -932,7 +940,7 @@ async def system_export(
                 style1_name = style1.name if style1 else ""
                 style2_name = style2.name if style2 else ""
 
-            writer.writerow([
+            _row(
                 str(assessment.id),
                 user.email,
                 org_name,
@@ -946,20 +954,20 @@ async def system_export(
                 result.influencing_style_1_score if result else "",
                 style2_name,
                 result.influencing_style_2_score if result else ""
-            ])
+            )
 
     elif export_type == "full":
         # Full export - users and their assessments
-        writer.writerow(["=== USERS ==="])
-        writer.writerow(["ID", "Email", "First Name", "Last Name", "Status", "Organization", "Role", "Created At"])
-        
+        _row("=== USERS ===")
+        _row("ID", "Email", "First Name", "Last Name", "Status", "Organization", "Role", "Created At")
+
         users = db.query(User).all()
         for user in users:
             membership = db.query(Membership).filter(Membership.user_id == user.id).first()
             org_name = membership.organization.name if membership and membership.organization else "Independent"
             role_name = membership.role.name if membership and membership.role else "N/A"
-            
-            writer.writerow([
+
+            _row(
                 str(user.id),
                 user.email,
                 user.first_name,
@@ -968,15 +976,15 @@ async def system_export(
                 org_name,
                 role_name,
                 user.created_at.isoformat() if user.created_at else ""
-            ])
-        
+            )
+
         writer.writerow([])
-        writer.writerow(["=== CHURCHES ==="])
-        writer.writerow(["ID", "Name", "Key", "City", "State", "Country", "Created At"])
-        
+        _row("=== CHURCHES ===")
+        _row("ID", "Name", "Key", "City", "State", "Country", "Created At")
+
         churches = db.query(Organization).all()
         for church in churches:
-            writer.writerow([
+            _row(
                 str(church.id),
                 church.name,
                 church.key,
@@ -984,24 +992,24 @@ async def system_export(
                 church.state or "",
                 church.country or "",
                 church.created_at.isoformat() if church.created_at else ""
-            ])
-        
+            )
+
         writer.writerow([])
-        writer.writerow(["=== ASSESSMENTS ==="])
-        writer.writerow(["Assessment ID", "User Email", "Completed At", "Gift 1", "Score 1", "Gift 2", "Score 2", "Style 1", "Score 1", "Style 2", "Score 2"])
-        
+        _row("=== ASSESSMENTS ===")
+        _row("Assessment ID", "User Email", "Completed At", "Gift 1", "Score 1", "Gift 2", "Score 2", "Style 1", "Score 1", "Style 2", "Score 2")
+
         assessments = db.query(Assessment, User, AssessmentResult).join(
             User, Assessment.user_id == User.id
         ).outerjoin(
             AssessmentResult, Assessment.id == AssessmentResult.assessment_id
         ).filter(Assessment.status == "completed").all()
-        
+
         for assessment, user, result in assessments:
             gift1_name = ""
             gift2_name = ""
             style1_name = ""
             style2_name = ""
-            
+
             if result:
                 gift1 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_1_id).first() if result.gift_1_id else None
                 gift2 = db.query(GiftsPassion).filter(GiftsPassion.id == result.gift_2_id).first() if result.gift_2_id else None
@@ -1011,8 +1019,8 @@ async def system_export(
                 gift2_name = gift2.name if gift2 else ""
                 style1_name = style1.name if style1 else ""
                 style2_name = style2.name if style2 else ""
-            
-            writer.writerow([
+
+            _row(
                 str(assessment.id),
                 user.email,
                 assessment.completed_at.isoformat() if assessment.completed_at else "",
@@ -1024,16 +1032,16 @@ async def system_export(
                 result.influencing_style_1_score if result else "",
                 style2_name,
                 result.influencing_style_2_score if result else ""
-            ])
-        
+            )
+
         writer.writerow([])
-        writer.writerow(["=== AUDIT LOG ==="])
-        writer.writerow(["ID", "User Email", "Action", "Target Type", "Target ID", "Details", "Created At"])
-        
+        _row("=== AUDIT LOG ===")
+        _row("ID", "User Email", "Action", "Target Type", "Target ID", "Details", "Created At")
+
         audit_logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).all()
         for log in audit_logs:
             user = db.query(User).filter(User.id == log.user_id).first()
-            writer.writerow([
+            _row(
                 str(log.id),
                 user.email if user else "System",
                 log.action,
@@ -1041,7 +1049,7 @@ async def system_export(
                 str(log.target_id) if log.target_id else "",
                 str(log.details) if log.details else "",
                 log.created_at.isoformat() if log.created_at else ""
-            ])
+            )
     
     output.seek(0)
 
