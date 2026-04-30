@@ -150,6 +150,11 @@ class PasswordChange(BaseModel):
         return self
 
 
+# Schema for account deletion request
+class AccountDeleteRequest(BaseModel):
+    confirmation: str = Field(..., description="Must be the string 'DELETE' to confirm")
+
+
 # Schema for password strength check (for UI feedback)
 class PasswordStrengthResponse(BaseModel):
     """Response schema for password strength calculation."""

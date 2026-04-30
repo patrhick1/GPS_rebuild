@@ -19,6 +19,7 @@ from app.schemas.user import (
     PasswordStrengthResponse,
     ChurchAdminRegister,
     ChurchUpgrade,
+    AccountDeleteRequest,
 )
 from app.core.password_policy import PasswordPolicy
 from app.schemas.token import Token, RefreshTokenRequest
@@ -376,6 +377,47 @@ async def change_password(
     )
     
     return {"message": "Password changed successfully"}
+
+
+@router.delete("/account")
+@limiter.limit(AUTHENTICATED_RATE)
+async def delete_account(
+    request: Request,
+    response: Response,
+    data: AccountDeleteRequest,
+    current_user: User = Depends(get_current_active_user_no_impersonation),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete the current user's account (soft delete).
+
+    Requires confirmation string "DELETE". Anonymizes PII, revokes tokens,
+    removes memberships, and cancels Stripe subscription if applicable.
+    Cannot be used during impersonation sessions.
+    """
+    if data.confirmation != "DELETE":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='You must send confirmation: "DELETE" to delete your account.',
+        )
+
+    auth_service = AuthService(db)
+    auth_service.delete_account(current_user)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="account_deleted",
+        target_type="user",
+        target_id=str(current_user.id),
+    )
+
+    cookie_samesite = "lax" if settings.DEBUG else "none"
+    cookie_secure = not settings.DEBUG
+    response.delete_cookie("access_token", secure=cookie_secure, samesite=cookie_samesite)
+    response.delete_cookie("refresh_token", secure=cookie_secure, samesite=cookie_samesite)
+
+    return {"message": "Account deleted successfully"}
 
 
 @router.get("/me", response_model=UserWithRole)

@@ -53,6 +53,12 @@ export function Account() {
   const [linkMessage, setLinkMessage] = useState('');
   const [searching, setSearching] = useState(false);
 
+  // Account deletion state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
   useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
@@ -165,6 +171,20 @@ export function Account() {
   const handleLogout = () => {
     setMenuOpen(false);
     logout();
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await api.delete('/auth/account', { data: { confirmation: deleteConfirm } });
+      logout();
+    } catch (err: any) {
+      setDeleteError(err.response?.data?.detail || 'Failed to delete account');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -357,7 +377,7 @@ export function Account() {
         </section>
 
         {/* ── Church Linking Section (hidden for master admins) ── */}
-        {user?.role !== 'master' && <section className="max-w-[1230px] mx-auto px-6 pb-16">
+        {user?.role !== 'master' && <section className="max-w-[1230px] mx-auto px-6 pb-8">
           <h2 className="font-heading font-black text-2xl md:text-[40px] md:leading-[41px] text-brand-charcoal mb-2">
             Link My Assessment Results to a Church
           </h2>
@@ -541,6 +561,76 @@ export function Account() {
             )}
           </div>
         </section>}
+
+        {/* ── Delete Account Section ── */}
+        <section className="max-w-[1230px] mx-auto px-6 pb-16">
+          <div className="max-w-[1057px] border border-red-200 rounded-xl p-10 lg:p-12">
+            <h2 className="font-heading font-black text-2xl text-red-600 mb-2">
+              Delete Account
+            </h2>
+            <p className="font-body text-base text-brand-charcoal mb-6">
+              Permanently delete your account and all personal data. Your assessment data will be anonymized
+              and retained for aggregate analytics. This action cannot be undone.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setDeleteModalOpen(true); setDeleteConfirm(''); setDeleteError(''); }}
+              className="h-[50px] px-8 bg-red-600 text-white font-body font-bold text-lg rounded-xl hover:bg-red-700 transition-colors"
+            >
+              Delete My Account
+            </button>
+          </div>
+        </section>
+
+        {/* Delete Account Modal */}
+        {deleteModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-8">
+              <h3 className="font-heading font-black text-xl text-red-600 mb-4">
+                Are you sure?
+              </h3>
+              <p className="font-body text-base text-brand-charcoal mb-2">
+                This will permanently delete your account:
+              </p>
+              <ul className="font-body text-sm text-brand-charcoal mb-6 list-disc pl-5 space-y-1">
+                <li>Your personal information will be removed</li>
+                <li>You will be unlinked from any church</li>
+                <li>You will not be able to log in again</li>
+                <li>Assessment data will be anonymized, not deleted</li>
+              </ul>
+              <p className="font-body font-bold text-sm text-brand-charcoal mb-2">
+                Type <span className="text-red-600">DELETE</span> to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder="DELETE"
+                className="w-full h-[50px] px-5 border border-brand-gray-light rounded-xl font-body font-bold text-lg text-brand-charcoal placeholder:text-brand-charcoal/30 focus:outline-none focus:ring-2 focus:ring-red-300 mb-4"
+              />
+              {deleteError && (
+                <p className="font-body text-sm text-red-600 mb-4">{deleteError}</p>
+              )}
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteModalOpen(false)}
+                  className="h-[50px] px-8 bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirm !== 'DELETE' || deleting}
+                  className="h-[50px] px-8 bg-red-600 text-white font-body font-bold text-lg rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {deleting ? 'Deleting...' : 'Delete Account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       <Footer />

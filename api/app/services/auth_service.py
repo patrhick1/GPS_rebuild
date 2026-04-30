@@ -440,6 +440,71 @@ class AuthService:
         self.db.commit()
         return True
 
+    def delete_account(self, user: User):
+        """
+        Soft-delete a user account: anonymize PII, revoke tokens,
+        remove memberships, and cancel any Stripe subscription.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Block deletion if user is a primary admin
+        primary_membership = self.db.query(Membership).filter(
+            Membership.user_id == user.id,
+            Membership.is_primary_admin == True,
+        ).first()
+        if primary_membership:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You must transfer primary admin status before deleting your account.",
+            )
+
+        # Cancel Stripe subscription if user belongs to a church with one
+        org_membership = next(
+            (m for m in user.memberships if m.organization_id is not None),
+            None,
+        )
+        if org_membership:
+            try:
+                from app.models.subscription import Subscription
+                from app.services.stripe_service import stripe_service
+                sub = self.db.query(Subscription).filter(
+                    Subscription.organization_id == org_membership.organization_id,
+                ).order_by(Subscription.created_at.desc()).first()
+                if sub and sub.stripe_subscription_id and sub.status not in ("canceled", "incomplete_expired"):
+                    # Only cancel if this user is the sole member
+                    member_count = self.db.query(Membership).filter(
+                        Membership.organization_id == org_membership.organization_id,
+                        Membership.status == "active",
+                    ).count()
+                    if member_count <= 1:
+                        stripe_service.cancel_subscription(sub.stripe_subscription_id, at_period_end=False)
+                        sub.status = "canceled"
+            except Exception as e:
+                logger.warning(f"Failed to cancel Stripe subscription during account deletion: {e}")
+
+        # Remove all memberships
+        self.db.query(Membership).filter(Membership.user_id == user.id).delete()
+
+        # Revoke all refresh tokens
+        self.db.query(RefreshToken).filter(
+            RefreshToken.user_id == user.id
+        ).update({"revoked": True})
+
+        # Anonymize PII
+        user.first_name = "Deleted"
+        user.last_name = "User"
+        user.email = f"deleted_{user.id}@deleted.local"
+        user.phone_number = None
+        user.city = None
+        user.state = None
+        user.country = None
+        user.password_hash = None
+        user.stripe_id = None
+        user.status = "deleted"
+
+        self.db.commit()
+
     def change_password(self, user_id: UUID, current_password: str, new_password: str) -> bool:
         """Change password for a user."""
         user = self.db.query(User).filter(User.id == user_id).first()
