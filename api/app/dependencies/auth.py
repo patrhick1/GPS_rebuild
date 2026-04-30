@@ -56,13 +56,18 @@ async def get_current_user(
         HTTPException: If authentication fails
     """
     token = None
-    
-    # Try to get token from Authorization header
+
+    # Authorization header is the primary path.
     if credentials:
         token = credentials.credentials
-    
-    # If no token in header, try to get from cookie
-    if not token:
+
+    # Cookie fallback is restricted to safe HTTP methods. Allowing the
+    # cookie on mutating verbs (POST/PUT/PATCH/DELETE) opens CSRF on
+    # any Form-encoded endpoint that doesn't trigger a CORS preflight,
+    # since the browser will auto-attach the SameSite=None;Secure
+    # cookie. Mutating routes must come through the Authorization
+    # header — set explicitly by the SPA, not by the browser.
+    if not token and request.method in {"GET", "HEAD", "OPTIONS"}:
         token = request.cookies.get("access_token")
     
     if not token:

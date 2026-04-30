@@ -82,9 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     userRef.current = user;
   }, [user]);
-  const [accessToken, setAccessToken] = useState<string | null>(
-    () => localStorage.getItem('access_token')
-  );
+  // Access token stays in React state only — never localStorage.
+  // localStorage is XSS-reachable; the refresh token is in an httpOnly
+  // cookie, so cold loads recover the access token via the refresh-cookie
+  // path in checkAuthStatus.
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,51 +95,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuthStatus();
   }, []);
 
-  // Sync localStorage and axios Authorization header whenever accessToken changes
+  // Sync axios Authorization header whenever accessToken changes.
   useEffect(() => {
     if (accessToken) {
-      localStorage.setItem('access_token', accessToken);
       api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
     } else {
-      localStorage.removeItem('access_token');
       delete api.defaults.headers.common['Authorization'];
     }
   }, [accessToken]);
 
   const checkAuthStatus = async () => {
-    const stored = localStorage.getItem('access_token');
-
-    // Apply stored token to header immediately — can't wait for useEffect
-    if (stored) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${stored}`;
-    }
-
+    // No persisted access token — recover one via the httpOnly
+    // refresh cookie. If the cookie is missing or expired the refresh
+    // call rejects and we land on /login.
     try {
-      if (!stored) {
-        // No local token — try refresh cookie path
-        const newToken = await refreshAccessToken();
-        setAccessToken(newToken);
-        api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-      }
+      const newToken = await refreshAccessToken();
+      setAccessToken(newToken);
+      api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       const response = await api.get('/auth/me');
       setUser(response.data);
     } catch {
-      if (stored) {
-        // Stored token rejected (expired) — fall back to refresh cookie
-        try {
-          const newToken = await refreshAccessToken();
-          setAccessToken(newToken);
-          api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-          const response = await api.get('/auth/me');
-          setUser(response.data);
-        } catch {
-          setAccessToken(null);
-          setUser(null);
-        }
-      } else {
-        setAccessToken(null);
-        setUser(null);
-      }
+      setAccessToken(null);
+      setUser(null);
     } finally {
       setIsLoading(false);
     }

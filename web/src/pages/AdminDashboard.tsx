@@ -186,22 +186,20 @@ export function AdminDashboard() {
     setIsExporting(true);
     setExportMsg('');
     try {
-      const token = localStorage.getItem('access_token');
       const params = new URLSearchParams();
       if (exportInstrument) params.set('instrument', exportInstrument);
       if (exportDateFrom) params.set('date_from', exportDateFrom);
       if (exportDateTo) params.set('date_to', exportDateTo);
       if (exportFormat) params.set('format', exportFormat);
       const qs = params.toString();
-      const response = await fetch(`/api/admin/export/csv${qs ? `?${qs}` : ''}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Export failed');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const response = await api.get(
+        `/admin/export/csv${qs ? `?${qs}` : ''}`,
+        { responseType: 'blob' },
+      );
+      const url = window.URL.createObjectURL(response.data);
       const a = document.createElement('a');
       a.href = url;
-      const disposition = response.headers.get('Content-Disposition');
+      const disposition = response.headers['content-disposition'];
       const filename = disposition?.split('filename=')[1]?.replace(/"/g, '') || 'church-data.csv';
       a.download = filename;
       document.body.appendChild(a);
@@ -267,13 +265,11 @@ export function AdminDashboard() {
   const handleExportMemberCSV = async (member: typeof members[0]) => {
     setIsMemberExporting(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`/api/admin/export/csv/${member.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Export failed');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const response = await api.get(
+        `/admin/export/csv/${member.id}`,
+        { responseType: 'blob' },
+      );
+      const url = window.URL.createObjectURL(response.data);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${member.first_name}-${member.last_name}-data.csv`;

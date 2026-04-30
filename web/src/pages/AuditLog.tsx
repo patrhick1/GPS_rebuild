@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMaster } from '../context/MasterContext';
+import { api } from '../context/AuthContext';
 import './AuditLog.css';
 
 export function AuditLog() {
@@ -14,13 +15,8 @@ export function AuditLog() {
     setIsExporting(true);
     setExportMsg('');
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('/api/master/export/full', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Export failed');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const response = await api.get('/master/export/full', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(response.data);
       const a = document.createElement('a');
       a.href = url;
       a.download = `gps_audit_log_${new Date().toISOString().split('T')[0]}.csv`;

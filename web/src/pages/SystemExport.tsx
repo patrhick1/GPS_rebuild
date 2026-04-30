@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useMaster } from '../context/MasterContext';
+import { api } from '../context/AuthContext';
 import './SystemExport.css';
 
 export function SystemExport() {
@@ -64,20 +65,13 @@ export function SystemExport() {
     setShowConfirm(false);
 
     try {
-      const token = localStorage.getItem('access_token');
       const qs = buildParams();
-      const response = await fetch(`/api/master/export/${pendingType}${qs ? `?${qs}` : ''}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await api.get(
+        `/master/export/${pendingType}${qs ? `?${qs}` : ''}`,
+        { responseType: 'blob' },
+      );
 
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(response.data);
       const a = document.createElement('a');
       a.href = url;
       a.download = `gps_export_${pendingType}_${new Date().toISOString().split('T')[0]}.csv`;
@@ -87,7 +81,7 @@ export function SystemExport() {
       document.body.removeChild(a);
 
       setSuccess(`${pendingType === 'full' ? 'Full system' : pendingType} export downloaded!`);
-    } catch (err) {
+    } catch {
       setError('Failed to export data. Please try again.');
     } finally {
       setLoading(false);
