@@ -7,6 +7,7 @@ import { MasterProvider } from './context/MasterContext';
 import { BillingProvider } from './context/BillingContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { PrivateRoute } from './components/PrivateRoute';
+import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { Toaster } from 'sonner';
 
 import { Login } from './pages/Login';
@@ -47,15 +48,17 @@ function App() {
       <Toaster position="top-right" richColors />
       <Router>
         <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          {/* Public-only routes (redirect authenticated users to their dashboard) */}
+          <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+          <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+          <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+          <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
+          <Route path="/register/church" element={<PublicOnlyRoute><ChurchRegister /></PublicOnlyRoute>} />
+
+          {/* Public routes (accessible to everyone) */}
           <Route path="/upgrade" element={<Upgrade />} />
           <Route path="/update-locale" element={<UpdateLocale />} />
           <Route path="/verify-email/confirm" element={<VerifyEmailCallback />} />
-          <Route path="/register/church" element={<ChurchRegister />} />
           <Route
             path="/upgrade/church"
             element={
