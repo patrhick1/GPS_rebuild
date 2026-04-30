@@ -11,10 +11,21 @@ Tiered rate limits by endpoint sensitivity:
 """
 
 from slowapi import Limiter
-from slowapi.util import get_remote_address
+
+from app.core.network import get_client_ip
+
+
+def _key_func(request) -> str:
+    """Bucket rate limits per real client IP, not per Render proxy.
+
+    Falls back to a stable string if the request has no usable client
+    info (limiter still works, just one global bucket as a safety net).
+    """
+    return get_client_ip(request) or "unknown"
+
 
 # Shared limiter instance
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=_key_func)
 
 # Rate limit constants
 PUBLIC_AUTH_RATE = "5/minute"

@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.rate_limits import limiter, PUBLIC_AUTH_RATE, PASSWORD_RESET_RATE, AUTHENTICATED_RATE
 from app.core.audit import log_audit_event
+from app.core.network import get_client_ip
 from app.dependencies.auth import get_current_user, get_current_active_user, get_current_active_user_no_impersonation
 from app.schemas.user import (
     UserCreate,
@@ -122,7 +123,7 @@ async def login(
             details={
                 "email": login_data.email,
                 "reason": "invalid_credentials",
-                "ip_address": request.client.host if request.client else None
+                "ip_address": get_client_ip(request)
             }
         )
         raise HTTPException(
@@ -141,7 +142,7 @@ async def login(
             target_id=str(user.id),
             details={
                 "reason": "account_locked",
-                "ip_address": request.client.host if request.client else None
+                "ip_address": get_client_ip(request)
             }
         )
         raise HTTPException(

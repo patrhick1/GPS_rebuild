@@ -8,6 +8,7 @@ from functools import wraps
 from typing import Optional, Any
 from fastapi import Request
 from sqlalchemy.orm import Session
+from app.core.network import get_client_ip
 from app.models.audit_log import AuditLog
 
 
@@ -57,10 +58,9 @@ def audit_action(action: str, target_type: Optional[str] = None):
                     elif 'assessment_id' in kwargs:
                         target_id = str(kwargs['assessment_id'])
                     
-                    # Get IP address from request
-                    ip_address = None
-                    if request and hasattr(request, 'client') and request.client:
-                        ip_address = request.client.host
+                    # Get real client IP (X-Forwarded-For aware — Render fronts
+                    # everything, so request.client.host alone is the proxy).
+                    ip_address = get_client_ip(request) if request else None
                     
                     audit = AuditLog(
                         user_id=current_user.id,
