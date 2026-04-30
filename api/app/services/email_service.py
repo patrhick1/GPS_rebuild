@@ -1,7 +1,24 @@
 """
 Email service using Resend API.
-All send methods are non-fatal: exceptions are logged but never bubble up to callers.
+
+Escaping policy
+---------------
+Every template f-string runs user-controlled fields through `_safe()`
+before interpolation. A church admin who names their org with HTML
+markup would otherwise inject content into invitation / result emails
+sent to other members.
+
+Failure policy
+--------------
+- "Must deliver" sends (password-reset, email-verification, primary-
+  admin welcome) re-raise the underlying Resend exception so the API
+  surfaces a 5xx instead of confirming success while the user gets
+  no email.
+- "Nice to have" sends (invites, result emails, admin notifications,
+  membership approve/decline) log-and-swallow so a Resend outage
+  doesn't break the flow that triggered them.
 """
+import html
 import logging
 from typing import Optional
 
@@ -10,6 +27,13 @@ import resend
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _safe(value) -> str:
+    """HTML-escape a value for safe inclusion in email body f-strings."""
+    if value is None:
+        return ""
+    return html.escape(str(value))
 
 # Domains that will always bounce — skip sending to protect sender reputation.
 _BLOCKED_DOMAINS: set[str] = {
@@ -60,9 +84,9 @@ def send_verification_email(to_email: str, first_name: str, verification_token: 
         return
 
     verify_url = f"{settings.FRONTEND_URL}/verify-email/confirm?token={verification_token}"
-    greeting = first_name or "there"
+    greeting = _safe(first_name) if first_name else "there"
 
-    html = f"""
+    body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #1a3a4a;">Verify Your Email Address</h2>
       <p>Hi {greeting},</p>
@@ -87,16 +111,20 @@ def send_verification_email(to_email: str, first_name: str, verification_token: 
     </div>
     """
 
+    # Must-deliver: re-raise so the API surfaces a 5xx if Resend rejects.
+    # A user who just registered with no verification email is stuck —
+    # silent failure leaves them unable to log in.
     try:
         resend.Emails.send({
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Verify your email address — GPS",
-            "html": html,
+            "html": body,
         })
         logger.info("Verification email sent to %s", to_email)
     except Exception as exc:
         logger.error("Failed to send verification email to %s: %s", to_email, exc)
+        raise
 
 
 def send_invite_email(
@@ -112,16 +140,19 @@ def send_invite_email(
         logger.info("Skipped email to blocked/test address: %s", to_email)
         return
 
+    # org_key and invite_token are slug + 32-char random alphanumeric so
+    # URL-safe by construction; org_name is user-controlled — escape it.
     register_url = (
         f"{settings.FRONTEND_URL}/register"
         f"?org={org_key}&invite={invite_token}"
     )
+    org_name_safe = _safe(org_name)
 
-    html = f"""
+    body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1a3a4a;">You've been invited to join {org_name}</h2>
+      <h2 style="color: #1a3a4a;">You've been invited to join {org_name_safe}</h2>
       <p>You have been invited to take the Gift, Passion, Story (GPS) assessment
-         through <strong>{org_name}</strong>.</p>
+         through <strong>{org_name_safe}</strong>.</p>
       <p>Click the button below to create your account and begin your assessment:</p>
       <p style="text-align: center; margin: 32px 0;">
         <a href="{register_url}"
@@ -147,7 +178,7 @@ def send_invite_email(
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": f"You've been invited to join {org_name} on GPS",
-            "html": html,
+            "html": body,
         })
         logger.info("Invite email sent to %s for org %s", to_email, org_name)
     except Exception as exc:
@@ -170,13 +201,16 @@ def send_assessment_notification_email(
         return
 
     instrument_label = "MyImpact" if instrument_type == "myimpact" else "GPS"
+    admin_name_safe = _safe(admin_name)
+    member_name_safe = _safe(member_name)
+    org_name_safe = _safe(org_name)
 
-    html = f"""
+    body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1a3a4a;">New Assessment Completed at {org_name}</h2>
-      <p>Hi {admin_name},</p>
-      <p><strong>{member_name}</strong> just completed a <strong>{instrument_label}</strong>
-         assessment through {org_name}.</p>
+      <h2 style="color: #1a3a4a;">New Assessment Completed at {org_name_safe}</h2>
+      <p>Hi {admin_name_safe},</p>
+      <p><strong>{member_name_safe}</strong> just completed a <strong>{instrument_label}</strong>
+         assessment through {org_name_safe}.</p>
       <p>View their results in your admin dashboard:</p>
       <p style="text-align: center; margin: 32px 0;">
         <a href="{dashboard_url}"
@@ -198,7 +232,7 @@ def send_assessment_notification_email(
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": f"New assessment completed at {org_name}",
-            "html": html,
+            "html": body,
         })
         logger.info(
             "Assessment notification sent to %s for member %s at org %s",
@@ -221,14 +255,14 @@ def send_gps_result_email(to_email: str, first_name: str, result, results_url: s
         return f"""
         <div style="margin-bottom:16px; border-radius:8px; overflow:hidden; border:1px solid #e0e0e0;">
           <div style="background:{bg}; padding:12px 16px; display:flex; align-items:center; justify-content:space-between;">
-            <span style="font-family:Arial,sans-serif; font-weight:bold; font-size:16px; color:#ffffff;">{name or '—'}</span>
+            <span style="font-family:Arial,sans-serif; font-weight:bold; font-size:16px; color:#ffffff;">{_safe(name) if name else '—'}</span>
             <span style="font-family:Arial,sans-serif; font-size:14px; color:#ffffff; opacity:0.9;">Score: {score or 0}</span>
           </div>
           <div style="padding:12px 16px; background:#ffffff;">
             <div style="background:#f0f0f0; border-radius:4px; height:8px; margin-bottom:8px;">
               <div style="background:{bg}; border-radius:4px; height:8px; width:{bar_pct}%;"></div>
             </div>
-            <p style="font-family:Arial,sans-serif; font-size:14px; color:#3F4644; margin:0;">{description or ''}</p>
+            <p style="font-family:Arial,sans-serif; font-size:14px; color:#3F4644; margin:0;">{_safe(description)}</p>
           </div>
         </div>"""
 
@@ -236,16 +270,16 @@ def send_gps_result_email(to_email: str, first_name: str, result, results_url: s
         return f"""
         <div style="margin-bottom:12px; border-radius:8px; overflow:hidden; border:1px solid #e0e0e0;">
           <div style="background:{bg}; padding:10px 16px;">
-            <span style="font-family:Arial,sans-serif; font-weight:bold; font-size:15px; color:#ffffff;">{name or '—'}</span>
+            <span style="font-family:Arial,sans-serif; font-weight:bold; font-size:15px; color:#ffffff;">{_safe(name) if name else '—'}</span>
           </div>
           <div style="padding:10px 16px; background:#ffffff;">
-            <p style="font-family:Arial,sans-serif; font-size:14px; color:#3F4644; margin:0;">{description or ''}</p>
+            <p style="font-family:Arial,sans-serif; font-size:14px; color:#3F4644; margin:0;">{_safe(description)}</p>
           </div>
         </div>"""
 
     def _tag_list(items, bg):
         tags = "".join(
-            f'<span style="display:inline-block; background:{bg}; border-radius:20px; padding:4px 12px; margin:4px; font-family:Arial,sans-serif; font-size:13px; color:#ffffff;">{item.strip()}</span>'
+            f'<span style="display:inline-block; background:{bg}; border-radius:20px; padding:4px 12px; margin:4px; font-family:Arial,sans-serif; font-size:13px; color:#ffffff;">{_safe(item.strip())}</span>'
             for item in items if item.strip()
         )
         return tags or '<span style="color:#aaa; font-size:13px;">None listed</span>'
@@ -272,11 +306,12 @@ def send_gps_result_email(to_email: str, first_name: str, result, results_url: s
     cause_tags = _tag_list(getattr(result, 'cause_list', []) or [], "#0B6C80")
 
     cta_url = results_url or f"{settings.FRONTEND_URL}/dashboard"
+    first_name_safe = _safe(first_name)
 
-    html = f"""
+    body = f"""
     <div style="font-family:Arial,sans-serif; max-width:620px; margin:0 auto; color:#3F4644;">
       <div style="background:#1a3a4a; padding:32px 24px; border-radius:8px 8px 0 0; text-align:center;">
-        <h1 style="color:#ffffff; margin:0; font-size:24px;">Your GPS Results, {first_name}!</h1>
+        <h1 style="color:#ffffff; margin:0; font-size:24px;">Your GPS Results, {first_name_safe}!</h1>
         <p style="color:#88C0C3; margin:8px 0 0; font-size:15px;">Gift &bull; Passion &bull; Story</p>
       </div>
       <div style="background:#f9f9f9; padding:24px; border-radius:0 0 8px 8px; border:1px solid #e0e0e0; border-top:none;">
@@ -316,7 +351,7 @@ def send_gps_result_email(to_email: str, first_name: str, result, results_url: s
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Your GPS Assessment Results",
-            "html": html,
+            "html": body,
         })
         logger.info("GPS result email sent to %s", to_email)
     except Exception as exc:
@@ -389,11 +424,12 @@ def send_myimpact_result_email(to_email: str, first_name: str, result, results_u
     ])
 
     cta_url = results_url or f"{settings.FRONTEND_URL}/dashboard"
+    first_name_safe = _safe(first_name)
 
-    html = f"""
+    body = f"""
     <div style="font-family:Arial,sans-serif; max-width:620px; margin:0 auto; color:#3F4644;">
       <div style="background:#1a3a4a; padding:32px 24px; border-radius:8px 8px 0 0; text-align:center;">
-        <h1 style="color:#ffffff; margin:0; font-size:24px;">Your MyImpact Results, {first_name}!</h1>
+        <h1 style="color:#ffffff; margin:0; font-size:24px;">Your MyImpact Results, {first_name_safe}!</h1>
       </div>
       <div style="background:#f9f9f9; padding:24px; border-radius:0 0 8px 8px; border:1px solid #e0e0e0; border-top:none;">
 
@@ -458,7 +494,7 @@ def send_myimpact_result_email(to_email: str, first_name: str, result, results_u
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Your MyImpact Assessment Results",
-            "html": html,
+            "html": body,
         })
         logger.info("MyImpact result email sent to %s", to_email)
     except Exception as exc:
@@ -475,7 +511,7 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
 
     reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
-    html = f"""
+    body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #1a3a4a;">Reset Your Password</h2>
       <p>We received a request to reset the password for your GPS account.</p>
@@ -500,16 +536,20 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
     </div>
     """
 
+    # Must-deliver: re-raise so the caller can return 503 instead of
+    # confirming "if the email exists, a reset link has been sent" while
+    # the user gets nothing.
     try:
         resend.Emails.send({
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Reset your GPS password",
-            "html": html,
+            "html": body,
         })
         logger.info("Password reset email sent to %s", to_email)
     except Exception as exc:
         logger.error("Failed to send password reset email to %s: %s", to_email, exc)
+        raise
 
 
 def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_token: str) -> None:
@@ -521,12 +561,13 @@ def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_toke
         return
 
     setup_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}&welcome=1"
+    church_name_safe = _safe(church_name)
 
-    html = f"""
+    body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1a3a4a;">Welcome to GPS &mdash; {church_name}</h2>
+      <h2 style="color: #1a3a4a;">Welcome to GPS &mdash; {church_name_safe}</h2>
       <p>A platform admin has set you up as the <strong>primary admin</strong> of
-         <strong>{church_name}</strong> on the Gift, Passion, Story assessment platform.</p>
+         <strong>{church_name_safe}</strong> on the Gift, Passion, Story assessment platform.</p>
       <p>Click the button below to set your password and log in:</p>
       <p style="text-align: center; margin: 32px 0;">
         <a href="{setup_url}"
@@ -547,16 +588,19 @@ def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_toke
     </div>
     """
 
+    # Must-deliver: re-raise so the API surfaces a 5xx instead of
+    # confirming "primary admin assigned" while the user has no link.
     try:
         resend.Emails.send({
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": f"You're the primary admin of {church_name} on GPS",
-            "html": html,
+            "html": body,
         })
         logger.info("Primary admin welcome email sent to %s", to_email)
     except Exception as exc:
         logger.error("Failed to send welcome email to %s: %s", to_email, exc)
+        raise
 
 
 def send_membership_approved_email(to_email: str, first_name: str, org_name: str) -> None:
@@ -568,12 +612,14 @@ def send_membership_approved_email(to_email: str, first_name: str, org_name: str
         return
 
     dashboard_url = f"{settings.FRONTEND_URL}/dashboard"
+    first_name_safe = _safe(first_name)
+    org_name_safe = _safe(org_name)
 
-    html = f"""
+    body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1a3a4a;">You're In! Welcome to {org_name}</h2>
-      <p>Hi {first_name},</p>
-      <p>Great news — <strong>{org_name}</strong> has approved your request to join.
+      <h2 style="color: #1a3a4a;">You're In! Welcome to {org_name_safe}</h2>
+      <p>Hi {first_name_safe},</p>
+      <p>Great news — <strong>{org_name_safe}</strong> has approved your request to join.
          Your assessment results are now linked to the church.</p>
       <p style="text-align: center; margin: 32px 0;">
         <a href="{dashboard_url}"
@@ -595,7 +641,7 @@ def send_membership_approved_email(to_email: str, first_name: str, org_name: str
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": f"You've been accepted into {org_name} on GPS",
-            "html": html,
+            "html": body,
         })
         logger.info("Membership approved email sent to %s for org %s", to_email, org_name)
     except Exception as exc:
@@ -611,12 +657,14 @@ def send_membership_declined_email(to_email: str, first_name: str, org_name: str
         return
 
     account_url = f"{settings.FRONTEND_URL}/account"
+    first_name_safe = _safe(first_name)
+    org_name_safe = _safe(org_name)
 
-    html = f"""
+    body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #1a3a4a;">Membership Request Update</h2>
-      <p>Hi {first_name},</p>
-      <p>Unfortunately, your request to join <strong>{org_name}</strong> was not approved.
+      <p>Hi {first_name_safe},</p>
+      <p>Unfortunately, your request to join <strong>{org_name_safe}</strong> was not approved.
          If you believe this was a mistake, please reach out to your church directly.</p>
       <p>You can also search for a different church from your account page:</p>
       <p style="text-align: center; margin: 32px 0;">
@@ -639,7 +687,7 @@ def send_membership_declined_email(to_email: str, first_name: str, org_name: str
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Update on your GPS church membership request",
-            "html": html,
+            "html": body,
         })
         logger.info("Membership declined email sent to %s for org %s", to_email, org_name)
     except Exception as exc:
