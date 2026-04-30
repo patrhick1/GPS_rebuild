@@ -17,6 +17,7 @@ from app.models.myimpact_result import MyImpactResult
 from app.models.email_verification import EmailVerificationToken
 from app.models.notification import Notification
 from app.models.subscription import Subscription, Payment
+from app.models.webhook_event import WebhookEvent
 
 __all__ = [
     "User",
@@ -39,4 +40,5 @@ __all__ = [
     "Notification",
     "Subscription",
     "Payment",
+    "WebhookEvent",
 ]

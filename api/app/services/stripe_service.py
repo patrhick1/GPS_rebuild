@@ -50,16 +50,23 @@ class StripeService:
     
     @staticmethod
     def create_customer(organization: Organization, email: str) -> stripe.Customer:
-        """Create a Stripe customer for an organization"""
+        """Create a Stripe customer for an organization.
+
+        Uses idempotency_key=customer-{org_id} so that two concurrent
+        get_or_create_customer calls (e.g., a double-clicked /subscribe)
+        return the same Stripe customer instead of creating two and
+        orphaning the first when organization.stripe_id is overwritten.
+        """
         customer = stripe.Customer.create(
             name=organization.name,
             email=email,
             metadata={
                 "organization_id": str(organization.id),
                 "organization_key": organization.key
-            }
+            },
+            idempotency_key=f"customer-create-{organization.id}",
         )
-        
+
         organization.stripe_id = customer.id
         return customer
     

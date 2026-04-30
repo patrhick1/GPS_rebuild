@@ -24,6 +24,7 @@ from app.models.organization import Organization
 from app.models.subscription import Subscription, Payment
 from app.models.membership import Membership
 from app.models.audit_log import AuditLog
+from app.models.webhook_event import WebhookEvent
 from app.services.stripe_service import stripe_service, _period_dates
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
@@ -237,8 +238,30 @@ async def create_subscription(
         )
     
     organization = membership.organization
-    
+
     try:
+        # Acquire a row-level lock on any existing Subscription row for
+        # this org so concurrent /subscribe clicks serialize: the second
+        # request waits here, then the existing row already has the
+        # first call's stripe_subscription_id and the duplicate check
+        # below catches it.
+        existing = db.query(Subscription).filter(
+            Subscription.organization_id == organization.id
+        ).order_by(desc(Subscription.created_at)).with_for_update().first()
+
+        # Defense against a previous attempt that already created a
+        # live Stripe subscription: if the local row points at one and
+        # Stripe still considers it active, refuse to create a second.
+        # This catches the "user double-clicked /subscribe" race that
+        # otherwise produced two Stripe subs charging the same customer.
+        if existing and existing.stripe_subscription_id and existing.status in (
+            "active", "trialing", "past_due"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An active subscription already exists for this organization."
+            )
+
         result = stripe_service.create_subscription(
             organization=organization,
             price_id=price_id,
@@ -252,9 +275,6 @@ async def create_subscription(
         # reuse it; otherwise update the existing real row in place so
         # resubscribes don't accumulate duplicate rows.
         new_sub = result["db_subscription"]
-        existing = db.query(Subscription).filter(
-            Subscription.organization_id == organization.id
-        ).order_by(desc(Subscription.created_at)).first()
 
         if existing:
             existing.stripe_customer_id = new_sub.stripe_customer_id
@@ -627,17 +647,27 @@ async def stripe_webhook(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """Handle Stripe webhook events"""
-    
+    """Handle Stripe webhook events.
+
+    Idempotent: every event.id is recorded in webhook_events on first
+    receipt. A duplicate delivery (Stripe retries on any non-2xx, and
+    occasionally delivers duplicates anyway) sees the unique-violation
+    on insert, returns 200 immediately, and the handler is a no-op.
+
+    Handler errors propagate as 5xx so Stripe retries on transient
+    failures — silent 200-on-error was dropping events on transient
+    DB blips.
+    """
+
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
-    
+
     if not sig_header:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing stripe-signature header"
         )
-    
+
     try:
         event = stripe_service.construct_event(payload, sig_header)
     except ValueError:
@@ -650,8 +680,23 @@ async def stripe_webhook(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid signature"
         )
-    
-    # Handle event types
+
+    # Idempotency: claim this event.id atomically. If another delivery
+    # already inserted it, the unique constraint raises IntegrityError
+    # and we return 200 without re-running the handler.
+    from sqlalchemy.exc import IntegrityError
+    db.add(WebhookEvent(stripe_event_id=event.id, event_type=event.type))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return {"status": "success", "deduped": True}
+
+    # Handle event types. Exceptions propagate as 5xx so Stripe retries
+    # on transient failures. The dedupe insert above already committed,
+    # so a retry will short-circuit on the duplicate marker — manual
+    # reconciliation may be needed if a handler keeps failing, which is
+    # an acceptable trade vs. silently dropping every event on a DB blip.
     try:
         if event.type in ("customer.subscription.updated", "customer.subscription.created"):
             stripe_service.handle_subscription_updated(event, db)
@@ -663,5 +708,9 @@ async def stripe_webhook(
             stripe_service.handle_invoice_payment_failed(event, db)
     except Exception as e:
         logging.error(f"Webhook handler error for {event.type}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Webhook handler failed for {event.type}",
+        )
 
     return {"status": "success"}
