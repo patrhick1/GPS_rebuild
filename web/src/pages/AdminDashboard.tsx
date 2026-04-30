@@ -1648,7 +1648,10 @@ export function AdminDashboard() {
                 <li>{exportInstrument ? (exportInstrument === 'gps' ? 'GPS' : 'MyImpact') + ' assessments only' : 'All assessment types'}</li>
                 <li>{exportDateFrom || exportDateTo ? `Date range: ${exportDateFrom || 'beginning'} — ${exportDateTo || 'present'}` : 'All dates'}</li>
                 <li>Format: {exportFormat === 'planning_center' ? 'Planning Center' : exportFormat === 'rock_rms' ? 'ROCK RMS' : 'Standard'}</li>
-                <li>File: {churchSettings?.name?.replace(/\s+/g, '_') || 'Church'}_{exportInstrument ? exportInstrument.toUpperCase() : 'All'}_{new Date().toISOString().split('T')[0].replace(/-/g, '')}.csv</li>
+                <li>File: {exportFormat === 'rock_rms'
+                  ? `${churchSettings?.name?.replace(/\s+/g, '_') || 'Church'}_Individual_${new Date().toISOString().split('T')[0].replace(/-/g, '')}.csv`
+                  : `${churchSettings?.name?.replace(/\s+/g, '_') || 'Church'}_${exportInstrument ? exportInstrument.toUpperCase() : 'All'}_${new Date().toISOString().split('T')[0].replace(/-/g, '')}.csv`
+                }</li>
               </ul>
             </div>
 
@@ -1664,7 +1667,7 @@ export function AdminDashboard() {
                       {(exportFormat === 'planning_center'
                         ? ['first_name', 'last_name', 'email', 'campus', 'assessment_instrument', 'assessment_date', 'score_categories']
                         : exportFormat === 'rock_rms'
-                        ? ['FirstName', 'LastName', 'Email', 'Campus', 'AssessmentInstrument', 'AssessmentDate', 'ScoreCategories']
+                        ? ['FamilyId', 'PersonId', 'FirstName', 'LastName', 'Email', 'SpiritualGift1', '…']
                         : ['First Name', 'Last Name', 'Email', 'Church Name', 'Assessment Instrument', 'Assessment Date', 'Score Categories']
                       ).map((col) => (
                         <th key={col} className="px-2 py-1.5 text-left text-brand-charcoal whitespace-nowrap border-b border-brand-gray-light">{col}</th>
@@ -1673,21 +1676,38 @@ export function AdminDashboard() {
                   </thead>
                   <tbody>
                     {sortedMembers.length > 0 ? (
-                      <tr className="text-brand-gray-med">
-                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].first_name || '—'}</td>
-                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].last_name || '—'}</td>
-                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].email || '—'}</td>
-                        <td className="px-2 py-1.5 whitespace-nowrap">{churchSettings?.name || '—'}</td>
-                        <td className="px-2 py-1.5 whitespace-nowrap">{exportInstrument === 'myimpact' ? 'MyImpact' : 'GPS'}</td>
-                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].last_assessment_date || '—'}</td>
-                        <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].top_gifts?.[0]?.name || (sortedMembers[0].myimpact_score != null ? String(sortedMembers[0].myimpact_score) : '—')}</td>
-                      </tr>
+                      exportFormat === 'rock_rms' ? (
+                        <tr className="text-brand-gray-med">
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].id || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].id || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].first_name || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].last_name || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].email || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].top_gifts?.[0]?.name || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap italic">…</td>
+                        </tr>
+                      ) : (
+                        <tr className="text-brand-gray-med">
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].first_name || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].last_name || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].email || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{churchSettings?.name || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{exportInstrument === 'myimpact' ? 'MyImpact' : 'GPS'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].last_assessment_date || '—'}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">{sortedMembers[0].top_gifts?.[0]?.name || (sortedMembers[0].myimpact_score != null ? String(sortedMembers[0].myimpact_score) : '—')}</td>
+                        </tr>
+                      )
                     ) : (
                       <tr><td colSpan={7} className="px-2 py-1.5 text-brand-gray-med italic">No members to preview</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
+              {exportFormat === 'rock_rms' && (
+                <p className="px-3 py-2 text-[11px] font-body text-brand-gray-med bg-brand-gray-lightest/30 border-t border-brand-gray-light">
+                  ROCK RMS Individual.csv format — 30 standard columns (FamilyId through SecurityNote) + 20 custom Person Attribute columns for assessment data. Compatible with Excavator / Bulldozer import.
+                </p>
+              )}
             </div>
 
             {exportMsg && (

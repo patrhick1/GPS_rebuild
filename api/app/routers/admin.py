@@ -1137,9 +1137,19 @@ async def export_church_data(
             "raw_answers",
         ])
     elif format == "rock_rms":
+        # ROCK RMS Individual.csv format: 30 standard columns in exact order,
+        # then custom Person Attribute columns for assessment data.
+        # See: https://github.com/KingdomFirst/Excavator/wiki/3.-CSV-Import
         writer.writerow([
-            "FirstName", "LastName", "Email", "Campus",
-            "ConnectionStatus", "CreatedDateTime",
+            # --- 30 standard Individual.csv columns ---
+            "FamilyId", "FamilyName", "CreatedDate", "PersonId", "Prefix",
+            "FirstName", "NickName", "MiddleName", "LastName", "Suffix",
+            "FamilyRole", "MaritalStatus", "ConnectionStatus", "RecordStatus",
+            "IsDeceased", "HomePhone", "MobilePhone", "WorkPhone",
+            "SMS Allowed?", "Email", "IsEmailActive", "Allow Bulk Email?",
+            "Gender", "DateOfBirth", "School", "GraduationDate",
+            "AnniversaryDate", "GeneralNote", "MedicalNote", "SecurityNote",
+            # --- Custom Person Attributes (assessment data) ---
             "AssessmentInstrument", "AssessmentDate",
             "SpiritualGift1", "SpiritualGift1Score",
             "SpiritualGift2", "SpiritualGift2Score",
@@ -1150,7 +1160,6 @@ async def export_church_data(
             "Passion3", "Passion3Score",
             "MyImpactScore", "CharacterScore", "CallingScore",
             "People", "Cause", "Abilities",
-            "RawAnswers",
         ])
     else:
         writer.writerow([
@@ -1171,14 +1180,51 @@ async def export_church_data(
         if not user:
             continue
 
-        base = [
-            user.first_name or "",
-            user.last_name or "",
-            user.email or "",
-            org.name or "",
-            m.status,
-            m.created_at.strftime("%Y-%m-%d") if m.created_at else "",
-        ]
+        # Base columns differ by format
+        if format == "rock_rms":
+            # 30 standard Individual.csv columns mapped from our data
+            created = m.created_at.strftime("%Y-%m-%d") if m.created_at else ""
+            base = [
+                str(user.id),                        # FamilyId (required)
+                user.last_name or "",                 # FamilyName
+                created,                              # CreatedDate
+                str(user.id),                         # PersonId (required)
+                "",                                   # Prefix
+                user.first_name or "",                # FirstName
+                "",                                   # NickName
+                "",                                   # MiddleName
+                user.last_name or "",                 # LastName
+                "",                                   # Suffix
+                "Adult",                              # FamilyRole
+                "",                                   # MaritalStatus
+                m.status or "",                        # ConnectionStatus
+                "Active",                             # RecordStatus
+                "",                                   # IsDeceased
+                "",                                   # HomePhone
+                "",                                   # MobilePhone
+                "",                                   # WorkPhone
+                "",                                   # SMS Allowed?
+                user.email or "",                     # Email
+                "Yes",                                # IsEmailActive
+                "",                                   # Allow Bulk Email?
+                "",                                   # Gender
+                "",                                   # DateOfBirth
+                "",                                   # School
+                "",                                   # GraduationDate
+                "",                                   # AnniversaryDate
+                "",                                   # GeneralNote
+                "",                                   # MedicalNote
+                "",                                   # SecurityNote
+            ]
+        else:
+            base = [
+                user.first_name or "",
+                user.last_name or "",
+                user.email or "",
+                org.name or "",
+                m.status,
+                m.created_at.strftime("%Y-%m-%d") if m.created_at else "",
+            ]
 
         # Get the latest completed assessment (with optional filters)
         assessment_query = db.query(Assessment).filter(
@@ -1202,27 +1248,32 @@ async def export_church_data(
         assessment = assessment_query.order_by(Assessment.completed_at.desc()).first()
 
         if not assessment:
-            # 22 empty columns: instrument, date, 8 gift cols, 6 passion cols, 3 MI, 3 PCA, 1 raw
-            writer.writerow(base + [""] * 22)
+            # Empty assessment columns: must match header column count after base.
+            # ROCK RMS: 22 custom attrs (instrument, date, 8 gifts, 6 passions, 3 MI, 3 PCA)
+            # Standard/Planning Center: 23 (same + raw answers JSON)
+            empty_count = 22 if format == "rock_rms" else 23
+            writer.writerow(base + [""] * empty_count)
             continue
 
         completed = assessment.completed_at.strftime("%Y-%m-%d") if assessment.completed_at else ""
 
-        # Build raw answers JSON
-        raw_answers = db.query(Answer).filter(Answer.assessment_id == assessment.id).all()
-        raw_json = json.dumps([
-            {
-                "question_id": str(a.question_id) if a.question_id else None,
-                "mc": a.multiple_choice_answer,
-                "numeric": a.numeric_value,
-                "text": a.text_value,
-            }
-            for a in raw_answers
-        ]) if raw_answers else ""
+        # Build raw answers JSON (not used for ROCK RMS)
+        raw_json = ""
+        if format != "rock_rms":
+            raw_answers = db.query(Answer).filter(Answer.assessment_id == assessment.id).all()
+            raw_json = json.dumps([
+                {
+                    "question_id": str(a.question_id) if a.question_id else None,
+                    "mc": a.multiple_choice_answer,
+                    "numeric": a.numeric_value,
+                    "text": a.text_value,
+                }
+                for a in raw_answers
+            ]) if raw_answers else ""
 
         if assessment.instrument_type == "myimpact":
             mi = assessment.myimpact_results
-            writer.writerow(base + [
+            assessment_cols = [
                 "MyImpact", completed,
                 "", "", "", "", "", "", "", "",  # GPS gift/passion columns blank
                 "", "", "", "", "", "",
@@ -1230,8 +1281,10 @@ async def export_church_data(
                 mi.character_score if mi else "",
                 mi.calling_score if mi else "",
                 "", "", "",
-                raw_json,
-            ])
+            ]
+            if format != "rock_rms":
+                assessment_cols.append(raw_json)
+            writer.writerow(base + assessment_cols)
         else:
             r = assessment.results
             gifts = []
@@ -1264,7 +1317,7 @@ async def export_church_data(
             while len(passions) < 3:
                 passions.append(("", ""))
 
-            writer.writerow(base + [
+            assessment_cols = [
                 "GPS", completed,
                 gifts[0][0], gifts[0][1], gifts[1][0], gifts[1][1],
                 gifts[2][0], gifts[2][1], gifts[3][0], gifts[3][1],
@@ -1272,8 +1325,10 @@ async def export_church_data(
                 passions[2][0], passions[2][1],
                 "", "", "",  # MyImpact columns blank
                 r.people if r else "", r.cause if r else "", r.abilities if r else "",
-                raw_json,
-            ])
+            ]
+            if format != "rock_rms":
+                assessment_cols.append(raw_json)
+            writer.writerow(base + assessment_cols)
 
     output.seek(0)
     date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
