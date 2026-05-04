@@ -1,32 +1,10 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAssessment } from '../context/AssessmentContext';
-import { api, useAuth } from '../context/AuthContext';
+import { api } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
-
-const ES_RESULTS: Record<string, string> = {
-  'GPS Assessment': 'Evaluación GPS',
-  'Assessment started on': 'Evaluación iniciada el',
-  'Completed': 'Completadas',
-  'of': 'de',
-  'questions': 'preguntas',
-  'Story': 'Historia',
-  'Your Spiritual Gifts': 'Tus Dones Espirituales',
-  'Score:': 'Puntaje:',
-  'Passions': 'Pasiones',
-  'Your Spiritual Influencing Styles (highest score is primary & lower is secondary)': 'Tus estilos de influencia espiritual (el puntaje más alto es el principal y el más bajo es el secundario)',
-  'Your Selections': 'Tus Selecciones',
-  'Key Abilities': 'Habilidades Clave',
-  "People You're Passionate About": 'Personas que te apasionan',
-  'Causes You Care About': 'Causas que te importan',
-  'Back': 'Volver',
-  'Download PDF': 'Descargar PDF',
-  'Generating…': 'Generando…',
-  'Print': 'Imprimir',
-  'Loading results...': 'Cargando resultados...',
-  'Go Back': 'Volver',
-};
+import { useTranslation } from '../hooks/useTranslation';
 
 const GIFT_COLORS = [
   'bg-brand-teal-light',
@@ -47,6 +25,7 @@ interface GiftResult {
   name: string;
   short_code: string;
   description: string;
+  description_es?: string | null;
   points: number;
 }
 
@@ -69,9 +48,7 @@ interface GradedResults {
 
 export function AssessmentResults() {
   const { results: contextResults, questions, answeredCount, assessmentStartDate } = useAssessment();
-  const { locale } = useAuth();
-  const isEs = locale === 'es';
-  const t = useMemo(() => (key: string) => isEs ? (ES_RESULTS[key] || key) : key, [isEs]);
+  const { t, isEs } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const assessmentId = searchParams.get('id');
@@ -272,7 +249,7 @@ export function AssessmentResults() {
 
                     {/* Description */}
                     <p className="flex-1 font-body font-bold text-xl text-brand-charcoal leading-[30px]">
-                      {gift.description}
+                      {(isEs && gift.description_es) || gift.description}
                     </p>
 
                     {/* Score */}
@@ -310,7 +287,7 @@ export function AssessmentResults() {
 
                     {/* Description */}
                     <p className="flex-1 font-body font-bold text-xl text-brand-charcoal leading-[30px]">
-                      {passion.description}
+                      {(isEs && passion.description_es) || passion.description}
                     </p>
 
                     {/* Score */}

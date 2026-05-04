@@ -24,6 +24,7 @@ class GiftPassionResult:
     short_code: str
     description: str
     points: int
+    description_es: Optional[str] = None
 
 
 @dataclass
@@ -122,13 +123,14 @@ class ScoringService:
                 name=gift.name,
                 short_code=gift.short_code,
                 description=gift.description,
+                description_es=gift.description_es,
                 points=score
             ))
-        
+
         # Sort by points descending
         results.sort(key=lambda x: x.points, reverse=True)
         return results
-    
+
     def _calculate_passions(self, assessment: Assessment, passions: List[GiftsPassion]) -> List[GiftPassionResult]:
         """Calculate scores for all influencing styles"""
         results = []
@@ -163,6 +165,7 @@ class ScoringService:
                 name=passion.name,
                 short_code=passion.short_code,
                 description=passion.description,
+                description_es=passion.description_es,
                 points=score
             ))
         

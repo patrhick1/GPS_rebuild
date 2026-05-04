@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NotificationBell } from './NotificationBell';
+import { HelpLink } from './HelpLink';
 import dmLogo from '../../Graphics for Dev/Logos/Disciples+Made+Logo+Horizontal 1.svg';
 import gpsLogo from '../../Graphics for Dev/Logos/gps-logo 1.svg';
 import myImpactLogo from '../../Graphics for Dev/Logos/MyImpact Logo.svg';
@@ -22,10 +23,11 @@ export function Navbar() {
           <img src={dmLogo} alt="Disciples Made" className="h-10" />
         </button>
 
-        {/* Right: GPS + MyImpact logos + notification bell (desktop) */}
+        {/* Right: GPS + MyImpact logos + Help + notification bell (desktop) */}
         <div className="hidden md:flex items-center gap-6">
           <img src={gpsLogo} alt="GPS" className="h-[35px]" />
           <img src={myImpactLogo} alt="MyImpact" className="h-[35px]" />
+          <HelpLink />
           {user && user.email_verified === 'Y' && <NotificationBell />}
         </div>
 
@@ -47,6 +49,7 @@ export function Navbar() {
         <div className="md:hidden flex flex-col items-center gap-4 py-4 border-t border-brand-gray-light bg-white">
           <img src={gpsLogo} alt="GPS" className="h-8" />
           <img src={myImpactLogo} alt="MyImpact" className="h-8" />
+          <HelpLink className="font-body font-bold text-base text-brand-charcoal hover:text-brand-teal transition-colors" />
         </div>
       )}
     </nav>

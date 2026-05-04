@@ -19,7 +19,31 @@ services:
       - key: CORS_ORIGINS
         value: "https://gps-web.onrender.com,https://dashboard.disciplesmade.com"
       # Stripe / Resend secrets are configured in the Render UI (sync: false equivalent).
-      # EMAIL_FROM is intentionally unset — code default is noreply@disciplesmade.com.
+      # EMAIL_FROM is intentionally unset — code default is no-reply@email.giftpassionstory.com.
+      # INTERNAL_CRON_SECRET is set in the Render UI; the value matches the
+      # X-Internal-Secret header sent by the webhook-retry cron job below.
+      - key: INTERNAL_CRON_SECRET
+        sync: false
+
+  # Webhook retry processor — runs every minute, drains the failed-delivery
+  # queue. Picks up rows where status='failed' AND next_retry_at <= now AND
+  # attempts < 3, redelivers, schedules next retry or marks dead. Postgres
+  # SELECT FOR UPDATE SKIP LOCKED prevents double-delivery if invocations
+  # overlap. The endpoint requires X-Internal-Secret matching the API service.
+  - type: cron
+    name: gps-webhook-retries
+    runtime: docker
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    schedule: "* * * * *"
+    startCommand: >
+      sh -c 'curl -fsS -X POST -H "X-Internal-Secret: $INTERNAL_CRON_SECRET"
+      "$API_BASE_URL/internal/webhooks/process-retries"'
+    envVars:
+      - key: INTERNAL_CRON_SECRET
+        sync: false
+      - key: API_BASE_URL
+        value: "https://gps-api-4q4m.onrender.com"
 
   # React Frontend (static site)
   - type: web

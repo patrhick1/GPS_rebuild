@@ -7,7 +7,9 @@ interface Notification {
   title: string;
   message: string;
   link?: string;
-  is_read: string;
+  reference_type?: string | null;
+  reference_id?: string | null;
+  is_read: boolean;
   created_at: string;
 }
 
@@ -22,7 +24,7 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const POLL_INTERVAL = 30000; // 30 seconds
+const POLL_INTERVAL = 60000; // 60 seconds (per PRD addendum §2.5)
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuth();
@@ -61,7 +63,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       await api.patch(`/notifications/${id}/read`);
       setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, is_read: 'Y' } : n))
+        prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch {
@@ -71,8 +73,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const markAllAsRead = useCallback(async () => {
     try {
-      await api.patch('/notifications/read-all');
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: 'Y' })));
+      await api.patch('/notifications/mark-all-read');
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch {
       // Silently fail

@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { AuditLog } from './AuditLog';
 import { SystemExport } from './SystemExport';
+import { MasterWebhookSummary } from '../components/MasterWebhookSummary';
 import goldMenuIcon from '../../Graphics for Dev/Icons/Gold Menu Icon.svg';
 import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 import tealArrowIcon from '../../Graphics for Dev/Icons/Dark Teal Arrow Circle Icon.svg';
@@ -703,7 +704,13 @@ export function MasterDashboard() {
                                     <tr>
                                       <td colSpan={5} className="px-0 py-0 bg-brand-gray-lightest/30">
                                         <div className="px-6 py-4">
-                                          <div className="flex items-center justify-between mb-3">
+                                          <div className="mb-4">
+                                            <h4 className="font-heading font-bold text-base text-brand-teal uppercase mb-2">
+                                              CRM Integration
+                                            </h4>
+                                            <MasterWebhookSummary churchId={church.id} />
+                                          </div>
+                                          <div className="flex items-center justify-between mb-3 mt-4 pt-3 border-t border-brand-gray-light">
                                             <h4 className="font-heading font-bold text-base text-brand-teal uppercase">
                                               Members
                                             </h4>

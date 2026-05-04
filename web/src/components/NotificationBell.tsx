@@ -17,6 +17,20 @@ function timeAgo(dateStr: string): string {
   return date.toLocaleDateString();
 }
 
+function routeFromReference(refType?: string | null, refId?: string | null): string | null {
+  if (!refType || !refId) return null;
+  switch (refType) {
+    case 'assessment':
+      return `/admin?assessment=${refId}`;
+    case 'user':
+      return `/admin?member=${refId}`;
+    case 'organization':
+      return `/master?church=${refId}`;
+    default:
+      return null;
+  }
+}
+
 function notificationIcon(type: string) {
   switch (type) {
     case 'membership_approved':
@@ -37,11 +51,28 @@ function notificationIcon(type: string) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
       );
-    case 'gps_result':
-    case 'myimpact_result':
+    case 'assessment_self_completed':
       return (
         <svg className="w-5 h-5 text-brand-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+        </svg>
+      );
+    case 'member_joined':
+      return (
+        <svg className="w-5 h-5 text-brand-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+        </svg>
+      );
+    case 'member_requested':
+      return (
+        <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
+    case 'church_created':
+      return (
+        <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
       );
     default:
@@ -79,12 +110,20 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  const handleNotificationClick = async (notification: { id: string; link?: string; is_read: string }) => {
-    if (notification.is_read === 'N') {
+  const handleNotificationClick = async (notification: {
+    id: string;
+    link?: string;
+    is_read: boolean;
+    reference_type?: string | null;
+    reference_id?: string | null;
+  }) => {
+    if (!notification.is_read) {
       await markAsRead(notification.id);
     }
-    if (notification.link) {
-      navigate(notification.link);
+    // Prefer explicit link; fall back to entity-pointer based route.
+    const target = notification.link ?? routeFromReference(notification.reference_type, notification.reference_id);
+    if (target) {
+      navigate(target);
     }
     setIsOpen(false);
   };
@@ -135,18 +174,18 @@ export function NotificationBell() {
                   key={n.id}
                   onClick={() => handleNotificationClick(n)}
                   className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 ${
-                    n.is_read === 'N' ? 'bg-blue-50/40' : ''
+                    !n.is_read ? 'bg-blue-50/40' : ''
                   }`}
                 >
                   <div className="shrink-0 mt-0.5">{notificationIcon(n.type)}</div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${n.is_read === 'N' ? 'font-semibold text-brand-charcoal' : 'text-brand-charcoal/70'}`}>
+                    <p className={`text-sm ${!n.is_read ? 'font-semibold text-brand-charcoal' : 'text-brand-charcoal/70'}`}>
                       {n.title}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5 truncate">{n.message}</p>
                     <p className="text-xs text-gray-400 mt-1">{timeAgo(n.created_at)}</p>
                   </div>
-                  {n.is_read === 'N' && (
+                  {!n.is_read && (
                     <div className="shrink-0 mt-2 w-2 h-2 rounded-full bg-brand-teal" />
                   )}
                 </button>

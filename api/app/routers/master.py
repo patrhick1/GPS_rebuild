@@ -401,6 +401,13 @@ async def create_church(
             f"Existing user {user.id} attached as primary admin of church {organization.id} ({organization.name})"
         )
 
+    # Notify other master admins that a new church was created.
+    try:
+        from app.services.membership_events import fire_church_created_event
+        fire_church_created_event(db, organization=organization, actor_user_id=current_user.id)
+    except Exception as e:
+        logging.error(f"church_created notification failed for org {organization.id}: {e}")
+
     return CreateChurchResponse(
         id=organization.id,
         name=organization.name,

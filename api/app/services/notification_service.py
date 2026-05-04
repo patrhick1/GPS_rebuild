@@ -20,6 +20,8 @@ def create_notification(
     title: str,
     message: str,
     link: Optional[str] = None,
+    reference_type: Optional[str] = None,
+    reference_id: Optional[UUID] = None,
 ) -> Notification:
     """Create a new notification for a user."""
     notification = Notification(
@@ -28,6 +30,8 @@ def create_notification(
         title=title,
         message=message,
         link=link,
+        reference_type=reference_type,
+        reference_id=reference_id,
     )
     db.add(notification)
     db.commit()
@@ -46,12 +50,12 @@ def get_notifications(
     query = db.query(Notification).filter(Notification.user_id == user_id)
 
     if unread_only:
-        query = query.filter(Notification.is_read == "N")
+        query = query.filter(Notification.is_read.is_(False))
 
     total_count = query.count()
     unread_count = (
         db.query(func.count(Notification.id))
-        .filter(Notification.user_id == user_id, Notification.is_read == "N")
+        .filter(Notification.user_id == user_id, Notification.is_read.is_(False))
         .scalar()
     )
 
@@ -73,7 +77,7 @@ def get_unread_count(db: Session, user_id: UUID) -> int:
     """Get the number of unread notifications for a user."""
     return (
         db.query(func.count(Notification.id))
-        .filter(Notification.user_id == user_id, Notification.is_read == "N")
+        .filter(Notification.user_id == user_id, Notification.is_read.is_(False))
         .scalar()
     )
 
@@ -87,7 +91,7 @@ def mark_read(db: Session, notification_id: UUID, user_id: UUID) -> bool:
     )
     if not notification:
         return False
-    notification.is_read = "Y"
+    notification.is_read = True
     db.commit()
     return True
 
@@ -96,8 +100,8 @@ def mark_all_read(db: Session, user_id: UUID) -> int:
     """Mark all unread notifications as read. Returns count of affected rows."""
     count = (
         db.query(Notification)
-        .filter(Notification.user_id == user_id, Notification.is_read == "N")
-        .update({"is_read": "Y"})
+        .filter(Notification.user_id == user_id, Notification.is_read.is_(False))
+        .update({"is_read": True})
     )
     db.commit()
     return count

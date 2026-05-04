@@ -1,9 +1,13 @@
 from datetime import datetime
-from typing import Optional, List, Self
+from typing import Literal, Optional, List, Self
 from pydantic import BaseModel, EmailStr, Field, model_validator
 import uuid
 
 from app.core.password_policy import PasswordPolicy
+
+# Supported user-interface languages. Add new options here once the
+# corresponding translations.ts entries and DB question_es-style fields exist.
+Locale = Literal["en", "es"]
 
 
 # Base User schema
@@ -15,7 +19,7 @@ class UserBase(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
-    locale: str = "en"
+    locale: Locale = "en"
 
 
 # Schema for creating a user (registration)
@@ -45,7 +49,9 @@ class UserUpdate(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
-    locale: Optional[str] = None
+    # Constrained to the supported set so the frontend can't push a
+    # locale we don't render. Returns 422 on anything else.
+    locale: Optional[Locale] = None
 
 
 # Schema for user in database

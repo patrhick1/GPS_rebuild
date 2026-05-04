@@ -886,6 +886,16 @@ async def approve_pending(
         except Exception:
             pass  # Non-fatal
 
+        # member_joined notification to admins + user_registered webhook.
+        try:
+            from app.services.membership_events import fire_member_joined_events
+            fire_member_joined_events(db, user=member_user, organization=org)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "fire_member_joined_events failed after approve_pending"
+            )
+
     return {"message": "Member approved"}
 
 

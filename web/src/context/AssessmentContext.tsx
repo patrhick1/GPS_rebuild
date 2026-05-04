@@ -28,6 +28,7 @@ interface GiftResult {
   name: string;
   short_code: string;
   description: string;
+  description_es?: string | null;
   points: number;
 }
 

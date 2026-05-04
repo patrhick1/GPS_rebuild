@@ -65,6 +65,7 @@ class AuthService:
         
         # Create membership
         # Find the appropriate role
+        joined_org = None  # Set below if user is being affiliated with a church.
         if organization_key:
             # Check for organization and create member membership
             from app.models.organization import Organization
@@ -76,6 +77,7 @@ class AuthService:
                     organization_id=org.id,
                     role_id=role.id if role else None,
                 )
+                joined_org = org
             else:
                 # Organization not found, create as independent user
                 role = self.db.query(Role).filter(Role.name == "user").first()
@@ -92,13 +94,25 @@ class AuthService:
                 organization_id=None,
                 role_id=role.id if role else None,
             )
-        
+
         self.db.add(membership)
         self.db.commit()
         self.db.refresh(db_user)
 
         # Send verification email
         self._send_verification(db_user)
+
+        # Fire member_joined notification + user_registered webhook (non-fatal).
+        if joined_org is not None:
+            try:
+                from app.services.membership_events import fire_member_joined_events
+                fire_member_joined_events(self.db, user=db_user, organization=joined_org)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "fire_member_joined_events failed for user %s / org %s",
+                    db_user.id, joined_org.id,
+                )
 
         return db_user
 
@@ -168,6 +182,17 @@ class AuthService:
 
         # Send verification email
         self._send_verification(db_user)
+
+        # Notify all other master admins that a new church was created (non-fatal).
+        try:
+            from app.services.membership_events import fire_church_created_event
+            fire_church_created_event(self.db, organization=org, actor_user_id=db_user.id)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "fire_church_created_event failed for org %s",
+                org.id,
+            )
 
         return db_user
 
@@ -266,6 +291,18 @@ class AuthService:
 
         self.db.commit()
         self.db.refresh(user)
+
+        # Notify other master admins that a new church was created (non-fatal).
+        try:
+            from app.services.membership_events import fire_church_created_event
+            fire_church_created_event(self.db, organization=org, actor_user_id=user.id)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "fire_church_created_event failed for org %s",
+                org.id,
+            )
+
         return user
 
     def authenticate_user(self, login_data: UserLogin) -> Optional[User]:

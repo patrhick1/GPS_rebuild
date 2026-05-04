@@ -55,7 +55,7 @@ async def mark_notification_read(
     return {"message": "Notification marked as read"}
 
 
-@router.patch("/read-all")
+@router.patch("/mark-all-read")
 async def mark_all_notifications_read(
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),

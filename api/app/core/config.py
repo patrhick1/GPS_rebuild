@@ -49,10 +49,14 @@ class Settings(BaseSettings):
     
     # Resend (Email)
     RESEND_API_KEY: Optional[str] = None
-    EMAIL_FROM: str = "noreply@disciplesmade.com"
+    EMAIL_FROM: str = "no-reply@email.giftpassionstory.com"
     
     # Frontend URL
     FRONTEND_URL: str = "http://localhost:5173"
+
+    # Internal cron auth — shared secret for /api/internal/* endpoints.
+    # Generate via: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    INTERNAL_CRON_SECRET: Optional[str] = None
     
     @field_validator('SECRET_KEY')
     @classmethod

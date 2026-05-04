@@ -18,6 +18,8 @@ from app.models.email_verification import EmailVerificationToken
 from app.models.notification import Notification
 from app.models.subscription import Subscription, Payment
 from app.models.webhook_event import WebhookEvent
+from app.models.webhook_config import WebhookConfig
+from app.models.webhook_delivery import WebhookDelivery
 
 __all__ = [
     "User",
@@ -41,4 +43,6 @@ __all__ = [
     "Subscription",
     "Payment",
     "WebhookEvent",
+    "WebhookConfig",
+    "WebhookDelivery",
 ]

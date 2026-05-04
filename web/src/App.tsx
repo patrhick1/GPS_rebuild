@@ -6,6 +6,7 @@ import { AdminProvider } from './context/AdminContext';
 import { MasterProvider } from './context/MasterContext';
 import { BillingProvider } from './context/BillingContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { WebhookProvider } from './context/WebhookContext';
 import { PrivateRoute } from './components/PrivateRoute';
 import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { Toaster } from 'sonner';
@@ -161,7 +162,9 @@ function App() {
             element={
               <PrivateRoute requiredRole="admin">
                 <AdminProvider>
-                  <AdminDashboard />
+                  <WebhookProvider>
+                    <AdminDashboard />
+                  </WebhookProvider>
                 </AdminProvider>
               </PrivateRoute>
             }

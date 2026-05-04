@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../hooks/useTranslation';
 
 export function Footer() {
-  const { locale } = useAuth();
-  const isEs = locale === 'es';
+  const { isEs } = useTranslation();
 
+  // Toggle text reads in the *opposite* language so users can find it whether
+  // they're currently looking at English or Spanish.
   return (
     <footer className="w-full bg-brand-charcoal h-14 flex items-center justify-center">
       <Link

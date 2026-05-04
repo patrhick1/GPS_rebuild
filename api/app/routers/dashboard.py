@@ -634,6 +634,17 @@ async def request_church_link(
 
     db.commit()
 
+    # Notify all church admins of the pending request (non-fatal).
+    try:
+        from app.services.membership_events import fire_member_requested_event
+        fire_member_requested_event(db, user=current_user, organization=org)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "fire_member_requested_event failed for user %s / org %s",
+            current_user.id, org.id,
+        )
+
     return LinkRequestResponse(
         id=membership.id,
         organization_id=org.id,

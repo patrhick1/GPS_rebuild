@@ -13,6 +13,10 @@ class GiftsPassion(Base):
     name = Column(String(100), nullable=False)  # e.g., "Administration", "Apostle", "Teacher"
     short_code = Column(String(5), nullable=False, unique=True)  # e.g., "AD", "AP", "TE"
     description = Column(Text, nullable=False)
+    # Spanish description, displayed when user.locale == 'es'. Frontend falls
+    # back to `description` (English) when this is NULL — backfill is a
+    # separate follow-up once Brian's team supplies the 24 strings.
+    description_es = Column(Text, nullable=True)
     questions = Column(Text, nullable=False)  # Comma-separated question IDs
     type_id = Column(UUID(as_uuid=True), ForeignKey("types.id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

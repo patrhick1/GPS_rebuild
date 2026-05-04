@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Index
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Index, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -15,7 +15,10 @@ class Notification(Base):
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
     link = Column(String(500), nullable=True)
-    is_read = Column(String(1), nullable=False, default="N")  # Y or N
+    # Entity pointer for deep-linking; orthogonal to `link` (explicit URL).
+    reference_type = Column(String(50), nullable=True)
+    reference_id = Column(UUID(as_uuid=True), nullable=True)
+    is_read = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     user = relationship("User", backref="notifications")

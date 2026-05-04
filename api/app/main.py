@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.rate_limits import limiter
-from app.routers import health, auth, assessments, dashboard, admin, master, billing, notifications
+from app.routers import health, auth, assessments, dashboard, admin, master, billing, notifications, webhooks
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -56,6 +56,9 @@ app.include_router(admin.router)
 app.include_router(master.router)
 app.include_router(billing.router)
 app.include_router(notifications.router)
+app.include_router(webhooks.router)
+app.include_router(webhooks.master_router)
+app.include_router(webhooks.internal_router)
 
 
 @app.get("/")

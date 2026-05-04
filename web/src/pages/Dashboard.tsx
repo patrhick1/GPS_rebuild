@@ -5,12 +5,14 @@ import { useDashboard } from '../context/DashboardContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { OnboardingGuide } from '../components/OnboardingGuide';
+import { useTranslation } from '../hooks/useTranslation';
 import goldMenuIcon from '../../Graphics for Dev/Icons/Gold Menu Icon.svg';
 import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 
 export function Dashboard() {
   const { user, logout } = useAuth();
   const { summary, history, myimpactHistory, fetchSummary, fetchHistory, fetchMyImpactHistory, isLoading, error, compareAssessments, exportCSV } = useDashboard();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -48,10 +50,10 @@ export function Dashboard() {
     setExportMsg('');
     try {
       await exportCSV();
-      setExportMsg('Export downloaded successfully.');
+      setExportMsg(t('Export downloaded successfully.'));
       setTimeout(() => setExportMsg(''), 3000);
     } catch {
-      setExportMsg('Failed to export data. Please try again.');
+      setExportMsg(t('Failed to export data. Please try again.'));
     } finally {
       setIsExportingMyData(false);
     }
@@ -151,7 +153,7 @@ export function Dashboard() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <p className="font-body text-lg text-brand-gray-med">Loading dashboard...</p>
+          <p className="font-body text-lg text-brand-gray-med">{t('Loading dashboard...')}</p>
         </main>
         <Footer />
       </div>
@@ -180,7 +182,7 @@ export function Dashboard() {
           <div className="flex justify-between items-start">
             {/* Greeting */}
             <h1 className="font-heading text-3xl md:text-[48px] md:leading-[55px] text-brand-charcoal">
-              <span className="font-medium">Welcome to Your Dashboard,</span>
+              <span className="font-medium">{t('Welcome to Your Dashboard,')}</span>
               <br />
               <span className="font-black">{firstName}</span>
             </h1>
@@ -206,35 +208,35 @@ export function Dashboard() {
                       onClick={() => { setMenuOpen(false); document.getElementById('gps-section')?.scrollIntoView({ behavior: 'smooth' }); }}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
                     >
-                      GPS Assessments
+                      {t('GPS Assessments')}
                     </button>
                     <hr className="border-brand-gray-light mx-4" />
                     <button
                       onClick={() => { setMenuOpen(false); document.getElementById('myimpact-section')?.scrollIntoView({ behavior: 'smooth' }); }}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
                     >
-                      MyImpact Assessments
+                      {t('MyImpact Assessments')}
                     </button>
                     <hr className="border-brand-gray-light mx-4" />
                     <button
                       onClick={() => { setMenuOpen(false); navigate('/account'); }}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
                     >
-                      Account
+                      {t('Account')}
                     </button>
                     <hr className="border-brand-gray-light mx-4" />
                     <button
                       onClick={() => { setMenuOpen(false); navigate('/update-password'); }}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
                     >
-                      Update Password
+                      {t('Update Password')}
                     </button>
                     <hr className="border-brand-gray-light mx-4" />
                     <button
                       onClick={handleLogout}
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest rounded-b-xl transition-colors"
                     >
-                      Logout
+                      {t('Logout')}
                     </button>
                   </nav>
                 </div>
@@ -244,9 +246,10 @@ export function Dashboard() {
 
           {/* Description */}
           <p className="font-body font-bold text-lg leading-[26px] text-brand-charcoal mt-6 max-w-[732px]">
-            Welcome {firstName}! Below are the results of your GPS and MyImpact assessments
-            with their current level of completion. Click to continue with or to review the
-            results of that particular assessment. You can take as many assessments as you wish.
+            {t(
+              'Welcome {firstName}! Below are the results of your GPS and MyImpact assessments with their current level of completion. Click to continue with or to review the results of that particular assessment. You can take as many assessments as you wish.',
+              { firstName },
+            )}
           </p>
 
           {/* CTA Buttons */}
@@ -255,20 +258,20 @@ export function Dashboard() {
               onClick={() => handleStartAssessment('gps')}
               className="h-[50px] px-10 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
             >
-              Take New GPS Assessment
+              {t('Take New GPS Assessment')}
             </button>
             <button
               onClick={() => handleStartAssessment('myimpact')}
               className="h-[50px] px-10 bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
             >
-              Take New MyImpact Assessment
+              {t('Take New MyImpact Assessment')}
             </button>
             <button
               onClick={handleExportMyData}
               disabled={isExportingMyData}
               className="h-[50px] px-10 bg-brand-charcoal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-charcoal/90 transition-colors disabled:opacity-50"
             >
-              {isExportingMyData ? 'Exporting...' : 'Export My Data'}
+              {isExportingMyData ? t('Exporting...') : t('Export My Data')}
             </button>
           </div>
           {exportMsg && (
@@ -283,24 +286,34 @@ export function Dashboard() {
               <div className="mt-8 bg-brand-gray-lightest border border-brand-gray-light rounded-xl p-6 flex items-center gap-3">
                 <span className="inline-block w-3 h-3 rounded-full bg-yellow-400 shrink-0" />
                 <p className="font-body font-bold text-base text-brand-charcoal">
-                  Your request to join <span className="text-brand-teal">{summary.pending_organization.name}</span> is awaiting approval.
+                  {(() => {
+                    const tpl = t('Your request to join {orgName} is awaiting approval.');
+                    const [before, after] = tpl.split('{orgName}');
+                    return (
+                      <>
+                        {before}
+                        <span className="text-brand-teal">{summary.pending_organization.name}</span>
+                        {after}
+                      </>
+                    );
+                  })()}
                 </p>
               </div>
             ) : (
               <div className="mt-8 bg-brand-gray-lightest border border-brand-gray-light rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <p className="font-heading font-bold text-lg text-brand-charcoal">
-                    Link My Assessment Results to a Church
+                    {t('Link My Assessment Results to a Church')}
                   </p>
                   <p className="font-body text-sm text-brand-gray-med mt-1">
-                    Search for your church, submit a request, and get connected once approved.
+                    {t('Search for your church, submit a request, and get connected once approved.')}
                   </p>
                 </div>
                 <button
                   onClick={() => navigate('/account#church-linking')}
                   className="shrink-0 h-[44px] px-6 bg-brand-teal text-white font-body font-bold text-base rounded-xl hover:bg-brand-teal/90 transition-colors"
                 >
-                  Find My Church
+                  {t('Find My Church')}
                 </button>
               </div>
             )
@@ -313,17 +326,17 @@ export function Dashboard() {
                 to={user?.role === 'master' ? '/master' : '/admin'}
                 className="font-black text-brand-teal underline hover:text-brand-teal/80 transition-colors"
               >
-                Go to Admin Dashboard
+                {t('Go to Admin Dashboard')}
               </Link>
             </p>
           ) : (
             <p className="font-body font-bold text-base md:text-xl text-brand-charcoal mt-8">
-              Want to track and manage your church's assessment results?{' '}
+              {t("Want to track and manage your church's assessment results?")}{' '}
               <Link
                 to="/upgrade"
                 className="font-black text-brand-teal underline hover:text-brand-teal/80 transition-colors"
               >
-                Upgrade to a Church Administrator account
+                {t('Upgrade to a Church Administrator account')}
               </Link>
             </p>
           )}
@@ -332,20 +345,20 @@ export function Dashboard() {
         {/* ── GPS Assessments Section ── */}
         <section id="gps-section" className="max-w-[1230px] mx-auto px-6 py-8">
           <h2 className="font-heading font-medium text-2xl md:text-[32px] md:leading-[41px] text-brand-teal mb-4">
-            GPS Assessments
+            {t('GPS Assessments')}
           </h2>
 
           <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] overflow-hidden">
             {history.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 px-6">
                 <p className="font-body text-lg text-brand-gray-med mb-4">
-                  No GPS assessments yet. Take your first one!
+                  {t('No GPS assessments yet. Take your first one!')}
                 </p>
                 <button
                   onClick={() => navigate('/assessment')}
                   className="h-[50px] px-10 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
                 >
-                  Start GPS Assessment
+                  {t('Start GPS Assessment')}
                 </button>
               </div>
             ) : (
@@ -355,19 +368,19 @@ export function Dashboard() {
                     <tr className="border-b border-brand-gray-light">
                       <th className="px-6 py-4 w-10" />
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-6 py-4">
-                        Started
+                        {t('Started')}
                       </th>
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
-                        Completed
+                        {t('Completed')}
                       </th>
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
-                        Progress
+                        {t('Progress')}
                       </th>
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
-                        Gifts
+                        {t('Gifts')}
                       </th>
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
-                        Passion
+                        {t('Passion')}
                       </th>
                       <th className="px-4 py-4" />
                     </tr>
@@ -427,7 +440,7 @@ export function Dashboard() {
                             </div>
                           ) : (
                             <span className="uppercase font-body font-bold text-base text-brand-gray-med">
-                              incomplete
+                              {t('incomplete')}
                             </span>
                           )}
                         </td>
@@ -447,7 +460,7 @@ export function Dashboard() {
                             </div>
                           ) : (
                             <span className="uppercase font-body font-bold text-base text-brand-gray-med">
-                              incomplete
+                              {t('incomplete')}
                             </span>
                           )}
                         </td>
@@ -459,14 +472,14 @@ export function Dashboard() {
                               onClick={() => navigate(`/assessment-results?id=${item.id}`)}
                               className="w-[175px] h-[50px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
                             >
-                              View Results
+                              {t('View Results')}
                             </button>
                           ) : (
                             <button
                               onClick={() => navigate(`/assessment?continue=${item.id}`)}
                               className="w-[175px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
                             >
-                              Continue
+                              {t('Continue')}
                             </button>
                           )}
                         </td>
@@ -551,20 +564,20 @@ export function Dashboard() {
         {/* ── MyImpact Assessments Section ── */}
         <section id="myimpact-section" className="max-w-[1230px] mx-auto px-6 pt-4 pb-16">
           <h2 className="font-heading font-medium text-2xl md:text-[32px] md:leading-[41px] text-brand-teal mb-4">
-            MyImpact Assessments
+            {t('MyImpact Assessments')}
           </h2>
 
           <div className="bg-white border border-brand-gray-light rounded-xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] overflow-hidden">
             {myimpactHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 px-6">
                 <p className="font-body text-lg text-brand-gray-med mb-4">
-                  No MyImpact assessments yet. Take your first one!
+                  {t('No MyImpact assessments yet. Take your first one!')}
                 </p>
                 <button
                   onClick={() => navigate('/myimpact')}
                   className="h-[50px] px-10 bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
                 >
-                  Start MyImpact Assessment
+                  {t('Start MyImpact Assessment')}
                 </button>
               </div>
             ) : (
@@ -573,19 +586,19 @@ export function Dashboard() {
                   <thead>
                     <tr className="border-b border-brand-gray-light">
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-6 py-4">
-                        Started
+                        {t('Started')}
                       </th>
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
-                        Completed
+                        {t('Completed')}
                       </th>
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
-                        MyImpact Score
+                        {t('MyImpact Score')}
                       </th>
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
-                        Character
+                        {t('Character')}
                       </th>
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
-                        Calling
+                        {t('Calling')}
                       </th>
                       <th className="px-4 py-4" />
                     </tr>
@@ -611,7 +624,7 @@ export function Dashboard() {
                             </span>
                           ) : (
                             <span className="uppercase font-body font-bold text-base text-brand-gray-med">
-                              incomplete
+                              {t('incomplete')}
                             </span>
                           )}
                         </td>
@@ -627,7 +640,7 @@ export function Dashboard() {
                             </div>
                           ) : (
                             <span className="uppercase font-body font-bold text-base text-brand-gray-med">
-                              incomplete
+                              {t('incomplete')}
                             </span>
                           )}
                         </td>
@@ -643,7 +656,7 @@ export function Dashboard() {
                             </div>
                           ) : (
                             <span className="uppercase font-body font-bold text-base text-brand-gray-med">
-                              incomplete
+                              {t('incomplete')}
                             </span>
                           )}
                         </td>

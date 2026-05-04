@@ -66,6 +66,7 @@ class GiftPassionResult(BaseModel):
     name: str
     short_code: str
     description: str
+    description_es: Optional[str] = None
     points: int
 
 
@@ -138,23 +139,32 @@ class AssessmentResultResponse(BaseModel):
 
 
 class AssessmentResultWithDetails(AssessmentResultResponse):
-    """Result with full gift/passion details"""
+    """Result with full gift/passion details. Each `*_description_es` field is
+    nullable; the frontend falls back to the English `*_description` when the
+    Spanish value is empty (content backfill is staggered)."""
     gift_1_name: Optional[str] = None
     gift_1_description: Optional[str] = None
+    gift_1_description_es: Optional[str] = None
     gift_2_name: Optional[str] = None
     gift_2_description: Optional[str] = None
+    gift_2_description_es: Optional[str] = None
     gift_3_name: Optional[str] = None
     gift_3_description: Optional[str] = None
+    gift_3_description_es: Optional[str] = None
     gift_4_name: Optional[str] = None
     gift_4_description: Optional[str] = None
-    
+    gift_4_description_es: Optional[str] = None
+
     passion_1_name: Optional[str] = None
     passion_1_description: Optional[str] = None
+    passion_1_description_es: Optional[str] = None
     passion_2_name: Optional[str] = None
     passion_2_description: Optional[str] = None
+    passion_2_description_es: Optional[str] = None
     passion_3_name: Optional[str] = None
     passion_3_description: Optional[str] = None
-    
+    passion_3_description_es: Optional[str] = None
+
     people_list: List[str] = []
     cause_list: List[str] = []
     abilities_list: List[str] = []

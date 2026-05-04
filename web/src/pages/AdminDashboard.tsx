@@ -4,6 +4,7 @@ import { useAuth, api } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { CrmIntegrationPanel } from '../components/CrmIntegrationPanel';
 import goldMenuIcon from '../../Graphics for Dev/Icons/Gold Menu Icon.svg';
 import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 import tealArrowIcon from '../../Graphics for Dev/Icons/Dark Teal Arrow Circle Icon.svg';
@@ -1321,30 +1322,22 @@ export function AdminDashboard() {
 
                   <hr className="border-brand-gray-light my-6" />
 
-                  {/* Links */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
+                  {/* CRM Integration (webhooks) */}
+                  <CrmIntegrationPanel readOnly={isReadOnly} />
+
+                  {user?.is_primary_admin && (
+                    <div className="mt-4 mb-6">
                       <h3 className="font-body font-bold text-lg text-brand-charcoal mb-2">
-                        Connect to Your Church Database
+                        Subscription &amp; Billing
                       </h3>
-                      <button className="h-[44px] px-5 bg-brand-teal-light text-brand-charcoal font-body font-bold text-base rounded-xl hover:bg-brand-teal-light/80 transition-colors">
-                        Manage Connections
+                      <button
+                        onClick={() => navigate('/admin/billing')}
+                        className="h-[44px] px-5 bg-brand-teal-light text-brand-charcoal font-body font-bold text-base rounded-xl hover:bg-brand-teal-light/80 transition-colors"
+                      >
+                        Manage Payment Method
                       </button>
                     </div>
-                    {user?.is_primary_admin && (
-                      <div>
-                        <h3 className="font-body font-bold text-lg text-brand-charcoal mb-2">
-                          Subscription &amp; Billing
-                        </h3>
-                        <button
-                          onClick={() => navigate('/admin/billing')}
-                          className="h-[44px] px-5 bg-brand-teal-light text-brand-charcoal font-body font-bold text-base rounded-xl hover:bg-brand-teal-light/80 transition-colors"
-                        >
-                          Manage Payment Method
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   <hr className="border-brand-gray-light my-6" />
 

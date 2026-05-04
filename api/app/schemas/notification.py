@@ -10,7 +10,9 @@ class NotificationResponse(BaseModel):
     title: str
     message: str
     link: Optional[str] = None
-    is_read: str
+    reference_type: Optional[str] = None
+    reference_id: Optional[uuid.UUID] = None
+    is_read: bool
     created_at: datetime
 
     class Config:

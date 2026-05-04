@@ -30,8 +30,11 @@ from app.services.email_service import (
     send_myimpact_result_email,
 )
 from app.models.membership import Membership
+from app.models.organization import Organization
 from app.core.config import settings
 from app.services import notification_service
+from app.services.webhook_service import WebhookService
+from app.services.webhook_payloads import build_assessment_payload
 from app.schemas.assessment import (
     AssessmentCreate,
     AssessmentResponse,
@@ -88,11 +91,98 @@ def _notify_org_admins(db: Session, current_user: User, assessment: Assessment) 
                     title=f"{member_name} completed {instrument_label}",
                     message=f"{member_name} just completed a {instrument_label} assessment.",
                     link="/admin",
+                    reference_type="assessment",
+                    reference_id=assessment.id,
                 )
             except Exception:
                 pass
     except Exception as exc:
         logger.error("Failed to notify org admins: %s", exc)
+
+
+# Field-name → human-readable question prompt. Used to label story answers
+# in the webhook payload so receiving CRMs see something meaningful instead
+# of raw column names. Wording is intentionally generic — the legacy GPS
+# Laravel app didn't expose these prompts in a structured form, so we map
+# field-names to short labels here. Update if Brian provides exact prompts.
+_STORY_PROMPTS = {
+    "story_gift_answer": "Tell me about a time you used your spiritual gifts.",
+    "story_ability_answer": "Tell me about a time you used your abilities.",
+    "story_passion_answer": "Tell me about a time you acted on your passion.",
+    "story_influencing_answer": "Tell me about a time you used your influencing style.",
+    "story_onechange_answer": "What is one thing you would change?",
+    "story_closestpeople_answer": "Tell me about the people closest to you.",
+    "story_oneregret_answer": "What is one regret you carry?",
+}
+
+
+def _fire_assessment_webhook(
+    db: Session, current_user: User, assessment: Assessment, result
+) -> None:
+    """Build the assessment_completed payload and dispatch via WebhookService.
+    Non-fatal — logs and swallows on any failure so we never block a successful
+    assessment submission."""
+    try:
+        member_membership = (
+            db.query(Membership)
+            .filter(
+                Membership.user_id == current_user.id,
+                Membership.status == "active",
+                Membership.organization_id.isnot(None),
+            )
+            .first()
+        )
+        if not member_membership or not member_membership.organization_id:
+            return  # Independent user — no church → no webhook
+        org = (
+            db.query(Organization)
+            .filter(Organization.id == member_membership.organization_id)
+            .first()
+        )
+        if not org:
+            return
+
+        gifts_by_id: dict = {}
+        story_questions: list = []
+        myimpact_result = None
+
+        if assessment.instrument_type == "myimpact":
+            myimpact_result = result
+        else:
+            # Pre-fetch all referenced gift/passion rows in one round trip.
+            ids = [
+                getattr(result, attr)
+                for attr in (
+                    "gift_1_id", "gift_2_id", "gift_3_id", "gift_4_id",
+                    "passion_1_id", "passion_2_id", "passion_3_id",
+                )
+                if getattr(result, attr)
+            ]
+            if ids:
+                gifts_by_id = {
+                    g.id: g
+                    for g in db.query(GiftsPassion).filter(GiftsPassion.id.in_(ids)).all()
+                }
+
+            for field, prompt in _STORY_PROMPTS.items():
+                answer = getattr(result, field, None)
+                if answer:
+                    story_questions.append(
+                        {"question": prompt, "questionEs": None, "answer": answer}
+                    )
+
+        payload = build_assessment_payload(
+            assessment=assessment,
+            user=current_user,
+            organization=org,
+            result=result if assessment.instrument_type != "myimpact" else None,
+            myimpact_result=myimpact_result,
+            gifts_by_id=gifts_by_id,
+            story_questions=story_questions,
+        )
+        WebhookService(db).fire(org.id, "assessment_completed", payload)
+    except Exception as exc:
+        logger.error("Failed to fire assessment_completed webhook: %s", exc)
 
 
 @router.post("/start", response_model=AssessmentFormData, status_code=status.HTTP_201_CREATED)
@@ -342,6 +432,7 @@ async def submit_assessment(
 
         response = build_myimpact_result_response(result)
         _notify_org_admins(db, current_user, assessment)
+        _fire_assessment_webhook(db, current_user, assessment, result)
         try:
             send_myimpact_result_email(
                 current_user.email,
@@ -355,10 +446,12 @@ async def submit_assessment(
             notification_service.create_notification(
                 db,
                 user_id=current_user.id,
-                type="myimpact_result",
+                type="assessment_self_completed",
                 title="MyImpact Results Ready",
                 message="Your MyImpact assessment results are now available.",
                 link=f"/myimpact-results?id={assessment.id}",
+                reference_type="assessment",
+                reference_id=assessment.id,
             )
         except Exception:
             pass
@@ -382,6 +475,7 @@ async def submit_assessment(
 
         response = build_result_with_details(db, result)
         _notify_org_admins(db, current_user, assessment)
+        _fire_assessment_webhook(db, current_user, assessment, result)
         try:
             send_gps_result_email(
                 current_user.email,
@@ -395,10 +489,12 @@ async def submit_assessment(
             notification_service.create_notification(
                 db,
                 user_id=current_user.id,
-                type="gps_result",
+                type="assessment_self_completed",
                 title="GPS Results Ready",
                 message="Your GPS assessment results are now available.",
                 link=f"/assessment-results?id={assessment.id}",
+                reference_type="assessment",
+                reference_id=assessment.id,
             )
         except Exception:
             pass
@@ -535,6 +631,7 @@ async def grade_assessment_preview(
                     "name": g.name,
                     "short_code": g.short_code,
                     "description": g.description,
+                    "description_es": g.description_es,
                     "points": g.points
                 }
                 for g in graded.gifts
@@ -545,6 +642,7 @@ async def grade_assessment_preview(
                     "name": g.name,
                     "short_code": g.short_code,
                     "description": g.description,
+                    "description_es": g.description_es,
                     "points": g.points
                 }
                 for g in graded.top_gifts
@@ -859,38 +957,49 @@ def build_result_with_details(db: Session, result: AssessmentResult) -> Assessme
             if passion:
                 passions[i] = passion
     
+    def gp_field(slot: int, attr: str, source: dict):
+        gp = source.get(slot)
+        return getattr(gp, attr, None) if gp else None
+
     return AssessmentResultWithDetails(
         id=result.id,
         assessment_id=result.assessment_id,
         user_id=result.user_id,
         gift_1_id=result.gift_1_id,
         spiritual_gift_1_score=result.spiritual_gift_1_score,
-        gift_1_name=gifts.get(1).name if 1 in gifts else None,
-        gift_1_description=gifts.get(1).description if 1 in gifts else None,
+        gift_1_name=gp_field(1, "name", gifts),
+        gift_1_description=gp_field(1, "description", gifts),
+        gift_1_description_es=gp_field(1, "description_es", gifts),
         gift_2_id=result.gift_2_id,
         spiritual_gift_2_score=result.spiritual_gift_2_score,
-        gift_2_name=gifts.get(2).name if 2 in gifts else None,
-        gift_2_description=gifts.get(2).description if 2 in gifts else None,
+        gift_2_name=gp_field(2, "name", gifts),
+        gift_2_description=gp_field(2, "description", gifts),
+        gift_2_description_es=gp_field(2, "description_es", gifts),
         gift_3_id=result.gift_3_id,
         spiritual_gift_3_score=result.spiritual_gift_3_score,
-        gift_3_name=gifts.get(3).name if 3 in gifts else None,
-        gift_3_description=gifts.get(3).description if 3 in gifts else None,
+        gift_3_name=gp_field(3, "name", gifts),
+        gift_3_description=gp_field(3, "description", gifts),
+        gift_3_description_es=gp_field(3, "description_es", gifts),
         gift_4_id=result.gift_4_id,
         spiritual_gift_4_score=result.spiritual_gift_4_score,
-        gift_4_name=gifts.get(4).name if 4 in gifts else None,
-        gift_4_description=gifts.get(4).description if 4 in gifts else None,
+        gift_4_name=gp_field(4, "name", gifts),
+        gift_4_description=gp_field(4, "description", gifts),
+        gift_4_description_es=gp_field(4, "description_es", gifts),
         passion_1_id=result.passion_1_id,
         passion_1_score=result.passion_1_score,
-        passion_1_name=passions.get(1).name if 1 in passions else None,
-        passion_1_description=passions.get(1).description if 1 in passions else None,
+        passion_1_name=gp_field(1, "name", passions),
+        passion_1_description=gp_field(1, "description", passions),
+        passion_1_description_es=gp_field(1, "description_es", passions),
         passion_2_id=result.passion_2_id,
         passion_2_score=result.passion_2_score,
-        passion_2_name=passions.get(2).name if 2 in passions else None,
-        passion_2_description=passions.get(2).description if 2 in passions else None,
+        passion_2_name=gp_field(2, "name", passions),
+        passion_2_description=gp_field(2, "description", passions),
+        passion_2_description_es=gp_field(2, "description_es", passions),
         passion_3_id=result.passion_3_id,
         passion_3_score=result.passion_3_score,
-        passion_3_name=passions.get(3).name if 3 in passions else None,
-        passion_3_description=passions.get(3).description if 3 in passions else None,
+        passion_3_name=gp_field(3, "name", passions),
+        passion_3_description=gp_field(3, "description", passions),
+        passion_3_description_es=gp_field(3, "description_es", passions),
         people=result.people,
         people_list=result.people.split(',') if result.people else [],
         cause=result.cause,

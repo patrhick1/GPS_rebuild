@@ -1,31 +1,8 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAssessment } from '../context/AssessmentContext';
-
-/** Simple translation map for GPS assessment UI strings */
-const ES_STRINGS: Record<string, string> = {
-  'GPS Assessment': 'Evaluación GPS',
-  'Assessment started on': 'Evaluación iniciada el',
-  'Completed': 'Completadas',
-  'of': 'de',
-  'questions': 'preguntas',
-  'Statements': 'Declaraciones',
-  'Answers': 'Respuestas',
-  'Almost Never': 'Casi Nunca',
-  'Almost Always': 'Casi Siempre',
-  'Previous': 'Anterior',
-  'Next': 'Siguiente',
-  'Submit': 'Enviar',
-  'Submitting...': 'Enviando...',
-  'Save & Exit': 'Guardar y Salir',
-  'Account': 'Cuenta',
-  'Logout': 'Cerrar Sesión',
-  'Loading assessment...': 'Cargando evaluación...',
-  'No questions available': 'No hay preguntas disponibles',
-  'Enter your answer...': 'Ingrese su respuesta...',
-  'Assessment menu': 'Menú de evaluación',
-};
+import { useTranslation } from '../hooks/useTranslation';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { MultiSelectPage } from '../components/MultiSelectPage';
@@ -62,9 +39,8 @@ export function AssessmentWizard() {
     assessmentStartDate,
   } = useAssessment();
 
-  const { logout, locale } = useAuth();
-  const isEs = locale === 'es';
-  const t = useMemo(() => (key: string) => isEs ? (ES_STRINGS[key] || key) : key, [isEs]);
+  const { logout } = useAuth();
+  const { t, isEs } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const continueId = searchParams.get('continue');
@@ -278,7 +254,6 @@ export function AssessmentWizard() {
               questions={currentPage.questions}
               answers={answers}
               onSelect={handleLikertSelect}
-              isEs={isEs}
             />
           )}
 
@@ -320,7 +295,6 @@ export function AssessmentWizard() {
               question={currentPage.questions[0]}
               answer={answers[currentPage.questions[0].id]}
               onTextChange={handleTextChange}
-              isEs={isEs}
             />
           )}
 
@@ -380,22 +354,21 @@ function LikertPage({
   questions,
   answers,
   onSelect,
-  isEs = false,
 }: {
   questions: { id: string; question: string; question_es?: string }[];
   answers: Record<string, { numeric_value?: number }>;
   onSelect: (questionId: string, value: number) => void;
-  isEs?: boolean;
 }) {
+  const { t, isEs } = useTranslation();
   return (
     <div>
       {/* Column headers */}
       <div className="flex items-center justify-between mb-0">
         <span className="uppercase font-body font-bold text-base text-brand-gray-med tracking-wide">
-          {isEs ? 'Declaraciones' : 'Statements'}
+          {t('Statements')}
         </span>
         <span className="uppercase font-body font-bold text-base text-brand-gray-med tracking-wide mr-4">
-          {isEs ? 'Respuestas' : 'Answers'}
+          {t('Answers')}
         </span>
       </div>
 
@@ -414,7 +387,7 @@ function LikertPage({
               {/* Likert scale */}
               <div className="flex items-center gap-3 flex-1 justify-end">
                 <span className="font-body font-bold text-base text-brand-charcoal leading-[26px] w-[105px] text-left">
-                  {isEs ? 'Casi Nunca' : 'Almost Never'}
+                  {t('Almost Never')}
                 </span>
                 <div className="flex gap-[15px]">
                   {[1, 2, 3, 4, 5].map((val) => (
@@ -432,7 +405,7 @@ function LikertPage({
                   ))}
                 </div>
                 <span className="font-body font-bold text-base text-brand-charcoal leading-[26px] w-[117px] text-right">
-                  {isEs ? 'Casi Siempre' : 'Almost Always'}
+                  {t('Almost Always')}
                 </span>
               </div>
             </div>
@@ -448,13 +421,12 @@ function TextPage({
   question,
   answer,
   onTextChange,
-  isEs = false,
 }: {
   question: { id: string; question: string; question_es?: string; default_text?: string; summary?: string };
   answer?: { text_value?: string };
   onTextChange: (questionId: string, value: string) => void;
-  isEs?: boolean;
 }) {
+  const { t, isEs } = useTranslation();
   return (
     <div>
       <p className="font-body font-bold text-[20px] leading-[30px] text-brand-charcoal mb-4">
@@ -477,7 +449,7 @@ function TextPage({
 
       <textarea
         className="w-full min-h-[200px] p-4 border border-brand-gray-light rounded-xl font-body text-base text-brand-charcoal resize-y focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 transition-colors"
-        placeholder={isEs ? 'Ingrese su respuesta...' : 'Enter your answer...'}
+        placeholder={t('Enter your answer...')}
         value={answer?.text_value || ''}
         onChange={(e) => onTextChange(question.id, e.target.value)}
       />
