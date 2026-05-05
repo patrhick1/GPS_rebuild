@@ -585,7 +585,9 @@ else:
 # B8 — Master read-only view
 def t_b8_master_sees_org_webhooks():
     # Ensure there's at least one long-URL webhook so masking can be observed.
-    long_url = WEBHOOK_SITE_URL or "https://hooks.zapier.com/hooks/catch/12345678/abcdefghij/"
+    # Fallback URL must be >36 chars so the masking branch in
+    # api/app/routers/webhooks.py:_mask_url() actually masks it.
+    long_url = WEBHOOK_SITE_URL or "https://example.com/webhook-sink-placeholder/inbox/"
     # Ensure a fresh assessment_completed config exists pointing at the long URL.
     for w in sess_admin.get(f"{API}/admin/webhooks", timeout=10).json().get("webhooks", []):
         if w["event_type"] == "assessment_completed":
