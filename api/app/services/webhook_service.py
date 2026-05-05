@@ -195,7 +195,21 @@ class WebhookService:
         self._deliver(delivery, config)
         return delivery
 
-    def _deliver(self, delivery: WebhookDelivery, config: WebhookConfig) -> None:
+    def _deliver(
+        self,
+        delivery: WebhookDelivery,
+        config: WebhookConfig,
+        *,
+        commit: bool = True,
+    ) -> None:
+        """Attempt one delivery and update the row's status fields.
+
+        ``commit=True`` is correct for the synchronous fire() path, where
+        each delivery is its own short transaction. The retry runner sets
+        ``commit=False`` so the outer SELECT FOR UPDATE lock isn't released
+        between rows in the batch — that release would let a concurrent
+        cron pick up the same rows and double-deliver them.
+        """
         body_bytes = json.dumps(delivery.payload, default=str).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
@@ -229,7 +243,8 @@ class WebhookService:
             self._mark_failed(delivery, error=f"{type(exc).__name__}: {exc}")
             logger.exception("Unexpected webhook delivery error")
         finally:
-            self.db.commit()
+            if commit:
+                self.db.commit()
 
     def _mark_failed(self, delivery: WebhookDelivery, *, error: str) -> None:
         delivery.error_message = error
@@ -247,11 +262,17 @@ class WebhookService:
     def process_pending_retries(self, batch_size: int = 50) -> int:
         """Called by the internal cron endpoint. Returns count processed.
 
-        Uses SELECT FOR UPDATE SKIP LOCKED so concurrent cron firings (or
-        multiple web workers receiving the same hit) don't double-deliver.
+        Uses SELECT FOR UPDATE SKIP LOCKED to claim a batch of rows. The
+        locks are held for the duration of the batch — we deliberately do
+        NOT commit between rows so a concurrent cron firing can't release
+        them mid-flight and double-deliver the rest. With max_attempts=4
+        and batch_size=50 the worst-case lock duration is bounded by
+        50 × TIMEOUT_SECONDS (≈8 min for a fully-failing batch); the next
+        cron simply skips the locked rows and picks up other work.
+
+        Postgres-only; SQLite (dev) doesn't support SKIP LOCKED but cron
+        is never wired up in dev.
         """
-        # Postgres-only; SQLite (dev) doesn't support SKIP LOCKED but cron
-        # is never wired up in dev.
         rows = self.db.execute(
             text(
                 """
@@ -271,33 +292,43 @@ class WebhookService:
         if not ids:
             return 0
 
-        deliveries = (
-            self.db.query(WebhookDelivery)
-            .filter(WebhookDelivery.id.in_(ids))
-            .all()
-        )
-        # Fetch all configs in one round-trip.
-        config_ids = {d.webhook_config_id for d in deliveries}
-        configs_by_id = {
-            c.id: c
-            for c in self.db.query(WebhookConfig)
-            .filter(WebhookConfig.id.in_(config_ids))
-            .all()
-        }
+        try:
+            deliveries = (
+                self.db.query(WebhookDelivery)
+                .filter(WebhookDelivery.id.in_(ids))
+                .all()
+            )
+            # Fetch all configs in one round-trip.
+            config_ids = {d.webhook_config_id for d in deliveries}
+            configs_by_id = {
+                c.id: c
+                for c in self.db.query(WebhookConfig)
+                .filter(WebhookConfig.id.in_(config_ids))
+                .all()
+            }
 
-        for delivery in deliveries:
-            config = configs_by_id.get(delivery.webhook_config_id)
-            if not config:
-                # Config was deleted out from under us. Mark dead so we
-                # stop retrying — there's nothing to deliver to.
-                delivery.status = "dead"
-                delivery.next_retry_at = None
-                delivery.error_message = "Webhook config was deleted"
-                continue
-            self._deliver(delivery, config)
+            for delivery in deliveries:
+                config = configs_by_id.get(delivery.webhook_config_id)
+                if not config:
+                    # Config was deleted out from under us. Mark dead so we
+                    # stop retrying — there's nothing to deliver to.
+                    delivery.status = "dead"
+                    delivery.next_retry_at = None
+                    delivery.error_message = "Webhook config was deleted"
+                    continue
+                # Critical: commit=False keeps the SELECT FOR UPDATE locks
+                # held until the loop ends. See docstring above.
+                self._deliver(delivery, config, commit=False)
 
-        self.db.commit()
-        return len(deliveries)
+            self.db.commit()
+            return len(deliveries)
+        except Exception:
+            # On unexpected error, roll back so the batch reverts to its
+            # pre-claim state. SKIP LOCKED + status='failed' filter will
+            # pick the rows up again on the next cron tick.
+            self.db.rollback()
+            logger.exception("process_pending_retries batch failed; rolled back")
+            raise
 
     # ---- Test connection ----
 
