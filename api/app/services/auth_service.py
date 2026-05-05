@@ -37,7 +37,12 @@ class AuthService:
         except Exception:
             pass  # Non-fatal: don't block registration if email fails
 
-    def register_user(self, user_data: UserCreate, organization_key: Optional[str] = None) -> User:
+    def register_user(
+        self,
+        user_data: UserCreate,
+        organization_key: Optional[str] = None,
+        background_tasks=None,
+    ) -> User:
         """Register a new user."""
         # Check if email already exists
         existing_user = self.db.query(User).filter(User.email == user_data.email.lower()).first()
@@ -103,10 +108,17 @@ class AuthService:
         self._send_verification(db_user)
 
         # Fire member_joined notification + user_registered webhook (non-fatal).
+        # Webhook is dispatched after the response when background_tasks is
+        # available (HTTP request path), keeping registration latency low.
         if joined_org is not None:
             try:
                 from app.services.membership_events import fire_member_joined_events
-                fire_member_joined_events(self.db, user=db_user, organization=joined_org)
+                fire_member_joined_events(
+                    self.db,
+                    user=db_user,
+                    organization=joined_org,
+                    background_tasks=background_tasks,
+                )
             except Exception:
                 import logging
                 logging.getLogger(__name__).exception(

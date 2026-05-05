@@ -2,7 +2,7 @@
 Church Admin API endpoints
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, desc
@@ -845,6 +845,7 @@ async def get_pending_members(
 async def approve_pending(
     request: Request,
     membership_id: str,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_active_subscription)
 ):
@@ -887,9 +888,18 @@ async def approve_pending(
             pass  # Non-fatal
 
         # member_joined notification to admins + user_registered webhook.
+        # Webhook is dispatched after the response so a slow Zapier endpoint
+        # never blocks the admin's approval click. Actor is excluded from the
+        # notification fan-out so the approving admin doesn't notify themselves.
         try:
             from app.services.membership_events import fire_member_joined_events
-            fire_member_joined_events(db, user=member_user, organization=org)
+            fire_member_joined_events(
+                db,
+                user=member_user,
+                organization=org,
+                background_tasks=background_tasks,
+                actor_user_id=current_user.id,
+            )
         except Exception:
             import logging
             logging.getLogger(__name__).exception(

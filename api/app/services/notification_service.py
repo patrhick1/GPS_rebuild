@@ -2,7 +2,7 @@
 Notification service for creating and querying in-app notifications.
 """
 import logging
-from typing import Optional
+from typing import Iterable, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -22,8 +22,13 @@ def create_notification(
     link: Optional[str] = None,
     reference_type: Optional[str] = None,
     reference_id: Optional[UUID] = None,
+    commit: bool = True,
 ) -> Notification:
-    """Create a new notification for a user."""
+    """Create a new notification for a user.
+
+    Pass ``commit=False`` when fanning out a batch — caller is then responsible
+    for calling ``db.commit()`` exactly once after the loop.
+    """
     notification = Notification(
         user_id=user_id,
         type=type,
@@ -34,9 +39,26 @@ def create_notification(
         reference_id=reference_id,
     )
     db.add(notification)
-    db.commit()
-    db.refresh(notification)
+    if commit:
+        db.commit()
+        db.refresh(notification)
     return notification
+
+
+def create_notifications_bulk(db: Session, rows: Iterable[dict]) -> int:
+    """Insert many notifications in a single transaction. Returns the count.
+
+    ``rows`` are dicts with the same keys as ``create_notification`` parameters
+    (excluding ``commit``). Used for admin/master fan-outs where a single church
+    event creates one notification per admin — historically each was a separate
+    INSERT+COMMIT, which doesn't scale past a handful of admins.
+    """
+    notifications = [Notification(**row) for row in rows]
+    if not notifications:
+        return 0
+    db.add_all(notifications)
+    db.commit()
+    return len(notifications)
 
 
 def get_notifications(

@@ -4,7 +4,7 @@ from typing import List, Optional
 from io import BytesIO
 
 logger = logging.getLogger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Request, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timezone
@@ -74,6 +74,9 @@ def _notify_org_admins(db: Session, current_user: User, assessment: Assessment) 
         org_name = member_membership.organization.name
         dashboard_url = f"{settings.FRONTEND_URL}/admin"
         instrument_label = "MyImpact" if assessment.instrument_type == "myimpact" else "GPS"
+        # Email admins individually (provider call), but batch the in-app
+        # notification inserts into one commit so a 5-admin church doesn't do
+        # 5 separate INSERT+COMMIT round-trips on the assessment-submit path.
         for am in admin_memberships:
             send_assessment_notification_email(
                 to_email=am.user.email,
@@ -83,19 +86,26 @@ def _notify_org_admins(db: Session, current_user: User, assessment: Assessment) 
                 instrument_type=assessment.instrument_type,
                 dashboard_url=dashboard_url,
             )
-            try:
-                notification_service.create_notification(
-                    db,
-                    user_id=am.user.id,
-                    type="assessment_completed",
-                    title=f"{member_name} completed {instrument_label}",
-                    message=f"{member_name} just completed a {instrument_label} assessment.",
-                    link="/admin",
-                    reference_type="assessment",
-                    reference_id=assessment.id,
-                )
-            except Exception:
-                pass
+        try:
+            # Deep-link to the member's row so clicking the bell opens the
+            # member detail panel (PRD §2.5), not the bare admin dashboard.
+            notification_service.create_notifications_bulk(
+                db,
+                [
+                    dict(
+                        user_id=am.user.id,
+                        type="assessment_completed",
+                        title=f"{member_name} completed {instrument_label}",
+                        message=f"{member_name} just completed a {instrument_label} assessment.",
+                        link=f"/admin?member={current_user.id}",
+                        reference_type="assessment",
+                        reference_id=assessment.id,
+                    )
+                    for am in admin_memberships
+                ],
+            )
+        except Exception:
+            logger.exception("Failed to bulk-create assessment_completed notifications")
     except Exception as exc:
         logger.error("Failed to notify org admins: %s", exc)
 
@@ -358,6 +368,7 @@ async def submit_assessment(
     request: Request,
     assessment_id: str,
     submit_data: AssessmentSubmit,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_verified_user)
 ):
@@ -432,7 +443,10 @@ async def submit_assessment(
 
         response = build_myimpact_result_response(result)
         _notify_org_admins(db, current_user, assessment)
-        _fire_assessment_webhook(db, current_user, assessment, result)
+        # Webhook fires after the response is sent so a slow CRM receiver
+        # never blocks the user's submit. The retry runner (cron) handles
+        # follow-up attempts on failure.
+        background_tasks.add_task(_fire_assessment_webhook, db, current_user, assessment, result)
         try:
             send_myimpact_result_email(
                 current_user.email,
@@ -475,7 +489,10 @@ async def submit_assessment(
 
         response = build_result_with_details(db, result)
         _notify_org_admins(db, current_user, assessment)
-        _fire_assessment_webhook(db, current_user, assessment, result)
+        # Webhook fires after the response is sent so a slow CRM receiver
+        # never blocks the user's submit. The retry runner (cron) handles
+        # follow-up attempts on failure.
+        background_tasks.add_task(_fire_assessment_webhook, db, current_user, assessment, result)
         try:
             send_gps_result_email(
                 current_user.email,

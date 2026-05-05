@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Response, Request, Form
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,7 @@ security = HTTPBearer()
 async def register(
     request: Request,
     user_data: UserCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Register a new user."""
@@ -46,6 +47,7 @@ async def register(
     user = auth_service.register_user(
         user_data=user_data,
         organization_key=user_data.organization_key,
+        background_tasks=background_tasks,
     )
     return user
 

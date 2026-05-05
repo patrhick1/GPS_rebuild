@@ -6,6 +6,7 @@ Internal: cron-driven retry processor (shared-secret auth).
 """
 from datetime import datetime, timedelta
 from typing import Optional
+from urllib.parse import urlparse
 from uuid import UUID
 
 import hmac
@@ -54,12 +55,21 @@ def _mask_secret(secret: Optional[str]) -> Optional[str]:
 
 
 def _mask_url(url: str) -> str:
-    """https://hooks.zapier.com/hooks/catch/abcd1234/ -> https://hooks.zapier.com/hooks/catch/••••1234/"""
+    """Strip everything below the hostname.
+
+    For Zapier-style URLs the path token IS the bearer secret, so revealing
+    any path bytes leaks credentials. Show only `scheme://host/…` to the
+    master view.
+    """
     if not url:
         return ""
-    if len(url) <= 12:
-        return "•" * len(url)
-    return f"{url[:30]}…{url[-6:]}" if len(url) > 36 else url
+    try:
+        parsed = urlparse(url)
+        if parsed.hostname:
+            return f"{parsed.scheme or 'https'}://{parsed.hostname}/…"
+    except Exception:
+        pass
+    return "•" * 12
 
 
 def _to_response(config: WebhookConfig) -> WebhookConfigResponse:

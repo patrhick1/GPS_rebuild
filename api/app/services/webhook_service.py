@@ -35,11 +35,16 @@ from app.models.webhook_delivery import WebhookDelivery
 logger = logging.getLogger(__name__)
 
 
-MAX_ATTEMPTS = 3
+MAX_ATTEMPTS = 4
 TIMEOUT_SECONDS = 10.0
-# Backoff: index = attempts AFTER the failure that just happened.
-# attempts=1 → +60s, attempts=2 → +300s, attempts=3 → no retry (dead).
-BACKOFF_SECONDS = {1: 60, 2: 300}
+# Per PRD addendum §3.6: "Max 3 retry attempts. Backoff: 1 minute, 5 minutes,
+# 30 minutes." That's three retries on top of the initial attempt — 4 attempts
+# total. Index is the value of `attempts` AFTER the failure that just happened:
+#   attempts=1 → +60s   (1st retry scheduled)
+#   attempts=2 → +300s  (2nd retry scheduled)
+#   attempts=3 → +1800s (3rd retry scheduled)
+#   attempts=4 → dead   (no further retry)
+BACKOFF_SECONDS = {1: 60, 2: 300, 3: 1800}
 
 
 # -------------------- SSRF guard --------------------

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, api } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
 import { Navbar } from '../components/Navbar';
@@ -61,6 +61,7 @@ export function AdminDashboard() {
   } = useAdmin();
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<AdminTab>('gps');
   const [menuOpen, setMenuOpen] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -94,6 +95,22 @@ export function AdminDashboard() {
     fetchSettings();
     fetchStats();
   }, [fetchMembers, fetchPending, fetchSettings, fetchStats]);
+
+  // Notification bell deep-link: when redirected to /admin?member=<id>
+  // (e.g. by clicking an `assessment_completed` notification), auto-open the
+  // slide-in panel for that member once the members list has loaded. Strips
+  // the query param afterward so a refresh doesn't re-open the panel.
+  useEffect(() => {
+    const memberIdFromUrl = searchParams.get('member');
+    if (!memberIdFromUrl || members.length === 0) return;
+    const target = members.find((m) => String(m.id) === memberIdFromUrl);
+    if (target) {
+      setSelectedMember(target);
+      const next = new URLSearchParams(searchParams);
+      next.delete('member');
+      setSearchParams(next, { replace: true });
+    }
+  }, [members, searchParams, setSearchParams]);
 
   useEffect(() => {
     api.get('/billing/subscription/status').then((res) => {
