@@ -37,6 +37,12 @@ def _split_csv(value: Optional[str]) -> list[str]:
 
 
 def _user_block(user: User) -> dict[str, Any]:
+    # PRD addendum §3.3 references a legacy `legacyId` (integer) field for
+    # backward compat "if available from migration". Verified 2026-05-05:
+    # no legacy_id column exists on the users table — the Laravel data
+    # migration didn't carry the integer IDs forward — so the conditional
+    # resolves to "omit". Don't re-add legacyId without first adding the
+    # column + backfill.
     return {
         "id": str(user.id),
         "firstName": user.first_name,
