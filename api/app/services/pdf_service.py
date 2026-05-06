@@ -133,9 +133,9 @@ def _build_styles() -> dict:
 
 
 def _gift_rows(graded: GradedAssessment, styles: dict) -> list:
-    """Build table rows for the gifts section."""
+    """Build table rows for the gifts section. Top 3-4 only (with ties)."""
     rows = []
-    for gift in graded.gifts:
+    for gift in graded.top_gifts:
         name_para = Paragraph(gift.name, styles["gift_name"])
         desc_para = Paragraph(gift.description or "", styles["body"])
         score_para = Paragraph(f"Score: {gift.points}", styles["score"])
@@ -144,9 +144,10 @@ def _gift_rows(graded: GradedAssessment, styles: dict) -> list:
 
 
 def _passion_rows(graded: GradedAssessment, styles: dict) -> list:
-    """Build table rows for the passions/influencing styles section."""
+    """Build table rows for the passions section. Top 2 only — matches the
+    legacy GPS layout (Sherri 2026-05-05)."""
     rows = []
-    for passion in graded.passions:
+    for passion in graded.top_passions[:2]:
         name_para = Paragraph(passion.name, styles["gift_name"])
         desc_para = Paragraph(passion.description or "", styles["body"])
         score_para = Paragraph(f"Score: {passion.points}", styles["score"])
@@ -208,27 +209,24 @@ def generate_pdf(
     story.append(Spacer(1, 12))
     story.append(HRFlowable(width="100%", thickness=1.5, color=TEAL, spaceAfter=4))
 
-    # ── Story Section ────────────────────────────────────────────────────────
-    if graded.stories:
-        story.append(Paragraph("Story", styles["section_heading"]))
-        for s in graded.stories:
-            if s.question and s.answer:
-                block = [
-                    Paragraph(s.question, styles["story_question"]),
-                    Paragraph(s.answer.replace("\n", "<br/>"), styles["story_answer"]),
-                ]
-                story.append(KeepTogether(block))
+    # Section order matches the web results page (Sherri 2026-05-05):
+    # Gifts → Passions → Story. Key Abilities folded under Gifts; People +
+    # Causes folded under Passions. Story is the closing section.
 
     # ── Spiritual Gifts ──────────────────────────────────────────────────────
-    if graded.gifts:
+    if graded.top_gifts:
         story.append(Paragraph("Your Spiritual Gifts", styles["section_heading"]))
         story.append(HRFlowable(width="100%", thickness=0.5, color=GRAY_LIGHT, spaceAfter=0))
         rows = _gift_rows(graded, styles)
         if rows:
             story.append(_item_table(rows))
 
+        if graded.abilities:
+            story.append(Paragraph("Key Abilities", styles["subsection_heading"]))
+            story.append(Paragraph(", ".join(graded.abilities), styles["body"]))
+
     # ── Passions / Influencing Styles ────────────────────────────────────────
-    if graded.passions:
+    if graded.top_passions:
         story.append(Paragraph("Passions", styles["section_heading"]))
         story.append(Paragraph(
             "Your Spiritual Influencing Styles "
@@ -240,15 +238,6 @@ def generate_pdf(
         if rows:
             story.append(_item_table(rows))
 
-    # ── Selections ───────────────────────────────────────────────────────────
-    has_selections = graded.abilities or graded.people or graded.causes
-    if has_selections:
-        story.append(Paragraph("Your Selections", styles["section_heading"]))
-
-        if graded.abilities:
-            story.append(Paragraph("Key Abilities", styles["subsection_heading"]))
-            story.append(Paragraph(", ".join(graded.abilities), styles["body"]))
-
         if graded.people:
             story.append(Paragraph("People You're Passionate About", styles["subsection_heading"]))
             story.append(Paragraph(", ".join(graded.people), styles["body"]))
@@ -256,6 +245,17 @@ def generate_pdf(
         if graded.causes:
             story.append(Paragraph("Causes You Care About", styles["subsection_heading"]))
             story.append(Paragraph(", ".join(graded.causes), styles["body"]))
+
+    # ── Story Section (closes the document) ─────────────────────────────────
+    if graded.stories:
+        story.append(Paragraph("Story", styles["section_heading"]))
+        for s in graded.stories:
+            if s.question and s.answer:
+                block = [
+                    Paragraph(s.question, styles["story_question"]),
+                    Paragraph(s.answer.replace("\n", "<br/>"), styles["story_answer"]),
+                ]
+                story.append(KeepTogether(block))
 
     doc.build(story)
     buffer.seek(0)

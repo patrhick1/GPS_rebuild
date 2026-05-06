@@ -178,7 +178,132 @@ export function AssessmentResults() {
             </div>
           )}
 
-          {/* Story Section */}
+          {/* Section order matches the legacy GPS results page (Sherri 2026-05-05):
+             Gifts → Passions → Story. The previous layout led with Story which
+             felt backwards to the operations team since spiritual gifts are
+             the headline output of the assessment. */}
+
+          {/* === GIFTS === */}
+          {/* Show only the top 3-4 gifts (top_gifts already includes ties up to
+             a hard cap of 4). Displaying all 19 was overwhelming and not how
+             the legacy platform presented results. */}
+          <section className="mt-16">
+            <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-2">
+              {t('Your Spiritual Gifts')}
+            </h2>
+
+            <div className="space-y-0">
+              {results.top_gifts.map((gift, index) => (
+                <div key={gift.id}>
+                  <div className="border-t border-brand-gray-light" />
+
+                  <div className="flex items-start gap-6 py-6">
+                    <span
+                      className={`shrink-0 inline-flex items-center justify-center h-[50px] px-6 rounded-full font-body font-bold text-xl text-brand-charcoal ${GIFT_COLORS[index % GIFT_COLORS.length]}`}
+                    >
+                      {gift.name}
+                    </span>
+
+                    <p className="flex-1 font-body font-bold text-xl text-brand-charcoal leading-[30px]">
+                      {(isEs && gift.description_es) || gift.description}
+                    </p>
+
+                    <span className="shrink-0 font-body font-black text-xl text-brand-teal whitespace-nowrap">
+                      {t('Score:')} {gift.points}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              <div className="border-t border-brand-gray-light" />
+            </div>
+
+            {/* Key Abilities — folded under the gifts section because, per the
+               legacy layout, abilities are the practical companion to gifts. */}
+            {results.abilities.length > 0 && (
+              <div className="mt-6">
+                <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t('Key Abilities')}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {results.abilities.map((ability, idx) => (
+                    <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-purple/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
+                      {ability}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* === PASSIONS === */}
+          {/* Top TWO influencing styles only (not the legacy storage cap of 3
+             and not all 5). Sherri 2026-05-05: "we only display top TWO ...
+             this helps users focus in." */}
+          <section className="mt-16">
+            <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-2">
+              {t('Passions')}
+            </h2>
+            <p className="font-body font-bold text-xl text-brand-charcoal leading-[30px] mb-6">
+              {t('Your Spiritual Influencing Styles (highest score is primary & lower is secondary)')}
+            </p>
+
+            <div className="space-y-0">
+              {results.top_passions.slice(0, 2).map((passion, index) => (
+                <div key={passion.id}>
+                  <div className="border-t border-brand-gray-light" />
+
+                  <div className="flex items-start gap-6 py-6">
+                    <span
+                      className={`shrink-0 inline-flex items-center justify-center h-[50px] px-6 rounded-full font-body font-bold text-xl text-brand-charcoal ${PASSION_COLORS[index % PASSION_COLORS.length]}`}
+                    >
+                      {passion.name}
+                    </span>
+
+                    <p className="flex-1 font-body font-bold text-xl text-brand-charcoal leading-[30px]">
+                      {(isEs && passion.description_es) || passion.description}
+                    </p>
+
+                    <span className="shrink-0 font-body font-black text-xl text-brand-teal whitespace-nowrap">
+                      {t('Score:')} {passion.points}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              <div className="border-t border-brand-gray-light" />
+            </div>
+
+            {/* People + Causes — folded under the passions section. Per the
+               legacy layout these belong with passions, not in a separate
+               "Selections" block, because the GPS framing is "passions for
+               people, passions for causes". */}
+            {results.people.length > 0 && (
+              <div className="mt-6">
+                <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t("People You're Passionate About")}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {results.people.map((person, idx) => (
+                    <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-pink/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
+                      {person}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {results.causes.length > 0 && (
+              <div className="mt-6">
+                <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t('Causes You Care About')}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {results.causes.map((cause, idx) => (
+                    <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-teal-light/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
+                      {cause}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* === STORY === */}
+          {/* Last section in the legacy layout. Question shown in teal, answer
+             in charcoal so the eye separates prompt from response. */}
           {results.stories.length > 0 && (
             <section className="mt-16">
               <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-6">
@@ -217,135 +342,20 @@ export function AssessmentResults() {
                 )}
               </div>
 
-              {/* Story responses */}
-              {results.stories.map((story, idx) => (
-                <div key={idx} className="mt-6">
-                  <h3 className="font-body font-black text-lg text-brand-charcoal">{(isEs && story.question_es) ? story.question_es : story.question}</h3>
-                  <p className="font-body text-lg text-brand-charcoal mt-1 whitespace-pre-wrap">{story.answer}</p>
-                </div>
-              ))}
-            </section>
-          )}
-
-          {/* Your Spiritual Gifts */}
-          <section className="mt-16">
-            <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-6">
-              {t('Your Spiritual Gifts')}
-            </h2>
-
-            <div className="space-y-0">
-              {results.gifts.map((gift, index) => (
-                <div key={gift.id}>
-                  {/* Separator */}
-                  <div className="border-t border-brand-gray-light" />
-
-                  <div className="flex items-start gap-6 py-6">
-                    {/* Gift pill */}
-                    <span
-                      className={`shrink-0 inline-flex items-center justify-center h-[50px] px-6 rounded-full font-body font-bold text-xl text-brand-charcoal ${GIFT_COLORS[index % GIFT_COLORS.length]}`}
-                    >
-                      {gift.name}
-                    </span>
-
-                    {/* Description */}
-                    <p className="flex-1 font-body font-bold text-xl text-brand-charcoal leading-[30px]">
-                      {(isEs && gift.description_es) || gift.description}
+              {/* Story responses — Q in teal, A in charcoal per Sherri's
+                 reference layout for visual separation. */}
+              <div className="mt-8 space-y-6">
+                {results.stories.map((story, idx) => (
+                  <div key={idx} className="border-t border-brand-gray-light pt-5">
+                    <h3 className="font-body font-bold text-lg text-brand-teal">
+                      {(isEs && story.question_es) ? story.question_es : story.question}
+                    </h3>
+                    <p className="font-body text-lg text-brand-charcoal mt-2 whitespace-pre-wrap">
+                      {story.answer || <span className="italic text-brand-gray-med">—</span>}
                     </p>
-
-                    {/* Score */}
-                    <span className="shrink-0 font-body font-black text-xl text-brand-teal whitespace-nowrap">
-                      {t('Score:')} {gift.points}
-                    </span>
                   </div>
-                </div>
-              ))}
-              <div className="border-t border-brand-gray-light" />
-            </div>
-          </section>
-
-          {/* Passions / Influencing Styles */}
-          <section className="mt-16">
-            <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-2">
-              {t('Passions')}
-            </h2>
-            <p className="font-body font-bold text-xl text-brand-charcoal leading-[30px] mb-6">
-              {t('Your Spiritual Influencing Styles (highest score is primary & lower is secondary)')}
-            </p>
-
-            <div className="space-y-0">
-              {results.passions.map((passion, index) => (
-                <div key={passion.id}>
-                  <div className="border-t border-brand-gray-light" />
-
-                  <div className="flex items-start gap-6 py-6">
-                    {/* Passion pill */}
-                    <span
-                      className={`shrink-0 inline-flex items-center justify-center h-[50px] px-6 rounded-full font-body font-bold text-xl text-brand-charcoal ${PASSION_COLORS[index % PASSION_COLORS.length]}`}
-                    >
-                      {passion.name}
-                    </span>
-
-                    {/* Description */}
-                    <p className="flex-1 font-body font-bold text-xl text-brand-charcoal leading-[30px]">
-                      {(isEs && passion.description_es) || passion.description}
-                    </p>
-
-                    {/* Score */}
-                    <span className="shrink-0 font-body font-black text-xl text-brand-teal whitespace-nowrap">
-                      {t('Score:')} {passion.points}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              <div className="border-t border-brand-gray-light" />
-            </div>
-          </section>
-
-          {/* Selections */}
-          {(results.abilities.length > 0 || results.people.length > 0 || results.causes.length > 0) && (
-            <section className="mt-16">
-              <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-6">
-                {t('Your Selections')}
-              </h2>
-
-              {results.abilities.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t('Key Abilities')}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {results.abilities.map((ability, idx) => (
-                      <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-purple/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
-                        {ability}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {results.people.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t("People You're Passionate About")}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {results.people.map((person, idx) => (
-                      <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-pink/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
-                        {person}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {results.causes.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t('Causes You Care About')}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {results.causes.map((cause, idx) => (
-                      <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-teal-light/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
-                        {cause}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
             </section>
           )}
 

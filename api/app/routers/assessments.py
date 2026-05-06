@@ -670,6 +670,7 @@ async def grade_assessment_preview(
                     "name": p.name,
                     "short_code": p.short_code,
                     "description": p.description,
+                    "description_es": p.description_es,
                     "points": p.points
                 }
                 for p in graded.passions
@@ -680,6 +681,7 @@ async def grade_assessment_preview(
                     "name": p.name,
                     "short_code": p.short_code,
                     "description": p.description,
+                    "description_es": p.description_es,
                     "points": p.points
                 }
                 for p in graded.top_passions
