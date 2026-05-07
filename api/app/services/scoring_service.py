@@ -50,11 +50,22 @@ class GradedAssessment:
 
 class ScoringService:
     """Service for grading GPS assessments"""
-    
-    # Special question IDs from Laravel
-    ABILITY_QUESTION_ID = 166
-    PEOPLE_QUESTION_ID = 157
-    CAUSE_QUESTION_ID = 158
+
+    # `order` values for the three multi-select GPS questions whose
+    # selections feed the "Key Abilities", "People You're Passionate About",
+    # and "Causes You Care About" panels on the results page.
+    #
+    # These were ported from Laravel as 166/157/158 — those order numbers
+    # don't exist in the new schema, so for several months the grade
+    # endpoint silently returned empty arrays for all three. Caught
+    # 2026-05-07 when Sherri reported the panels weren't rendering.
+    # The current schema places them at:
+    #   - The People (Influencing Style group)        → order 1
+    #   - The Causes (Influencing Style group)        → order 2
+    #   - Indicate your key abilities (Spiritual Gift) → order 77
+    PEOPLE_QUESTION_ID = 1
+    CAUSE_QUESTION_ID = 2
+    ABILITY_QUESTION_ID = 77
     
     def __init__(self, db: Session):
         self.db = db
@@ -90,19 +101,72 @@ class ScoringService:
         graded.top_gifts = self._get_top_results(gift_results, 4, limit_top=2)
         graded.top_passions = self._get_top_results(passion_results, 3, limit_top=2)
         
-        # Get special answers (convert order numbers to UUIDs)
-        order_map = self._build_order_to_uuid_map()
-        graded.abilities = self._get_checkbox_answers(assessment, order_map.get(self.ABILITY_QUESTION_ID))
-        graded.people = self._get_checkbox_answers(assessment, order_map.get(self.PEOPLE_QUESTION_ID))
-        graded.causes = self._get_checkbox_answers(assessment, order_map.get(self.CAUSE_QUESTION_ID))
+        # Resolve the three special multi-select question UUIDs by their
+        # (type, question_type, order) tuple. Plain `order` is ambiguous —
+        # there are likert questions sharing orders 1, 2, and 77 with the
+        # multi-select questions, and the legacy lookup picked whichever
+        # one happened to land last in iteration.
+        graded.abilities = self._get_checkbox_answers(
+            assessment,
+            self._resolve_special_question_id("Spiritual Gift", self.ABILITY_QUESTION_ID),
+        )
+        graded.people = self._get_checkbox_answers(
+            assessment,
+            self._resolve_special_question_id("Influencing Style", self.PEOPLE_QUESTION_ID),
+        )
+        graded.causes = self._get_checkbox_answers(
+            assessment,
+            self._resolve_special_question_id("Influencing Style", self.CAUSE_QUESTION_ID),
+        )
         graded.stories = self._get_stories(assessment)
-        
+
         return graded
-    
+
     def _build_order_to_uuid_map(self) -> dict:
-        """Build a mapping from question order number to question UUID"""
-        questions = self.db.query(Question).all()
-        return {q.order: q.id for q in questions}
+        """Build a mapping from question order number to question UUID,
+        restricted to likert questions.
+
+        Only used by gift/passion scoring, which lists its question orders
+        in the GiftsPassion.questions CSV column. Those orders all reference
+        likert rows. Including non-likert rows here would non-deterministically
+        clobber the likert UUIDs (orders 1, 2, 77 collide between likert and
+        multiple_choice questions).
+        """
+        from sqlalchemy import text
+
+        rows = self.db.execute(
+            text(
+                """
+                SELECT q."order", q.id
+                  FROM questions q
+                  JOIN question_types qt ON qt.id = q.question_type_id
+                 WHERE qt.type = 'likert'
+                """
+            )
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def _resolve_special_question_id(self, type_name: str, order: int):
+        """Resolve the UUID of a multi-select GPS question by its
+        (type, order) tuple. Returns None if not present in the schema."""
+        from sqlalchemy import text
+
+        return self.db.execute(
+            text(
+                """
+                SELECT q.id
+                  FROM questions q
+                  JOIN types t ON t.id = q.type_id
+                  JOIN question_types qt ON qt.id = q.question_type_id
+                 WHERE q.instrument_type = 'gps'
+                   AND t.name = :type
+                   AND qt.type = 'multiple_choice'
+                   AND q."order" = :order
+                 LIMIT 1
+                """
+            ),
+            {"type": type_name, "order": order},
+        ).scalar()
 
     def _calculate_gifts(self, assessment: Assessment, gifts: List[GiftsPassion]) -> List[GiftPassionResult]:
         """Calculate scores for all spiritual gifts"""
@@ -220,21 +284,38 @@ class ScoringService:
         return top_results
     
     def _get_checkbox_answers(self, assessment: Assessment, question_id: Optional[Any]) -> List[str]:
-        """Get checkbox/multiple choice answers for a question"""
+        """Get checkbox/multiple choice answers for a question.
+
+        The wizard stores the user's selections for People/Causes/Abilities
+        as a single comma-joined string in `multiple_choice_answer` (one
+        Answer row per question, e.g. ``"College/Career,Young Marrieds"``).
+        We split that string back into the individual selections the
+        results page renders as pills.
+
+        "Other" is preserved if the user typed a custom value: the wizard
+        sends the literal token ``Other`` in the joined string and the free
+        text in `text_value`; we expand it to ``Other: <text>`` so the pill
+        carries the custom answer.
+        """
         if question_id is None:
             return []
 
-        answers = []
+        answers: List[str] = []
 
         for answer in assessment.answers:
-            if answer.question_id == question_id:
-                value = answer.multiple_choice_answer
-                if value:
-                    # Handle "Other" responses with text
-                    if value.lower() == 'other' and answer.text_value:
-                        value = f"{value}: {answer.text_value}"
-                    answers.append(value)
-        
+            if answer.question_id != question_id:
+                continue
+            raw = answer.multiple_choice_answer
+            if not raw:
+                continue
+            for item in raw.split(','):
+                value = item.strip()
+                if not value:
+                    continue
+                if value.lower() == 'other' and answer.text_value:
+                    value = f"Other: {answer.text_value.strip()}"
+                answers.append(value)
+
         return answers
     
     def _get_stories(self, assessment: Assessment) -> List[StoryKeyPair]:

@@ -14,7 +14,11 @@ export const CAUSES_OPTIONS = [
   ['Disabilities and/or Support', 'Law and/or Justice System', 'Sanctity of Life', 'Homelessness', 'Recovery'],
   ['Working with prison inmates/families', 'Illness and/or Injury', 'Sexuality and/or Gender Issues', 'Education', 'Policy and/or Politics'],
   ['Race', 'Business and the Economy', 'Relief Efforts', 'Ethics', 'Health and/or Fitness'],
-  ['Science and/or Technology', 'Environment', 'International and Global Affairs', 'Regional, State or Federal Issues', 'Community/Neighborhood Issues'],
+  // Note: 'Regional/State/Federal Issues' was originally 'Regional, State or
+  // Federal Issues' — the embedded comma broke the comma-joined storage
+  // format used for `multiple_choice_answer`. Renamed 2026-05-07 to use
+  // slashes, matching siblings like 'Disabilities and/or Support'.
+  ['Science and/or Technology', 'Environment', 'International and Global Affairs', 'Regional/State/Federal Issues', 'Community/Neighborhood Issues'],
 ];
 
 // Abilities Options - Select top 3 (plus 2 custom)
