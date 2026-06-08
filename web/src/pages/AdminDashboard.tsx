@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { Fragment, useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, api } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
@@ -504,20 +504,32 @@ export function AdminDashboard() {
                 };
                 const isActive = activeTab === tab;
                 return (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex items-center gap-2 w-full text-left py-1.5 font-heading font-medium text-[16px] md:text-[18px] leading-[24px] md:leading-[28px] transition-colors ${
-                      isActive
-                        ? 'text-brand-teal'
-                        : 'text-brand-charcoal hover:text-brand-teal'
-                    }`}
-                  >
-                    {isActive && (
-                      <img src={tealArrowIcon} alt="" className="w-[20px] h-[20px] md:w-[26px] md:h-[26px] shrink-0" />
+                  <Fragment key={tab}>
+                    <button
+                      onClick={() => setActiveTab(tab)}
+                      className={`flex items-center gap-2 w-full text-left py-1.5 font-heading font-medium text-[16px] md:text-[18px] leading-[24px] md:leading-[28px] transition-colors ${
+                        isActive
+                          ? 'text-brand-teal'
+                          : 'text-brand-charcoal hover:text-brand-teal'
+                      }`}
+                    >
+                      {isActive && (
+                        <img src={tealArrowIcon} alt="" className="w-[20px] h-[20px] md:w-[26px] md:h-[26px] shrink-0" />
+                      )}
+                      <span>{labels[tab]}</span>
+                    </button>
+                    {tab === 'myimpact' && (
+                      <a
+                        href="https://app.gofullyalive.com/plans/1985449?bundle_token=e6d5dafbecc35a9ed9767cfcd91e59f0&utm_source=manual"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 w-full text-left py-1.5 font-heading font-medium text-[16px] md:text-[18px] leading-[24px] md:leading-[28px] text-brand-charcoal hover:text-brand-teal transition-colors"
+                      >
+                        <span>Access Calling Development Toolkit</span>
+                        <span aria-hidden="true" className="text-sm">↗</span>
+                      </a>
                     )}
-                    <span>{labels[tab]}</span>
-                  </button>
+                  </Fragment>
                 );
               })}
             </aside>
