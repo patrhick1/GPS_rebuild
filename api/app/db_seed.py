@@ -352,11 +352,16 @@ def seed_questions(db: Session):
         print(f"MyImpact questions already seeded ({existing_myimpact} found)")
 
 
-def seed_all():
-    """Run all seed functions."""
+def seed_all(*, include_test_data: bool = True):
+    """Run all seed functions.
+
+    ``include_test_data=False`` skips the synthetic test users/orgs that
+    seed_test_data creates. Used for production data migrations where the
+    real users come from the legacy import.
+    """
     # Create all tables first
     Base.metadata.create_all(bind=engine)
-    
+
     db = SessionLocal()
     try:
         print("Starting database seeding...")
@@ -365,7 +370,10 @@ def seed_all():
         seed_question_types(db)
         seed_gifts_passions(db)
         seed_questions(db)  # Add questions seeding
-        seed_test_data(db)
+        if include_test_data:
+            seed_test_data(db)
+        else:
+            print("Skipping test data seed (include_test_data=False)")
         print("Database seeding completed!")
     except Exception as e:
         print(f"Error during seeding: {e}")
@@ -376,4 +384,6 @@ def seed_all():
 
 
 if __name__ == "__main__":
-    seed_all()
+    import sys
+    include_test = "--no-test-data" not in sys.argv
+    seed_all(include_test_data=include_test)

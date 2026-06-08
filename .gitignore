@@ -56,10 +56,24 @@ api/alembic/versions/__pycache__/
 
 # Migration scripts (contain DB credentials / internal tooling)
 api/scripts/migrate_from_laravel.py
+api/scripts/restore_legacy_dump_to_sqlite.py
+api/scripts/wipe_data_for_migration.py
+api/scripts/verify_legacy_migration.py
+api/scripts/finish_migration.py
 
 # One-shot batch verification smokes — used during fix batches, not part
 # of the long-lived test suite.
 api/scripts/smoke_day*_fixes.py
+
+# Legacy MySQL dump and the intermediate SQLite (large, contains PII;
+# do not commit).
+backup-*.sql
+api/legacy_gps.db
+*.db-journal
+
+# Production rollout docs (contain operational steps + secret pointers;
+# keep local).
+STRIPE_PRODUCTION_SWITCHOVER.md
 
 # Internal notes and documentation
 questions-for-product-owner.md
