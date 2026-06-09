@@ -2,6 +2,7 @@
 Stripe integration service for GPS billing
 Handles subscriptions, payments, and webhook events
 """
+import logging
 import stripe
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone
@@ -259,6 +260,7 @@ class StripeService:
         ).first()
 
         cps, cpe = _period_dates(sub)
+        org_id_for_uncomp = None
         if db_subscription:
             db_subscription.status = sub.get("status")
             db_subscription.current_period_start = cps
@@ -267,6 +269,7 @@ class StripeService:
             db_subscription.quantity = quantity
             db_subscription.updated_at = datetime.now(timezone.utc)
             db.commit()
+            org_id_for_uncomp = db_subscription.organization_id
         else:
             # New subscription from webhook — extract org from metadata
             org_id = metadata.get("organization_id")
@@ -288,6 +291,25 @@ class StripeService:
             )
             db.add(db_subscription)
             db.commit()
+            org_id_for_uncomp = org_id
+
+        # Auto-un-COMP: when a comped org starts paying via Stripe, flip
+        # is_comped off so billing state matches reality. Per Sherri's
+        # 2026-06-09 ask for Group 2 churches — they sit COMPED until their
+        # legacy renewal date, at which point they sign up via the new link
+        # and this webhook fires.
+        if org_id_for_uncomp and sub.get("status") in ("active", "trialing"):
+            org = db.query(Organization).filter(
+                Organization.id == org_id_for_uncomp
+            ).first()
+            if org and org.is_comped:
+                org.is_comped = False
+                org.updated_at = datetime.now(timezone.utc)
+                db.commit()
+                logging.info(
+                    "auto-un-COMP'd org %s on subscription %s status=%s",
+                    org.id, sub_id, sub.get("status"),
+                )
     
     @staticmethod
     def handle_invoice_payment_succeeded(event: stripe.Event, db: Session) -> None:

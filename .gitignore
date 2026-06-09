@@ -60,6 +60,12 @@ api/scripts/restore_legacy_dump_to_sqlite.py
 api/scripts/wipe_data_for_migration.py
 api/scripts/verify_legacy_migration.py
 api/scripts/finish_migration.py
+api/scripts/group1_attach_stripe.py
+api/scripts/group2_mark_comped.py
+api/scripts/group3_mark_comped.py
+
+# Sensitive email correspondence kept locally
+*Mail*.pdf
 
 # One-shot batch verification smokes — used during fix batches, not part
 # of the long-lived test suite.
