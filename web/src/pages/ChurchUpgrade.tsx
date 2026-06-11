@@ -81,7 +81,7 @@ export function ChurchUpgrade() {
               </p>
             )}
             <p className="font-body font-semibold text-base text-brand-gray-med text-center max-w-[480px]">
-              $10/month or $100/year. You'll set up billing on the next step.
+              $10/month or $99/year. You'll set up billing on the next step.
             </p>
           </div>
 

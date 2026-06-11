@@ -82,7 +82,7 @@ export function ChurchRegister() {
               Get the Calling Development Toolkit
             </h1>
             <p className="font-body font-semibold text-lg text-brand-gray-med text-center max-w-[500px]">
-              Set up your church account and unlock the full toolkit — $10/month or $100/year.
+              Set up your church account and unlock the full toolkit — $10/month or $99/year.
             </p>
           </div>
 

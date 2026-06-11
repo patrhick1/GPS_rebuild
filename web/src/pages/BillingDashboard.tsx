@@ -121,7 +121,7 @@ function CheckoutForm({
           disabled={!stripe || isProcessing}
           className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isProcessing ? 'Processing...' : `Subscribe — ${plan === 'monthly' ? '$10/mo' : '$100/yr'}`}
+          {isProcessing ? 'Processing...' : `Subscribe — ${plan === 'monthly' ? '$10/mo' : '$99/yr'}`}
         </button>
         <button
           type="button"
@@ -423,7 +423,7 @@ export function BillingDashboard() {
                     Complete Your Subscription
                   </h2>
                   <p className="font-body text-brand-gray-med mb-6">
-                    {selectedPlan === 'monthly' ? 'Monthly Plan — $10/month' : 'Annual Plan — $100/year (save $20)'}
+                    {selectedPlan === 'monthly' ? 'Monthly Plan — $10/month' : 'Annual Plan — $99/year (save $21)'}
                   </p>
                   <Elements stripe={getStripePromise(config.publishable_key)}>
                     <CheckoutForm
@@ -491,16 +491,16 @@ export function BillingDashboard() {
                 <div className="relative bg-white border-2 border-brand-teal rounded-2xl shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-8 flex flex-col">
                   {/* Best Value badge */}
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-brand-gold text-white font-body font-bold text-sm px-5 py-1.5 rounded-full whitespace-nowrap">
-                    Best Value — Save $20
+                    Best Value — Save $21
                   </div>
 
                   <h3 className="font-heading font-black text-2xl text-brand-charcoal mb-2 mt-2">Annual</h3>
                   <div className="mb-2">
-                    <span className="font-heading font-black text-[56px] leading-none text-brand-teal">$100</span>
+                    <span className="font-heading font-black text-[56px] leading-none text-brand-teal">$99</span>
                     <span className="font-body font-bold text-lg text-brand-gray-med ml-1">/year</span>
                   </div>
                   <p className="font-body text-sm text-brand-gray-med mb-6">
-                    That&apos;s just $8.33/month
+                    That&apos;s just $8.25/month
                   </p>
 
                   <ul className="space-y-3 mb-8 flex-1">
@@ -556,7 +556,7 @@ export function BillingDashboard() {
                         Complete Your Subscription
                       </h2>
                       <p className="font-body text-brand-gray-med mb-6">
-                        {selectedPlan === 'monthly' ? 'Monthly Plan — $10/month' : 'Annual Plan — $100/year (save $20)'}
+                        {selectedPlan === 'monthly' ? 'Monthly Plan — $10/month' : 'Annual Plan — $99/year (save $21)'}
                       </p>
                       <Elements stripe={getStripePromise(config.publishable_key)}>
                         <CheckoutForm
@@ -592,7 +592,7 @@ export function BillingDashboard() {
                       onClick={() => setSelectedPlan('yearly')}
                       className="h-[44px] px-5 bg-brand-teal text-white font-body font-bold text-sm rounded-xl hover:bg-brand-teal/90 transition-colors"
                     >
-                      Annual — $100
+                      Annual — $99
                     </button>
                     <button
                       onClick={handleExport}

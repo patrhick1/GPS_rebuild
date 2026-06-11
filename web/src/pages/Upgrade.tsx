@@ -128,7 +128,7 @@ export function Upgrade() {
               </div>
 
               <p className="font-body font-bold text-lg leading-[26px] text-brand-charcoal mb-8">
-                Cost: $10 per month or $100 paid annually
+                Cost: $10 per month or $99 paid annually
               </p>
 
               <button
