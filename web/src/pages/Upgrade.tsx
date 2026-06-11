@@ -36,9 +36,9 @@ export function Upgrade() {
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-[rgba(63,70,68,0.84)] mix-blend-multiply" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <h1 className="font-heading font-black text-4xl md:text-[60px] md:leading-[65px] lg:text-[64px] lg:leading-[73px] text-white text-center">
-            Admin Accounts
+        <div className="absolute inset-0 flex items-center justify-center px-6">
+          <h1 className="font-heading font-black text-3xl md:text-[48px] md:leading-[52px] lg:text-[56px] lg:leading-[64px] text-white text-center max-w-4xl">
+            Help Your Church Grow in Character and Calling
           </h1>
         </div>
       </div>
@@ -52,66 +52,78 @@ export function Upgrade() {
             <span className="text-base">←</span> Back{user ? ' to Dashboard' : ''}
           </Link>
         </div>
-        {/* ── Track & Manage Band ── */}
+
+        {/* ── Intro / pitch band ── */}
         <section className="w-full bg-[rgba(227,227,227,0.24)]">
           <div className="max-w-6xl mx-auto px-6 py-14 lg:py-20 flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
-            {/* Church icon */}
             <img src={churchIcon} alt="" className="w-[100px] md:w-[116px] lg:w-[149px] h-auto shrink-0" />
 
-            {/* Text */}
             <div className="flex-1 text-center lg:text-left">
-              <h2 className="font-heading font-black text-3xl md:text-[40px] md:leading-[41px] lg:text-[48px] lg:leading-[55px] text-brand-charcoal">
-                Track and Manage Your Church's Assessment Results
-              </h2>
+              <p className="font-body font-bold text-lg leading-[26px] text-brand-charcoal">
+                You may already be using the Disciples Made Impact Dashboard to take assessments and view your own results. But what if you want to help your whole church take the next step?
+              </p>
               <p className="font-body font-bold text-lg leading-[26px] text-brand-charcoal mt-4">
-                Wonder if your church already has an Admin account?{' '}
-                <a
-                  href="mailto:support@giftpassionstory.com"
-                  className="text-brand-teal underline hover:text-brand-teal/80 transition-colors"
-                >
-                  Email us to ask.
-                </a>
+                Do you want to see your members' assessment results so your team can support clearer next steps? Do you want practical resources for making personal calling development more normal in your church?
+              </p>
+              <p className="font-body font-bold text-lg leading-[26px] text-brand-charcoal mt-4">
+                The Calling Development Toolkit helps your church move from personal assessment results to church-wide calling development.
               </p>
             </div>
 
-            {/* CTA button */}
             <button
               onClick={handleUpgrade}
               className="shrink-0 w-[281px] h-[50px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
             >
-              Upgrade to Church Admin
+              Get Toolkit Access
             </button>
           </div>
         </section>
 
-        {/* ── Upgrade Details Section ── */}
+        {/* ── Features / Unlock access band ── */}
         <section className="max-w-6xl mx-auto px-6 py-16 lg:py-24">
           <div className="flex flex-col lg:flex-row items-start gap-12 lg:gap-16">
-            {/* Left: Text content */}
             <div className="flex-1">
-              <h2 className="font-heading font-black text-3xl md:text-[40px] md:leading-[41px] lg:text-[48px] lg:leading-[55px] text-brand-charcoal mb-6">
-                Upgrade to a Church Administrator Account
-              </h2>
-
               <p className="font-body font-bold text-lg leading-[26px] text-brand-charcoal mb-6">
-                Unlock the Full Potential of Personal Calling in Your Organization With:
+                Your purchase includes access to the Calling Development Toolkit in the Fully Alive App, plus a Church Administrator Account for the Disciples Made Impact Dashboard.
               </p>
 
-              {/* Bullet: Exclusive Dashboard Access */}
+              <h2 className="font-heading font-black text-3xl md:text-[40px] md:leading-[41px] lg:text-[48px] lg:leading-[55px] text-brand-charcoal mb-6">
+                Unlock access to:
+              </h2>
+
+              {/* Bullet: Calling Development Toolkit Resources */}
               <div className="flex items-start gap-3 mb-5">
                 <img src={tealArrowIcon} alt="" className="w-[22px] h-[22px] mt-1 shrink-0" />
                 <p className="font-body text-lg leading-[26px] text-brand-charcoal">
-                  <span className="font-black">Exclusive Dashboard Access</span>
-                  <span className="font-bold"> – View and export individual assessment results.</span>
+                  <span className="font-black">Calling Development Toolkit Resources</span>
+                  <span className="font-bold"> — Access campaign guides, small group tools, message outlines, manuscripts, and director/coach resources to help your church lead Develop Your Calling: Find Your Place with clarity.</span>
                 </p>
               </div>
 
-              {/* Bullet: Unique Invitation Link */}
+              {/* Bullet: Church Administrator Dashboard */}
+              <div className="flex items-start gap-3 mb-5">
+                <img src={tealArrowIcon} alt="" className="w-[22px] h-[22px] mt-1 shrink-0" />
+                <p className="font-body text-lg leading-[26px] text-brand-charcoal">
+                  <span className="font-black">Church Administrator Dashboard</span>
+                  <span className="font-bold"> — View and export individual GPS and MyImpact assessment results so your team can provide more personal and meaningful follow-up.</span>
+                </p>
+              </div>
+
+              {/* Bullet: Unique Assessment Invitation Link */}
+              <div className="flex items-start gap-3 mb-5">
+                <img src={tealArrowIcon} alt="" className="w-[22px] h-[22px] mt-1 shrink-0" />
+                <p className="font-body text-lg leading-[26px] text-brand-charcoal">
+                  <span className="font-black">Unique Assessment Invitation Link</span>
+                  <span className="font-bold"> — Share a church-specific link so members can complete assessments and connect their results to your church dashboard.</span>
+                </p>
+              </div>
+
+              {/* Bullet: GPS and MyImpact Assessments */}
               <div className="flex items-start gap-3 mb-8">
                 <img src={tealArrowIcon} alt="" className="w-[22px] h-[22px] mt-1 shrink-0" />
                 <p className="font-body text-lg leading-[26px] text-brand-charcoal">
-                  <span className="font-black">A Unique Invitation Link for Your Members</span>
-                  <span className="font-bold"> – Share on your website or in church communications to invite members to complete the assessments.</span>
+                  <span className="font-black">GPS and MyImpact Assessments</span>
+                  <span className="font-bold"> — Help your members discover their gifts, passions, story, character growth, calling clarity, and next steps.</span>
                 </p>
               </div>
 
@@ -123,7 +135,7 @@ export function Upgrade() {
                 onClick={handleUpgrade}
                 className="w-[281px] h-[50px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
               >
-                Upgrade to Church Admin
+                Get Toolkit Access
               </button>
             </div>
 

@@ -100,7 +100,7 @@ export function Login() {
               to="/upgrade"
               className="block text-center font-body text-sm text-brand-teal hover:underline mt-1"
             >
-              Upgrade to a Church Administrator account
+              Get Toolkit Access
             </Link>
           </div>
 

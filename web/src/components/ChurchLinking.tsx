@@ -144,10 +144,10 @@ export function ChurchLinking() {
         <h3>Want to Register Your Church?</h3>
         <p>
           If you're a church administrator and want to register your organization
-          for GPS assessments, you can upgrade your account.
+          for GPS assessments, you can get the Calling Development Toolkit.
         </p>
         <button className="btn-secondary" disabled>
-          Upgrade to Church Admin (Coming Soon)
+          Get Toolkit Access (Coming Soon)
         </button>
       </div>
     </div>

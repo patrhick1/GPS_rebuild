@@ -10,10 +10,10 @@ export function UpgradeBanner() {
         {/* Text */}
         <div className="flex-1 text-center md:text-left">
           <h2 className="font-heading font-bold text-xl lg:text-2xl text-brand-charcoal leading-snug">
-            Want to track and manage your church's assessment results?
+            Want to access toolkit resources and manage your church's assessment results?
           </h2>
           <p className="font-body text-base text-brand-gray-med mt-1">
-            Upgrade to a Church Administrator account.
+            Get the Calling Development Toolkit, which includes Church Admin access to the Disciples Made Impact Dashboard.
           </p>
         </div>
 
@@ -22,7 +22,7 @@ export function UpgradeBanner() {
           href="/upgrade"
           className="shrink-0 bg-brand-teal text-white font-body font-semibold text-sm rounded-full py-3 px-7 hover:bg-brand-teal/90 transition-colors"
         >
-          Upgrade to Church Admin
+          Get Toolkit Access
         </a>
       </div>
     </section>

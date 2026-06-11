@@ -447,7 +447,7 @@ export function BillingDashboard() {
                   Choose Your Plan
                 </h2>
                 <p className="font-body font-semibold text-lg text-brand-gray-med max-w-2xl mx-auto">
-                  Unlock the full potential of personal calling in your organization. Track and manage your church&apos;s assessment results.
+                  Get the Calling Development Toolkit — including Church Admin access to the Disciples Made Impact Dashboard — to help your church move from personal assessment results to church-wide calling development.
                 </p>
               </div>
 
@@ -463,19 +463,19 @@ export function BillingDashboard() {
                   <ul className="space-y-3 mb-8 flex-1">
                     <li className="flex items-start gap-3">
                       <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
-                      <span className="font-body text-base text-brand-charcoal">Exclusive Dashboard Access</span>
+                      <span className="font-body text-base text-brand-charcoal">Calling Development Toolkit Resources</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
-                      <span className="font-body text-base text-brand-charcoal">Unique Invitation Link for Members</span>
+                      <span className="font-body text-base text-brand-charcoal">Church Administrator Dashboard</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
-                      <span className="font-body text-base text-brand-charcoal">View &amp; Export Assessment Results</span>
+                      <span className="font-body text-base text-brand-charcoal">Unique Assessment Invitation Link</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <img src={tealArrowIcon} alt="" className="w-5 h-5 mt-0.5 shrink-0" />
-                      <span className="font-body text-base text-brand-charcoal">Unlimited Members</span>
+                      <span className="font-body text-base text-brand-charcoal">GPS &amp; MyImpact Assessments</span>
                     </li>
                   </ul>
 

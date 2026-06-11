@@ -76,9 +76,11 @@ const es: Record<string, string> = {
     'Busque su iglesia, envíe una solicitud y conéctese una vez aprobada.',
   'Find My Church': 'Buscar mi iglesia',
   'Go to Admin Dashboard': 'Ir al tablero de administrador',
-  "Want to track and manage your church's assessment results?":
-    '¿Quiere realizar un seguimiento y gestionar los resultados de la evaluación de su iglesia?',
-  'Upgrade to a Church Administrator account': 'Actualizar a una cuenta de administrador de iglesia',
+  "Want to access toolkit resources and manage your church's assessment results?":
+    '¿Quiere acceder a los recursos del kit de herramientas y gestionar los resultados de la evaluación de su iglesia?',
+  'Get the Calling Development Toolkit, which includes Church Admin access to the Disciples Made Impact Dashboard.':
+    'Obtenga el Kit de Desarrollo del Llamado, que incluye acceso de administrador de iglesia al Disciples Made Impact Dashboard.',
+  'Get Toolkit Access': 'Obtener acceso al kit de herramientas',
 
   // Dashboard sections + tables
   'GPS Assessments': 'Evaluaciones GPS',

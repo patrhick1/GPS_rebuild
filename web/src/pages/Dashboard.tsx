@@ -331,12 +331,13 @@ export function Dashboard() {
             </p>
           ) : (
             <p className="font-body font-bold text-base md:text-xl text-brand-charcoal mt-8">
-              {t("Want to track and manage your church's assessment results?")}{' '}
+              {t("Want to access toolkit resources and manage your church's assessment results?")}{' '}
+              {t('Get the Calling Development Toolkit, which includes Church Admin access to the Disciples Made Impact Dashboard.')}{' '}
               <Link
                 to="/upgrade"
                 className="font-black text-brand-teal underline hover:text-brand-teal/80 transition-colors"
               >
-                {t('Upgrade to a Church Administrator account')}
+                {t('Get Toolkit Access')}
               </Link>
             </p>
           )}

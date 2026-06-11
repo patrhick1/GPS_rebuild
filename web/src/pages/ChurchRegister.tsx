@@ -79,10 +79,10 @@ export function ChurchRegister() {
           <div className="flex flex-col items-center gap-3 mb-8">
             <img src={churchIcon} alt="" className="w-[64px] h-auto" />
             <h1 className="font-heading font-black text-[32px] md:text-[48px] md:leading-[58px] text-brand-charcoal text-center max-w-[700px]">
-              Create Your Church Admin Account
+              Get the Calling Development Toolkit
             </h1>
             <p className="font-body font-semibold text-lg text-brand-gray-med text-center max-w-[500px]">
-              Set up your organization and unlock the full dashboard — $10/month or $100/year.
+              Set up your church account and unlock the full toolkit — $10/month or $100/year.
             </p>
           </div>
 
@@ -210,7 +210,7 @@ export function ChurchRegister() {
                 disabled={isLoading}
                 className="mx-auto mt-4 w-full h-[50px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isLoading ? 'Creating Account...' : 'Create Church Admin Account'}
+                {isLoading ? 'Creating Account...' : 'Get Toolkit Access'}
               </button>
             </form>
           </div>

@@ -557,7 +557,7 @@ export function Account() {
                     to="/upgrade"
                     className="text-brand-teal underline hover:text-brand-teal/80 transition-colors"
                   >
-                    Upgrade to a Church Administrator Account
+                    Get Toolkit Access
                   </Link>
                 </p>
               </div>

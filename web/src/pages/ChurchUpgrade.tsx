@@ -73,7 +73,7 @@ export function ChurchUpgrade() {
           <div className="flex flex-col items-center gap-3 mb-8">
             <img src={churchIcon} alt="" className="w-[64px] h-auto" />
             <h1 className="font-heading font-black text-[32px] md:text-[48px] md:leading-[58px] text-brand-charcoal text-center max-w-[700px]">
-              Upgrade to Church Admin
+              Get Toolkit Access
             </h1>
             {user?.first_name && (
               <p className="font-body font-semibold text-lg text-brand-gray-med text-center">
