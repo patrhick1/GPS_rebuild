@@ -90,7 +90,7 @@ def send_verification_email(to_email: str, first_name: str, verification_token: 
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #1a3a4a;">Verify Your Email Address</h2>
       <p>Hi {greeting},</p>
-      <p>Thanks for creating your GPS account! Please verify your email address
+      <p>Thanks for creating your Impact Dashboard account! Please verify your email address
          by clicking the button below:</p>
       <p style="text-align: center; margin: 32px 0;">
         <a href="{verify_url}"
@@ -105,7 +105,7 @@ def send_verification_email(to_email: str, first_name: str, verification_token: 
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -118,7 +118,7 @@ def send_verification_email(to_email: str, first_name: str, verification_token: 
         resend.Emails.send({
             "from": settings.EMAIL_FROM,
             "to": [to_email],
-            "subject": "Verify your email address — GPS",
+            "subject": "Verify your email address — Impact Dashboard",
             "html": body,
         })
         logger.info("Verification email sent to %s", to_email)
@@ -167,7 +167,7 @@ def send_invite_email(
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -177,7 +177,7 @@ def send_invite_email(
         resend.Emails.send({
             "from": settings.EMAIL_FROM,
             "to": [to_email],
-            "subject": f"You've been invited to join {org_name} on GPS",
+            "subject": f"You've been invited to join {org_name} on Impact Dashboard",
             "html": body,
         })
         logger.info("Invite email sent to %s for org %s", to_email, org_name)
@@ -221,7 +221,7 @@ def send_assessment_notification_email(
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -339,7 +339,7 @@ def send_gps_result_email(to_email: str, first_name: str, result, results_url: s
         </p>
         <hr style="border:none; border-top:1px solid #eee; margin:32px 0;" />
         <p style="color:#999; font-size:12px; text-align:center;">
-          Gift, Passion, Story Assessment Platform &mdash;
+          Impact Dashboard &mdash;
           <a href="{settings.FRONTEND_URL}" style="color:#999;">disciplesmade.com</a>
         </p>
       </div>
@@ -482,7 +482,7 @@ def send_myimpact_result_email(to_email: str, first_name: str, result, results_u
         </p>
         <hr style="border:none; border-top:1px solid #eee; margin:32px 0;" />
         <p style="color:#999; font-size:12px; text-align:center;">
-          Gift, Passion, Story Assessment Platform &mdash;
+          Impact Dashboard &mdash;
           <a href="{settings.FRONTEND_URL}" style="color:#999;">disciplesmade.com</a>
         </p>
       </div>
@@ -514,7 +514,7 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
     body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #1a3a4a;">Reset Your Password</h2>
-      <p>We received a request to reset the password for your GPS account.</p>
+      <p>We received a request to reset the password for your Impact Dashboard account.</p>
       <p>Click the button below to choose a new password:</p>
       <p style="text-align: center; margin: 32px 0;">
         <a href="{reset_url}"
@@ -530,7 +530,7 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -543,7 +543,7 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
         resend.Emails.send({
             "from": settings.EMAIL_FROM,
             "to": [to_email],
-            "subject": "Reset your GPS password",
+            "subject": "Reset your Impact Dashboard password",
             "html": body,
         })
         logger.info("Password reset email sent to %s", to_email)
@@ -565,9 +565,9 @@ def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_toke
 
     body = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1a3a4a;">Welcome to GPS &mdash; {church_name_safe}</h2>
+      <h2 style="color: #1a3a4a;">Welcome to Impact Dashboard &mdash; {church_name_safe}</h2>
       <p>A platform admin has set you up as the <strong>primary admin</strong> of
-         <strong>{church_name_safe}</strong> on the Gift, Passion, Story assessment platform.</p>
+         <strong>{church_name_safe}</strong> on the Impact Dashboard.</p>
       <p>Click the button below to set your password and log in:</p>
       <p style="text-align: center; margin: 32px 0;">
         <a href="{setup_url}"
@@ -582,7 +582,7 @@ def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_toke
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -594,7 +594,7 @@ def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_toke
         resend.Emails.send({
             "from": settings.EMAIL_FROM,
             "to": [to_email],
-            "subject": f"You're the primary admin of {church_name} on GPS",
+            "subject": f"You're the primary admin of {church_name} on Impact Dashboard",
             "html": body,
         })
         logger.info("Primary admin welcome email sent to %s", to_email)
@@ -630,7 +630,7 @@ def send_membership_approved_email(to_email: str, first_name: str, org_name: str
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -640,7 +640,7 @@ def send_membership_approved_email(to_email: str, first_name: str, org_name: str
         resend.Emails.send({
             "from": settings.EMAIL_FROM,
             "to": [to_email],
-            "subject": f"You've been accepted into {org_name} on GPS",
+            "subject": f"You've been accepted into {org_name} on Impact Dashboard",
             "html": body,
         })
         logger.info("Membership approved email sent to %s for org %s", to_email, org_name)
@@ -676,7 +676,7 @@ def send_membership_declined_email(to_email: str, first_name: str, org_name: str
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -686,7 +686,7 @@ def send_membership_declined_email(to_email: str, first_name: str, org_name: str
         resend.Emails.send({
             "from": settings.EMAIL_FROM,
             "to": [to_email],
-            "subject": "Update on your GPS church membership request",
+            "subject": "Update on your Impact Dashboard church membership request",
             "html": body,
         })
         logger.info("Membership declined email sent to %s for org %s", to_email, org_name)
