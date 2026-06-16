@@ -116,6 +116,7 @@ const es: Record<string, string> = {
 
   // MyImpact wizard chrome
   'Back to Dashboard': 'Volver al tablero',
+  'Return to Dashboard': 'Volver al tablero',
   'Question': 'Pregunta',
   'Complete': 'Completado',
   '1 = Not true of me': '1 = No es cierto para mí',
