@@ -38,7 +38,7 @@ interface MyImpactResultsData {
 }
 
 export function MyImpactResults() {
-  const { t } = useTranslation();
+  const { t, isEs } = useTranslation();
   const { myimpactResults: contextResults, questions, answeredCount, assessmentStartDate } = useAssessment();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -131,7 +131,10 @@ export function MyImpactResults() {
     if (!assessmentId) return;
     setPdfLoading(true);
     try {
-      const res = await api.get(`/assessments/${assessmentId}/pdf`, { responseType: 'blob' });
+      const res = await api.get(`/assessments/${assessmentId}/pdf`, {
+        responseType: 'blob',
+        params: { locale: isEs ? 'es' : 'en' },
+      });
       const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const a = document.createElement('a');
       a.href = url;

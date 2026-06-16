@@ -66,7 +66,10 @@ export function AssessmentResults() {
     if (!assessmentId) return;
     setPdfLoading(true);
     try {
-      const res = await api.get(`/assessments/${assessmentId}/pdf`, { responseType: 'blob' });
+      const res = await api.get(`/assessments/${assessmentId}/pdf`, {
+        responseType: 'blob',
+        params: { locale: isEs ? 'es' : 'en' },
+      });
       const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const a = document.createElement('a');
       a.href = url;

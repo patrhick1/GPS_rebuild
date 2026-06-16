@@ -709,10 +709,17 @@ async def grade_assessment_preview(
 async def download_assessment_pdf(
     request: Request,
     assessment_id: str,
+    locale: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_verified_user)
 ):
-    """Download a completed GPS assessment as a PDF report."""
+    """Download a completed GPS assessment as a PDF report.
+
+    The PDF is rendered in `locale` when supplied (explicit override from the
+    web client passes the active UI locale via ?locale=es), otherwise it falls
+    back to the assessment owner's stored `locale` so admins downloading a
+    member's PDF see it in the member's language by default.
+    """
     try:
         assessment_uuid = uuid.UUID(assessment_id)
     except ValueError:
@@ -761,6 +768,11 @@ async def download_assessment_pdf(
     owner = db.query(User).filter(User.id == assessment.user_id).first()
     user_name = f"{owner.first_name or ''} {owner.last_name or ''}".strip() if owner else "Unknown"
 
+    # Locale precedence: explicit ?locale= query (what the web client sends
+    # based on the active UI toggle) → owner.locale → "en". Generators
+    # normalize unknown values to "en" so anything we don't translate is safe.
+    resolved_locale = locale or (owner.locale if owner and owner.locale else "en")
+
     if assessment.instrument_type == "myimpact":
         myimpact_result = db.query(MyImpactResult).filter(
             MyImpactResult.assessment_id == assessment_uuid
@@ -774,6 +786,7 @@ async def download_assessment_pdf(
             result=myimpact_result,
             user_name=user_name,
             completed_at=assessment.completed_at,
+            locale=resolved_locale,
         )
         safe_name = user_name.replace(" ", "_") or "myimpact"
         filename = f"myimpact-results-{safe_name}.pdf"
@@ -784,6 +797,7 @@ async def download_assessment_pdf(
             graded=graded,
             user_name=user_name,
             completed_at=assessment.completed_at,
+            locale=resolved_locale,
         )
         safe_name = user_name.replace(" ", "_") or "gps"
         filename = f"gps-results-{safe_name}.pdf"
