@@ -391,6 +391,17 @@ export function AssessmentResults() {
               </button>
             </div>
           </div>
+
+          {/* Primary next-step CTA — Sherri 2026-06-16: users need a clear
+             "I'm done, go home" action after reviewing results. */}
+          <div className="flex justify-center mt-8 no-print">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="h-[50px] px-10 bg-brand-gold text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gold/90 transition-colors"
+            >
+              {t('Return to Dashboard')}
+            </button>
+          </div>
         </div>
       </main>
 

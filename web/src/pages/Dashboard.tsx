@@ -11,7 +11,7 @@ import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 
 export function Dashboard() {
   const { user, logout } = useAuth();
-  const { summary, history, myimpactHistory, fetchSummary, fetchHistory, fetchMyImpactHistory, isLoading, error, compareAssessments, exportCSV } = useDashboard();
+  const { summary, history, myimpactHistory, fetchSummary, fetchHistory, fetchMyImpactHistory, isLoading, error, compareAssessments } = useDashboard();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -38,24 +38,6 @@ export function Dashboard() {
       await api.post('/auth/onboarding-complete');
     } catch {
       // Non-critical — guide won't reappear if assessments exist anyway
-    }
-  };
-
-  // Export state
-  const [isExportingMyData, setIsExportingMyData] = useState(false);
-  const [exportMsg, setExportMsg] = useState('');
-
-  const handleExportMyData = async () => {
-    setIsExportingMyData(true);
-    setExportMsg('');
-    try {
-      await exportCSV();
-      setExportMsg(t('Export downloaded successfully.'));
-      setTimeout(() => setExportMsg(''), 3000);
-    } catch {
-      setExportMsg(t('Failed to export data. Please try again.'));
-    } finally {
-      setIsExportingMyData(false);
     }
   };
 
@@ -266,19 +248,7 @@ export function Dashboard() {
             >
               {t('Take New MyImpact Assessment')}
             </button>
-            <button
-              onClick={handleExportMyData}
-              disabled={isExportingMyData}
-              className="h-[50px] px-10 bg-brand-charcoal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-charcoal/90 transition-colors disabled:opacity-50"
-            >
-              {isExportingMyData ? t('Exporting...') : t('Export My Data')}
-            </button>
           </div>
-          {exportMsg && (
-            <p className={`mt-3 font-body text-sm ${exportMsg.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
-              {exportMsg}
-            </p>
-          )}
 
           {/* Church Linking Prompt */}
           {!summary?.organization && user?.role !== 'admin' && user?.role !== 'master' && (
