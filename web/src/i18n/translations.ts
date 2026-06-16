@@ -110,6 +110,66 @@ const es: Record<string, string> = {
   // Language toggle (Footer)
   'In English?': 'In English?',
   '¿En español?': '¿En español?',
+
+  // MyImpact wizard chrome
+  'Back to Dashboard': 'Volver al tablero',
+  'Question': 'Pregunta',
+  'Complete': 'Completado',
+  '1 = Not true of me': '1 = No es cierto para mí',
+  '10 = Consistently true of me': '10 = Es siempre cierto para mí',
+  'Loading MyImpact Assessment...': 'Cargando la evaluación MiImpacto...',
+  'Fruit of the Spirit': 'Fruto del Espíritu',
+  'Your Unique Design': 'Tu diseño único',
+  'But the Holy Spirit produces this kind of fruit in our lives: love, joy, peace, patience, kindness, goodness, faithfulness, gentleness, and self-control. Galatians 5:22-23':
+    'En cambio, el fruto del Espíritu es amor, alegría, paz, paciencia, amabilidad, bondad, fidelidad, humildad y dominio propio. Gálatas 5:22-23',
+  "We are God's handiwork, created in Christ Jesus to do good works, which God prepared in advance for us to do. Ephesians 2:10":
+    'Porque somos hechura de Dios, creados en Cristo Jesús para buenas obras, las cuales Dios dispuso de antemano a fin de que las pongamos en práctica. Efesios 2:10',
+
+  // MyImpact results — chrome
+  'Your MyImpact Score': 'Tu puntaje MiImpacto',
+  'Character × Calling = MyImpact Score': 'Carácter × Llamado = Puntaje MiImpacto',
+  'MyImpact': 'MiImpacto',
+  'Most first-time takers score between 4-25. The goal is steady growth, not perfection.':
+    'La mayoría de quienes la toman por primera vez obtienen entre 4 y 25 puntos. El objetivo es el crecimiento constante, no la perfección.',
+  'Average': 'Promedio',
+  'Fruit of the Spirit — Rate yourself as those who know you best would rate you.':
+    'Fruto del Espíritu — Evalúate como te evaluarían quienes mejor te conocen.',
+  'Your Unique Design — Your Calling is the unique way God has designed you to partner with Him.':
+    'Tu diseño único — Tu llamado es la forma única en la que Dios te ha diseñado para colaborar con Él.',
+  'Growth Opportunities': 'Oportunidades de crecimiento',
+  'The goal is steady growth, not perfection. Consider focusing on your lowest-scoring areas to increase your overall impact.':
+    'El objetivo es el crecimiento constante, no la perfección. Considera enfocarte en tus áreas con menor puntaje para aumentar tu impacto general.',
+  'Retake Regularly': 'Vuelve a tomarla con regularidad',
+  'Take this assessment every 6-12 months to track your growth over time.':
+    'Toma esta evaluación cada 6 a 12 meses para seguir tu crecimiento a lo largo del tiempo.',
+  'Get Feedback': 'Pide retroalimentación',
+  'Ask those closest to you how they would rate your character and calling.':
+    'Pregunta a tus personas más cercanas cómo evaluarían tu carácter y tu llamado.',
+  'Set Goals': 'Fija metas',
+  'Focus on 1-2 dimensions at a time for sustainable growth.':
+    'Enfócate en 1 o 2 dimensiones a la vez para un crecimiento sostenible.',
+  'Generating...': 'Generando...',
+
+  // MyImpact character dimensions (Fruit of the Spirit — Gálatas 5:22-23 NVI)
+  'Loving': 'Amoroso',
+  'Joyful': 'Alegre',
+  'Peaceful': 'Pacífico',
+  'Patient': 'Paciente',
+  'Kind': 'Amable',
+  'Good': 'Bondadoso',
+  'Faithful': 'Fiel',
+  'Gentle': 'Manso',
+  'Self-Controlled': 'Con dominio propio',
+
+  // MyImpact calling dimensions
+  'I can name my top 3 Spiritual Gifts': 'Puedo nombrar mis 3 dones espirituales principales',
+  'I know the people/causes God wants me to serve': 'Sé a qué personas y causas Dios quiere que sirva',
+  'I am using my gifts to serve others': 'Estoy usando mis dones para servir a otros',
+  'I see God making a difference through me': 'Veo a Dios marcando la diferencia a través de mí',
+  'I experience joy in serving others': 'Experimento alegría al servir a los demás',
+  'I regularly pray for people around me': 'Oro regularmente por las personas que me rodean',
+  'I see people move toward faith': 'Veo a personas avanzar hacia la fe',
+  'I receive support in my calling': 'Recibo apoyo en mi llamado',
 };
 
 const translations: Record<Locale, Record<string, string>> = {

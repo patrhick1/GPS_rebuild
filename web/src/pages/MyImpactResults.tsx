@@ -4,6 +4,7 @@ import { useAssessment } from '../context/AssessmentContext';
 import { api } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface CharacterScores {
   loving: number;
@@ -37,6 +38,7 @@ interface MyImpactResultsData {
 }
 
 export function MyImpactResults() {
+  const { t } = useTranslation();
   const { myimpactResults: contextResults, questions, answeredCount, assessmentStartDate } = useAssessment();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -144,26 +146,26 @@ export function MyImpactResults() {
   };
 
   const characterDimensions = [
-    { key: 'loving', label: 'Loving', score: character.loving },
-    { key: 'joyful', label: 'Joyful', score: character.joyful },
-    { key: 'peaceful', label: 'Peaceful', score: character.peaceful },
-    { key: 'patient', label: 'Patient', score: character.patient },
-    { key: 'kind', label: 'Kind', score: character.kind },
-    { key: 'good', label: 'Good', score: character.good },
-    { key: 'faithful', label: 'Faithful', score: character.faithful },
-    { key: 'gentle', label: 'Gentle', score: character.gentle },
-    { key: 'self_controlled', label: 'Self-Controlled', score: character.self_controlled },
+    { key: 'loving', label: t('Loving'), score: character.loving },
+    { key: 'joyful', label: t('Joyful'), score: character.joyful },
+    { key: 'peaceful', label: t('Peaceful'), score: character.peaceful },
+    { key: 'patient', label: t('Patient'), score: character.patient },
+    { key: 'kind', label: t('Kind'), score: character.kind },
+    { key: 'good', label: t('Good'), score: character.good },
+    { key: 'faithful', label: t('Faithful'), score: character.faithful },
+    { key: 'gentle', label: t('Gentle'), score: character.gentle },
+    { key: 'self_controlled', label: t('Self-Controlled'), score: character.self_controlled },
   ];
 
   const callingDimensions = [
-    { key: 'know_gifts', label: 'I can name my top 3 Spiritual Gifts', score: calling.know_gifts },
-    { key: 'know_people', label: 'I know the people/causes God wants me to serve', score: calling.know_people },
-    { key: 'using_gifts', label: 'I am using my gifts to serve others', score: calling.using_gifts },
-    { key: 'see_impact', label: 'I see God making a difference through me', score: calling.see_impact },
-    { key: 'experience_joy', label: 'I experience joy in serving others', score: calling.experience_joy },
-    { key: 'pray_regularly', label: 'I regularly pray for people around me', score: calling.pray_regularly },
-    { key: 'see_movement', label: 'I see people move toward faith', score: calling.see_movement },
-    { key: 'receive_support', label: 'I receive support in my calling', score: calling.receive_support },
+    { key: 'know_gifts', label: t('I can name my top 3 Spiritual Gifts'), score: calling.know_gifts },
+    { key: 'know_people', label: t('I know the people/causes God wants me to serve'), score: calling.know_people },
+    { key: 'using_gifts', label: t('I am using my gifts to serve others'), score: calling.using_gifts },
+    { key: 'see_impact', label: t('I see God making a difference through me'), score: calling.see_impact },
+    { key: 'experience_joy', label: t('I experience joy in serving others'), score: calling.experience_joy },
+    { key: 'pray_regularly', label: t('I regularly pray for people around me'), score: calling.pray_regularly },
+    { key: 'see_movement', label: t('I see people move toward faith'), score: calling.see_movement },
+    { key: 'receive_support', label: t('I receive support in my calling'), score: calling.receive_support },
   ];
 
   return (
@@ -175,11 +177,11 @@ export function MyImpactResults() {
 
           {/* Header */}
           <h1 className="font-heading font-black text-[32px] md:text-[48px] md:leading-[55px] text-brand-charcoal">
-            MyImpact Assessment
+            {t('MyImpact Assessment')}
           </h1>
           {assessmentStartDate && (
             <p className="font-body font-semibold italic text-lg text-brand-charcoal mt-1">
-              Assessment started on {assessmentStartDate}
+              {t('Assessment started on')} {assessmentStartDate}
             </p>
           )}
 
@@ -193,7 +195,7 @@ export function MyImpactResults() {
                 />
               </div>
               <p className="font-body font-semibold italic text-lg text-brand-charcoal text-center mt-3">
-                Completed {completedCount} of {totalQuestions} questions
+                {t('Completed')} {completedCount} {t('of')} {totalQuestions} {t('questions')}
               </p>
             </div>
           )}
@@ -201,12 +203,12 @@ export function MyImpactResults() {
           {/* MyImpact Score Hero */}
           <section className="mt-16">
             <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-6">
-              Your MyImpact Score
+              {t('Your MyImpact Score')}
             </h2>
 
             <div className="bg-brand-gray-lightest rounded-xl p-8 md:p-12 text-center">
               <p className="font-body font-bold text-xl text-brand-charcoal mb-2">
-                Character &times; Calling = MyImpact Score
+                {t('Character × Calling = MyImpact Score')}
               </p>
 
               {/* Formula display */}
@@ -215,26 +217,26 @@ export function MyImpactResults() {
                   <div className="font-heading font-black text-[40px] md:text-[56px] text-brand-teal leading-none">
                     {character.average.toFixed(1)}
                   </div>
-                  <div className="font-body font-bold text-lg text-brand-gray-med mt-1">Character</div>
+                  <div className="font-body font-bold text-lg text-brand-gray-med mt-1">{t('Character')}</div>
                 </div>
                 <span className="font-heading font-black text-[32px] text-brand-charcoal">&times;</span>
                 <div className="text-center">
                   <div className="font-heading font-black text-[40px] md:text-[56px] text-brand-teal leading-none">
                     {calling.average.toFixed(1)}
                   </div>
-                  <div className="font-body font-bold text-lg text-brand-gray-med mt-1">Calling</div>
+                  <div className="font-body font-bold text-lg text-brand-gray-med mt-1">{t('Calling')}</div>
                 </div>
                 <span className="font-heading font-black text-[32px] text-brand-charcoal">=</span>
                 <div className="text-center">
                   <div className="font-heading font-black text-[48px] md:text-[64px] text-brand-gold leading-none">
                     {myimpact_score.toFixed(1)}
                   </div>
-                  <div className="font-body font-bold text-lg text-brand-gray-med mt-1">MyImpact</div>
+                  <div className="font-body font-bold text-lg text-brand-gray-med mt-1">{t('MyImpact')}</div>
                 </div>
               </div>
 
               <p className="font-body text-base text-brand-gray-med mt-4 max-w-lg mx-auto">
-                Most first-time takers score between 4-25. The goal is steady growth, not perfection.
+                {t('Most first-time takers score between 4-25. The goal is steady growth, not perfection.')}
               </p>
             </div>
           </section>
@@ -243,14 +245,14 @@ export function MyImpactResults() {
           <section className="mt-16">
             <div className="flex items-baseline justify-between mb-2">
               <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal">
-                Character
+                {t('Character')}
               </h2>
               <span className="font-body font-black text-xl text-brand-teal">
-                Average: {character.average.toFixed(1)}/10
+                {t('Average')}: {character.average.toFixed(1)}/10
               </span>
             </div>
             <p className="font-body font-bold text-xl text-brand-charcoal leading-[30px] mb-6">
-              Fruit of the Spirit &mdash; Rate yourself as those who know you best would rate you.
+              {t('Fruit of the Spirit — Rate yourself as those who know you best would rate you.')}
             </p>
 
             <div className="space-y-0">
@@ -283,14 +285,14 @@ export function MyImpactResults() {
           <section className="mt-16">
             <div className="flex items-baseline justify-between mb-2">
               <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal">
-                Calling
+                {t('Calling')}
               </h2>
               <span className="font-body font-black text-xl text-brand-teal">
-                Average: {calling.average.toFixed(1)}/10
+                {t('Average')}: {calling.average.toFixed(1)}/10
               </span>
             </div>
             <p className="font-body font-bold text-xl text-brand-charcoal leading-[30px] mb-6">
-              Your Unique Design &mdash; Your Calling is the unique way God has designed you to partner with Him.
+              {t('Your Unique Design — Your Calling is the unique way God has designed you to partner with Him.')}
             </p>
 
             <div className="space-y-0">
@@ -322,24 +324,24 @@ export function MyImpactResults() {
           {/* Growth Tips */}
           <section className="mt-16">
             <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-6">
-              Growth Opportunities
+              {t('Growth Opportunities')}
             </h2>
             <p className="font-body font-bold text-xl text-brand-charcoal leading-[30px] mb-6">
-              The goal is steady growth, not perfection. Consider focusing on your lowest-scoring areas to increase your overall impact.
+              {t('The goal is steady growth, not perfection. Consider focusing on your lowest-scoring areas to increase your overall impact.')}
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-brand-gray-lightest rounded-xl p-6">
-                <h3 className="font-body font-black text-xl text-brand-charcoal mb-2">Retake Regularly</h3>
-                <p className="font-body text-base text-brand-charcoal">Take this assessment every 6-12 months to track your growth over time.</p>
+                <h3 className="font-body font-black text-xl text-brand-charcoal mb-2">{t('Retake Regularly')}</h3>
+                <p className="font-body text-base text-brand-charcoal">{t('Take this assessment every 6-12 months to track your growth over time.')}</p>
               </div>
               <div className="bg-brand-gray-lightest rounded-xl p-6">
-                <h3 className="font-body font-black text-xl text-brand-charcoal mb-2">Get Feedback</h3>
-                <p className="font-body text-base text-brand-charcoal">Ask those closest to you how they would rate your character and calling.</p>
+                <h3 className="font-body font-black text-xl text-brand-charcoal mb-2">{t('Get Feedback')}</h3>
+                <p className="font-body text-base text-brand-charcoal">{t('Ask those closest to you how they would rate your character and calling.')}</p>
               </div>
               <div className="bg-brand-gray-lightest rounded-xl p-6">
-                <h3 className="font-body font-black text-xl text-brand-charcoal mb-2">Set Goals</h3>
-                <p className="font-body text-base text-brand-charcoal">Focus on 1-2 dimensions at a time for sustainable growth.</p>
+                <h3 className="font-body font-black text-xl text-brand-charcoal mb-2">{t('Set Goals')}</h3>
+                <p className="font-body text-base text-brand-charcoal">{t('Focus on 1-2 dimensions at a time for sustainable growth.')}</p>
               </div>
             </div>
           </section>
@@ -350,7 +352,7 @@ export function MyImpactResults() {
               onClick={() => navigate(-1)}
               className="h-[50px] px-8 bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors flex items-center gap-2"
             >
-              <span className="text-xl">&larr;</span> Back
+              <span className="text-xl">&larr;</span> {t('Back')}
             </button>
 
             <div className="flex items-center gap-3">
@@ -360,14 +362,14 @@ export function MyImpactResults() {
                   disabled={pdfLoading}
                   className="h-[50px] px-8 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-lg rounded-xl hover:bg-brand-teal/10 transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
-                  {pdfLoading ? 'Generating...' : 'Download PDF'}
+                  {pdfLoading ? t('Generating...') : t('Download PDF')}
                 </button>
               )}
               <button
                 onClick={() => window.print()}
                 className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors flex items-center gap-2"
               >
-                Print <span className="text-xl">&rarr;</span>
+                {t('Print')} <span className="text-xl">&rarr;</span>
               </button>
             </div>
           </div>

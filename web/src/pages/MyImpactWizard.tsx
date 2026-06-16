@@ -3,8 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAssessment } from '../context/AssessmentContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { useTranslation } from '../hooks/useTranslation';
 
 export function MyImpactWizard() {
+  const { t, isEs } = useTranslation();
   const {
     assessmentId,
     instrumentType,
@@ -54,15 +56,15 @@ export function MyImpactWizard() {
     const order = currentQuestion.order;
     if (order <= 9) {
       return {
-        title: 'Character',
-        subtitle: 'Fruit of the Spirit',
-        description: 'But the Holy Spirit produces this kind of fruit in our lives: love, joy, peace, patience, kindness, goodness, faithfulness, gentleness, and self-control. Galatians 5:22-23',
+        title: t('Character'),
+        subtitle: t('Fruit of the Spirit'),
+        description: t('But the Holy Spirit produces this kind of fruit in our lives: love, joy, peace, patience, kindness, goodness, faithfulness, gentleness, and self-control. Galatians 5:22-23'),
       };
     } else {
       return {
-        title: 'Calling',
-        subtitle: 'Your Unique Design',
-        description: "We are God's handiwork, created in Christ Jesus to do good works, which God prepared in advance for us to do. Ephesians 2:10",
+        title: t('Calling'),
+        subtitle: t('Your Unique Design'),
+        description: t("We are God's handiwork, created in Christ Jesus to do good works, which God prepared in advance for us to do. Ephesians 2:10"),
       };
     }
   };
@@ -92,7 +94,7 @@ export function MyImpactWizard() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <p className="font-body text-lg text-brand-gray-med">Loading MyImpact Assessment...</p>
+          <p className="font-body text-lg text-brand-gray-med">{t('Loading MyImpact Assessment...')}</p>
         </main>
         <Footer />
       </div>
@@ -104,7 +106,7 @@ export function MyImpactWizard() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <p className="font-body text-lg text-brand-gray-med">No questions available</p>
+          <p className="font-body text-lg text-brand-gray-med">{t('No questions available')}</p>
         </main>
         <Footer />
       </div>
@@ -123,7 +125,7 @@ export function MyImpactWizard() {
             onClick={handleSaveAndExit}
             className="inline-flex items-center gap-1 font-body font-bold text-sm text-brand-teal hover:text-brand-teal/80 transition-colors mb-4"
           >
-            <span className="text-base">←</span> Back to Dashboard
+            <span className="text-base">←</span> {t('Back to Dashboard')}
           </button>
           {/* Section Header */}
           {sectionHeader && (
@@ -144,10 +146,10 @@ export function MyImpactWizard() {
           <div className="mb-6">
             <div className="flex justify-between mb-1">
               <span className="font-body text-sm text-brand-gray-med">
-                Question {progress.current} of {progress.total}
+                {t('Question')} {progress.current} {t('of')} {progress.total}
               </span>
               <span className="font-body text-sm text-brand-gray-med">
-                {progress.percentage}% Complete
+                {progress.percentage}% {t('Complete')}
               </span>
             </div>
             <div className="h-3 bg-brand-gray-lightest rounded-full overflow-hidden">
@@ -171,7 +173,7 @@ export function MyImpactWizard() {
                       : 'bg-brand-gray-light'
                 }`}
                 onClick={() => goToQuestion(idx)}
-                title={`Question ${idx + 1}`}
+                title={`${t('Question')} ${idx + 1}`}
               />
             ))}
           </div>
@@ -187,10 +189,10 @@ export function MyImpactWizard() {
           {/* Question Card */}
           <div className="bg-brand-gray-lightest rounded-xl p-8 mb-8">
             <p className="font-body text-sm uppercase text-brand-gray-med tracking-wide mb-2">
-              Question {currentQuestion.order}
+              {t('Question')} {currentQuestion.order}
             </p>
             <h2 className="font-body font-bold text-xl text-brand-charcoal mb-4">
-              {currentQuestion.question}
+              {(isEs && currentQuestion.question_es) ? currentQuestion.question_es : currentQuestion.question}
             </h2>
 
             {currentQuestion.default_text && (
@@ -202,8 +204,8 @@ export function MyImpactWizard() {
             {/* 1-10 Likert Scale */}
             <div>
               <div className="flex justify-between mb-3">
-                <span className="font-body text-sm text-brand-gray-med">1 = Not true of me</span>
-                <span className="font-body text-sm text-brand-gray-med">10 = Consistently true of me</span>
+                <span className="font-body text-sm text-brand-gray-med">{t('1 = Not true of me')}</span>
+                <span className="font-body text-sm text-brand-gray-med">{t('10 = Consistently true of me')}</span>
               </div>
               <div className="flex gap-2 justify-center flex-wrap">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
@@ -230,7 +232,7 @@ export function MyImpactWizard() {
               disabled={currentQuestionIndex === 0}
               className="px-6 py-2.5 bg-brand-gray-light rounded-xl font-body font-bold text-base text-brand-charcoal disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-gray-light/80 transition-colors"
             >
-              Previous
+              {t('Previous')}
             </button>
 
             <button
@@ -238,7 +240,7 @@ export function MyImpactWizard() {
               disabled={isLoading}
               className="px-6 py-2.5 border border-brand-gray-light rounded-xl font-body font-bold text-base text-brand-charcoal hover:bg-brand-gray-lightest disabled:opacity-50 transition-colors"
             >
-              Save & Exit
+              {t('Save & Exit')}
             </button>
 
             {currentQuestionIndex < questions.length - 1 ? (
@@ -247,7 +249,7 @@ export function MyImpactWizard() {
                 disabled={!currentAnswer}
                 className="px-6 py-2.5 bg-brand-teal rounded-xl font-body font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-teal/90 transition-colors"
               >
-                Next
+                {t('Next')}
               </button>
             ) : (
               <button
@@ -255,7 +257,7 @@ export function MyImpactWizard() {
                 disabled={isLoading || !currentAnswer}
                 className="px-6 py-2.5 bg-brand-teal rounded-xl font-body font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-teal/90 transition-colors"
               >
-                {isLoading ? 'Submitting...' : 'Submit'}
+                {isLoading ? t('Submitting...') : t('Submit')}
               </button>
             )}
           </div>
