@@ -124,6 +124,7 @@ interface DashboardContextType {
   fetchMyImpactHistory: () => Promise<void>;
   getAssessmentDetail: (id: string) => Promise<AssessmentDetail>;
   compareAssessments: (id1: string, id2: string) => Promise<ComparisonResult>;
+  deleteAssessment: (id: string) => Promise<void>;
   exportCSV: () => Promise<void>;
   searchChurches: (query: string) => Promise<ChurchSearchResult[]>;
   requestChurchLink: (organizationId: string) => Promise<void>;
@@ -192,6 +193,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     return response.data;
   }, []);
 
+  const deleteAssessment = useCallback(async (id: string) => {
+    await api.delete(`/assessments/${id}`);
+    // Drop the deleted row from local state immediately; no extra GET round-trip
+    setHistory((rows) => rows.filter((r) => r.id !== id));
+    setMyImpactHistory((rows) => rows.filter((r) => r.id !== id));
+  }, []);
+
   const exportCSV = useCallback(async () => {
     const response = await api.get('/dashboard/export/csv', {
       responseType: 'blob'
@@ -243,6 +251,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         fetchMyImpactHistory,
         getAssessmentDetail,
         compareAssessments,
+        deleteAssessment,
         exportCSV,
         searchChurches,
         requestChurchLink,

@@ -14,6 +14,9 @@ class Assessment(Base):
     instrument_type = Column(String(20), nullable=False, default="gps")  # gps, myimpact
     status = Column(String(20), nullable=False, default="in_progress")  # in_progress, completed, abandoned
     completed_at = Column(DateTime, nullable=True)
+    # Soft-delete timestamp. NULL = active; non-NULL = deleted (hidden from
+    # user-facing GETs but kept for admin export / audit / recovery).
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

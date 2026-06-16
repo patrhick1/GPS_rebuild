@@ -45,10 +45,11 @@ async def get_dashboard_summary(
 ):
     """Get dashboard summary for current user"""
     
-    # Get most recent completed assessment
+    # Get most recent completed assessment (excludes soft-deleted)
     latest_assessment = db.query(Assessment).filter(
         Assessment.user_id == current_user.id,
-        Assessment.status == "completed"
+        Assessment.status == "completed",
+        Assessment.deleted_at.is_(None),
     ).order_by(Assessment.completed_at.desc()).first()
     
     latest_result = None
@@ -57,10 +58,11 @@ async def get_dashboard_summary(
             AssessmentResult.assessment_id == latest_assessment.id
         ).first()
     
-    # Get assessment counts
+    # Get assessment counts (excludes soft-deleted)
     total_count = db.query(Assessment).filter(
         Assessment.user_id == current_user.id,
-        Assessment.status == "completed"
+        Assessment.status == "completed",
+        Assessment.deleted_at.is_(None),
     ).count()
     
     # Get organization info (only for active memberships)
@@ -126,10 +128,11 @@ async def get_assessment_history(
     limit: int = 50,
     offset: int = 0
 ):
-    """Get assessment history for current user"""
+    """Get assessment history for current user (excludes soft-deleted)."""
 
     query = db.query(Assessment).filter(
-        Assessment.user_id == current_user.id
+        Assessment.user_id == current_user.id,
+        Assessment.deleted_at.is_(None),
     )
     
     # Filter by instrument type if provided
@@ -223,9 +226,10 @@ async def get_assessment_detail(
     
     assessment = db.query(Assessment).filter(
         Assessment.id == assessment_uuid,
-        Assessment.user_id == current_user.id
+        Assessment.user_id == current_user.id,
+        Assessment.deleted_at.is_(None),
     ).first()
-    
+
     if not assessment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -275,17 +279,19 @@ async def compare_assessments(
 ):
     """Compare two assessments side by side"""
     
-    # Verify both assessments belong to user
+    # Verify both assessments belong to user (excludes soft-deleted)
     assessment1 = db.query(Assessment).filter(
         Assessment.id == comparison.assessment_id_1,
         Assessment.user_id == current_user.id,
-        Assessment.status == "completed"
+        Assessment.status == "completed",
+        Assessment.deleted_at.is_(None),
     ).first()
-    
+
     assessment2 = db.query(Assessment).filter(
         Assessment.id == comparison.assessment_id_2,
         Assessment.user_id == current_user.id,
-        Assessment.status == "completed"
+        Assessment.status == "completed",
+        Assessment.deleted_at.is_(None),
     ).first()
     
     if not assessment1 or not assessment2:
@@ -339,7 +345,8 @@ async def export_assessments_csv(
 
     assessments = db.query(Assessment).filter(
         Assessment.user_id == current_user.id,
-        Assessment.status == "completed"
+        Assessment.status == "completed",
+        Assessment.deleted_at.is_(None),
     ).order_by(Assessment.completed_at.desc()).all()
 
     output = io.StringIO()

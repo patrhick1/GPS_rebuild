@@ -11,7 +11,7 @@ import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 
 export function Dashboard() {
   const { user, logout } = useAuth();
-  const { summary, history, myimpactHistory, fetchSummary, fetchHistory, fetchMyImpactHistory, isLoading, error, compareAssessments } = useDashboard();
+  const { summary, history, myimpactHistory, fetchSummary, fetchHistory, fetchMyImpactHistory, isLoading, error, compareAssessments, deleteAssessment } = useDashboard();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -73,6 +73,25 @@ export function Dashboard() {
       setCompareError('Failed to load comparison. Please try again.');
     } finally {
       setCompareLoading(false);
+    }
+  };
+
+  const handleDeleteAssessment = async (id: string) => {
+    // Soft delete — the row stays in the DB with deleted_at set, but
+    // user-facing GETs filter it out. Confirm before firing to avoid
+    // accidental clicks; window.confirm is the lightest UX consistent
+    // with the rest of the dashboard (Sherri can ask for a styled modal
+    // if she wants more friction later).
+    if (!window.confirm(t('Delete this assessment? You can ask an admin to recover it later if needed.'))) {
+      return;
+    }
+    try {
+      await deleteAssessment(id);
+      // Drop the selection if the deleted row was queued for compare
+      setCompareSelected((prev) => prev.filter((sid) => sid !== id));
+      setComparisonResult(null);
+    } catch {
+      // Non-fatal: leave the row in place if the API call failed
     }
   };
 
@@ -438,21 +457,36 @@ export function Dashboard() {
 
                         {/* Action */}
                         <td className="px-4 py-5">
-                          {item.status === 'completed' ? (
+                          <div className="flex items-center gap-2">
+                            {item.status === 'completed' ? (
+                              <button
+                                onClick={() => navigate(`/assessment-results?id=${item.id}`)}
+                                className="w-[175px] h-[50px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
+                              >
+                                {t('View Results')}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => navigate(`/assessment?continue=${item.id}`)}
+                                className="w-[175px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
+                              >
+                                {t('Continue')}
+                              </button>
+                            )}
                             <button
-                              onClick={() => navigate(`/assessment-results?id=${item.id}`)}
-                              className="w-[175px] h-[50px] bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
+                              onClick={() => handleDeleteAssessment(item.id)}
+                              title={t('Delete assessment')}
+                              aria-label={t('Delete assessment')}
+                              className="w-10 h-10 flex items-center justify-center text-brand-gray-med hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             >
-                              {t('View Results')}
+                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                              </svg>
                             </button>
-                          ) : (
-                            <button
-                              onClick={() => navigate(`/assessment?continue=${item.id}`)}
-                              className="w-[175px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
-                            >
-                              {t('Continue')}
-                            </button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -634,21 +668,36 @@ export function Dashboard() {
 
                         {/* Action */}
                         <td className="px-4 py-5">
-                          {item.status === 'completed' ? (
+                          <div className="flex items-center gap-2">
+                            {item.status === 'completed' ? (
+                              <button
+                                onClick={() => navigate(`/myimpact-results?id=${item.id}`)}
+                                className="w-[175px] h-[50px] bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
+                              >
+                                {t('View Results')}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => navigate(`/myimpact?continue=${item.id}`)}
+                                className="w-[175px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
+                              >
+                                {t('Continue')}
+                              </button>
+                            )}
                             <button
-                              onClick={() => navigate(`/myimpact-results?id=${item.id}`)}
-                              className="w-[175px] h-[50px] bg-brand-teal-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-teal-light/80 transition-colors"
+                              onClick={() => handleDeleteAssessment(item.id)}
+                              title={t('Delete assessment')}
+                              aria-label={t('Delete assessment')}
+                              className="w-10 h-10 flex items-center justify-center text-brand-gray-med hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             >
-                              View Results
+                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                              </svg>
                             </button>
-                          ) : (
-                            <button
-                              onClick={() => navigate(`/myimpact?continue=${item.id}`)}
-                              className="w-[175px] h-[50px] bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors"
-                            >
-                              Continue
-                            </button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     ))}

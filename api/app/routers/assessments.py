@@ -216,7 +216,8 @@ async def start_assessment(
     existing = db.query(Assessment).filter(
         Assessment.user_id == current_user.id,
         Assessment.instrument_type == instrument_type,
-        Assessment.status == "in_progress"
+        Assessment.status == "in_progress",
+        Assessment.deleted_at.is_(None),
     ).order_by(Assessment.created_at.desc()).first()
 
     if existing:
@@ -315,21 +316,22 @@ async def save_progress(
     
     assessment = db.query(Assessment).filter(
         Assessment.id == assessment_uuid,
-        Assessment.user_id == current_user.id
+        Assessment.user_id == current_user.id,
+        Assessment.deleted_at.is_(None),
     ).first()
-    
+
     if not assessment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Assessment not found"
         )
-    
+
     if assessment.status == "completed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot modify completed assessment"
         )
-    
+
     # Save/update answers
     for answer_data in submit_data.answers:
         # Check if answer already exists
@@ -383,15 +385,16 @@ async def submit_assessment(
     
     assessment = db.query(Assessment).filter(
         Assessment.id == assessment_uuid,
-        Assessment.user_id == current_user.id
+        Assessment.user_id == current_user.id,
+        Assessment.deleted_at.is_(None),
     ).first()
-    
+
     if not assessment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Assessment not found"
         )
-    
+
     if assessment.status == "completed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -537,21 +540,22 @@ async def get_assessment_results(
     
     assessment = db.query(Assessment).filter(
         Assessment.id == assessment_uuid,
-        Assessment.user_id == current_user.id
+        Assessment.user_id == current_user.id,
+        Assessment.deleted_at.is_(None),
     ).first()
-    
+
     if not assessment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Assessment not found"
         )
-    
+
     if assessment.status != "completed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Assessment not yet completed"
         )
-    
+
     # Route to correct result fetcher based on instrument type
     if assessment.instrument_type == "myimpact":
         result = db.query(MyImpactResult).filter(
@@ -596,13 +600,16 @@ async def grade_assessment_preview(
             detail="Invalid assessment ID format"
         )
 
-    # First try: user's own assessment
+    # First try: user's own assessment (excludes soft-deleted)
     assessment = db.query(Assessment).filter(
         Assessment.id == assessment_uuid,
-        Assessment.user_id == current_user.id
+        Assessment.user_id == current_user.id,
+        Assessment.deleted_at.is_(None),
     ).first()
 
-    # Second try: admin viewing a member's assessment
+    # Second try: admin viewing a member's assessment.
+    # Admins intentionally see deleted assessments (audit trail) — no
+    # deleted_at filter here.
     if not assessment:
         from app.models.membership import Membership
         admin_membership = db.query(Membership).filter(
@@ -728,13 +735,15 @@ async def download_assessment_pdf(
             detail="Invalid assessment ID format"
         )
 
-    # First try: user's own assessment
+    # First try: user's own assessment (excludes soft-deleted)
     assessment = db.query(Assessment).filter(
         Assessment.id == assessment_uuid,
-        Assessment.user_id == current_user.id
+        Assessment.user_id == current_user.id,
+        Assessment.deleted_at.is_(None),
     ).first()
 
-    # Second try: admin viewing a member's assessment
+    # Second try: admin viewing a member's assessment.
+    # Admins see deleted assessments (audit trail) — no deleted_at filter.
     if not assessment:
         from app.models.membership import Membership as _Membership
         admin_membership = db.query(_Membership).filter(
@@ -828,7 +837,8 @@ async def continue_assessment(
     
     assessment = db.query(Assessment).filter(
         Assessment.id == assessment_uuid,
-        Assessment.user_id == current_user.id
+        Assessment.user_id == current_user.id,
+        Assessment.deleted_at.is_(None),
     ).first()
 
     if not assessment:
@@ -923,7 +933,8 @@ async def get_my_assessments(
 ):
     """Get all assessments for current user"""
     query = db.query(Assessment).filter(
-        Assessment.user_id == current_user.id
+        Assessment.user_id == current_user.id,
+        Assessment.deleted_at.is_(None),
     )
     
     # Filter by instrument type if provided
@@ -937,6 +948,48 @@ async def get_my_assessments(
     
     assessments = query.order_by(Assessment.created_at.desc()).all()
     return assessments
+
+
+@router.delete("/{assessment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(AUTHENTICATED_RATE)
+@audit_action("assessment_deleted", "assessment")
+async def soft_delete_assessment(
+    request: Request,
+    assessment_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_verified_user),
+):
+    """Soft-delete an assessment owned by the current user.
+
+    Sets `deleted_at` to now() rather than hard-deleting the row, so
+    the answers / results / admin export trail stays intact. Idempotent:
+    a second DELETE on an already-deleted assessment is a no-op 204
+    (not 404) so a double-click on the UI doesn't surprise the user.
+    """
+    try:
+        assessment_uuid = uuid.UUID(assessment_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid assessment ID format",
+        )
+
+    assessment = db.query(Assessment).filter(
+        Assessment.id == assessment_uuid,
+        Assessment.user_id == current_user.id,
+    ).first()
+
+    if not assessment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assessment not found",
+        )
+
+    if assessment.deleted_at is None:
+        assessment.deleted_at = datetime.now(timezone.utc)
+        db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def build_myimpact_result_response(result: MyImpactResult) -> MyImpactResultResponse:
