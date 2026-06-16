@@ -23,9 +23,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
     
     # Application
-    PROJECT_NAME: str = "Impact Dashboard"
+    PROJECT_NAME: str = "GPS Assessment Platform"
     VERSION: str = "2.0.0"
-    DESCRIPTION: str = "Impact Dashboard API"
+    DESCRIPTION: str = "Gift, Passion, Story Assessment Platform API"
     DEBUG: bool = False
     
     # Security
