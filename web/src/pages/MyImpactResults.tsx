@@ -349,28 +349,31 @@ export function MyImpactResults() {
             </div>
           </section>
 
-          {/* Navigation footer */}
-          <div className="flex justify-between items-center mt-16 no-print">
+          {/* Navigation footer.
+             Wraps + scales button padding at narrow widths so the
+             Print/Download buttons don't overflow off the right edge
+             on mobile (Sherri 2026-06-16). */}
+          <div className="flex flex-wrap justify-between items-center gap-3 mt-16 no-print">
             <button
               onClick={() => navigate(-1)}
-              className="h-[50px] px-8 bg-brand-gray-light text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors flex items-center gap-2"
+              className="h-[50px] px-5 sm:px-8 bg-brand-gray-light text-brand-charcoal font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               <span className="text-xl">&larr;</span> {t('Back')}
             </button>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {assessmentId && (
                 <button
                   onClick={handleDownloadPdf}
                   disabled={pdfLoading}
-                  className="h-[50px] px-8 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-lg rounded-xl hover:bg-brand-teal/10 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="h-[50px] px-5 sm:px-8 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-teal/10 transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                 >
                   {pdfLoading ? t('Generating...') : t('Download PDF')}
                 </button>
               )}
               <button
                 onClick={() => window.print()}
-                className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors flex items-center gap-2"
+                className="h-[50px] px-5 sm:px-8 bg-brand-teal text-white font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-teal/90 transition-colors flex items-center gap-2 whitespace-nowrap"
               >
                 {t('Print')} <span className="text-xl">&rarr;</span>
               </button>
@@ -382,7 +385,7 @@ export function MyImpactResults() {
           <div className="flex justify-center mt-8 no-print">
             <button
               onClick={() => navigate('/dashboard')}
-              className="h-[50px] px-10 bg-brand-gold text-brand-charcoal font-body font-bold text-lg rounded-xl hover:bg-brand-gold/90 transition-colors"
+              className="h-[50px] px-6 sm:px-10 bg-brand-gold text-brand-charcoal font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-gold/90 transition-colors whitespace-nowrap"
             >
               {t('Return to Dashboard')}
             </button>

@@ -159,7 +159,7 @@ export function AssessmentWizard() {
       <Navbar />
 
       <main className="flex-1 bg-white">
-        <section className="max-w-[1230px] mx-auto px-6 pt-12 pb-8">
+        <section className="max-w-[1230px] mx-auto px-4 sm:px-6 pt-12 pb-8">
           <button
             onClick={handleSaveAndExit}
             className="inline-flex items-center gap-1 font-body font-bold text-sm text-brand-teal hover:text-brand-teal/80 transition-colors mb-4"
@@ -387,17 +387,20 @@ function LikertPage({
                 {(isEs && q.question_es) ? q.question_es : q.question}
               </p>
 
-              {/* Likert scale */}
-              <div className="flex items-center gap-3 flex-1 justify-end">
-                <span className="font-body font-bold text-base text-brand-charcoal leading-[26px] w-[105px] text-left">
+              {/* Likert scale.
+                 flex-wrap + smaller button/label sizing at narrow widths
+                 stops "Almost Never" from being clipped off the left
+                 edge on mobile (Sherri 2026-06-16). */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-1 justify-end">
+                <span className="font-body font-bold text-sm sm:text-base text-brand-charcoal leading-[26px] w-[70px] sm:w-[105px] text-left">
                   {t('Almost Never')}
                 </span>
-                <div className="flex gap-[15px]">
+                <div className="flex gap-2 sm:gap-[15px]">
                   {[1, 2, 3, 4, 5].map((val) => (
                     <button
                       key={val}
                       onClick={() => onSelect(q.id, val)}
-                      className={`w-[53px] h-[53px] rounded-full flex items-center justify-center font-body font-bold text-[20px] transition-colors cursor-pointer ${
+                      className={`w-10 h-10 sm:w-[53px] sm:h-[53px] rounded-full flex items-center justify-center font-body font-bold text-base sm:text-[20px] transition-colors cursor-pointer ${
                         selected === val
                           ? 'bg-brand-gold border-2 border-brand-gold text-white'
                           : 'bg-white border-2 border-brand-gray-light text-brand-charcoal hover:border-brand-gold/50'
@@ -407,7 +410,7 @@ function LikertPage({
                     </button>
                   ))}
                 </div>
-                <span className="font-body font-bold text-base text-brand-charcoal leading-[26px] w-[117px] text-right">
+                <span className="font-body font-bold text-sm sm:text-base text-brand-charcoal leading-[26px] w-[80px] sm:w-[117px] text-right">
                   {t('Almost Always')}
                 </span>
               </div>

@@ -427,7 +427,13 @@ export function Dashboard() {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto relative">
+                {/* Narrow-viewport scroll hint — Sherri 2026-06-16: users
+                   couldn't tell the assessment table was horizontally
+                   scrollable on mobile. */}
+                <p className="md:hidden text-right text-xs italic text-brand-gray-med px-3 py-1">
+                  → {t('scroll for more')}
+                </p>
                 <table className="w-full min-w-[800px]">
                   <thead>
                     <tr className="border-b border-brand-gray-light">
@@ -661,7 +667,13 @@ export function Dashboard() {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto relative">
+                {/* Narrow-viewport scroll hint — Sherri 2026-06-16: users
+                   couldn't tell the assessment table was horizontally
+                   scrollable on mobile. */}
+                <p className="md:hidden text-right text-xs italic text-brand-gray-med px-3 py-1">
+                  → {t('scroll for more')}
+                </p>
                 <table className="w-full min-w-[800px]">
                   <thead>
                     <tr className="border-b border-brand-gray-light">

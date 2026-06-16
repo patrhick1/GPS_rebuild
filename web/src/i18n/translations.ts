@@ -120,6 +120,7 @@ const es: Record<string, string> = {
   'Delete assessment': 'Eliminar evaluación',
   'Delete this assessment? You can ask an admin to recover it later if needed.':
     '¿Eliminar esta evaluación? Puedes pedirle a un administrador que la recupere más tarde si es necesario.',
+  'scroll for more': 'desliza para ver más',
   'Question': 'Pregunta',
   'Complete': 'Completado',
   '1 = Not true of me': '1 = No es cierto para mí',

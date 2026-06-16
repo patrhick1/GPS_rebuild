@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../hooks/useTranslation';
 import { NotificationBell } from './NotificationBell';
 import { HelpLink } from './HelpLink';
 import dmLogo from '../../Graphics for Dev/Logos/Disciples+Made+Logo+Horizontal 1.svg';
@@ -12,6 +13,7 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isEs } = useTranslation();
 
   const homePath = user?.role === 'master' ? '/master' : '/dashboard';
 
@@ -31,8 +33,11 @@ export function Navbar() {
           {user && user.email_verified === 'Y' && <NotificationBell />}
         </div>
 
-        {/* Mobile: notification bell + hamburger */}
-        <div className="md:hidden flex items-center gap-2">
+        {/* Mobile: Help + notification bell + hamburger.
+           Help moved out of the hamburger menu per Sherri 2026-06-16 so
+           it mirrors the desktop position (right of logos, left of bell). */}
+        <div className="md:hidden flex items-center gap-3">
+          <HelpLink className="font-body font-bold text-sm text-brand-charcoal hover:text-brand-teal transition-colors" />
           {user && user.email_verified === 'Y' && <NotificationBell />}
           <button
             className="p-2"
@@ -49,7 +54,16 @@ export function Navbar() {
         <div className="md:hidden flex flex-col items-center gap-4 py-4 border-t border-brand-gray-light bg-white">
           <img src={gpsLogo} alt="GPS" className="h-8" />
           <img src={myImpactLogo} alt="MyImpact" className="h-8" />
-          <HelpLink className="font-body font-bold text-base text-brand-charcoal hover:text-brand-teal transition-colors" />
+          {/* Locale toggle mirrored from the footer for discoverability on
+             mobile (Sherri 2026-06-16: footer toggle is hard to find / can
+             scroll off-screen on small viewports). */}
+          <Link
+            to={isEs ? '/update-locale?locale=en' : '/update-locale?locale=es'}
+            className="font-body font-bold text-base text-brand-teal hover:text-brand-teal/80 transition-colors underline"
+            onClick={() => setMenuOpen(false)}
+          >
+            {isEs ? 'In English?' : '¿En español?'}
+          </Link>
         </div>
       )}
     </nav>
