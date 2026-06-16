@@ -28,6 +28,8 @@ interface Organization {
   id: string;
   name: string;
   role?: string;
+  city?: string | null;
+  state?: string | null;
 }
 
 interface PendingOrganization {

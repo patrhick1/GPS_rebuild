@@ -393,7 +393,11 @@ export function Account() {
               /* Already linked to a church */
               <div>
                 <p className="font-body font-bold text-lg text-brand-charcoal mb-4">
-                  You are currently linked to <span className="text-brand-teal">{summary.organization.name}</span>
+                  You are currently linked to{' '}
+                  <span className="text-brand-teal">{summary.organization.name}</span>
+                  {summary.organization.city && (
+                    <span className="text-brand-gray-med"> — {summary.organization.city}{summary.organization.state ? `, ${summary.organization.state}` : ''}</span>
+                  )}
                 </p>
                 <button
                   onClick={async () => {

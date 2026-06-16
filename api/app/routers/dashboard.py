@@ -76,7 +76,9 @@ async def get_dashboard_summary(
                 "id": membership.organization.id,
                 "name": membership.organization.name,
                 "role": membership.role.name if membership.role else None,
-                "is_primary_admin": membership.is_primary_admin if membership.role and membership.role.name == "admin" else False
+                "is_primary_admin": membership.is_primary_admin if membership.role and membership.role.name == "admin" else False,
+                "city": membership.organization.city,
+                "state": membership.organization.state,
             }
         else:
             # Check for pending or declined membership

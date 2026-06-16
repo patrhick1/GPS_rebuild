@@ -47,6 +47,10 @@ class OrganizationSummary(BaseModel):
     id: uuid.UUID
     name: str
     role: Optional[str] = None
+    # Surfaced in the "currently linked" banner so members can tell apart
+    # same-named churches in different locations (Sherri 2026-06-16).
+    city: Optional[str] = None
+    state: Optional[str] = None
 
 
 class PendingOrganization(BaseModel):
