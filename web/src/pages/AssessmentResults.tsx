@@ -5,6 +5,7 @@ import { api } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { useTranslation } from '../hooks/useTranslation';
+import { optionLabel } from '../data/assessmentOptions';
 
 const GIFT_COLORS = [
   'bg-brand-teal-light',
@@ -23,6 +24,7 @@ const PASSION_COLORS = [
 interface GiftResult {
   id: string;
   name: string;
+  name_es?: string | null;
   short_code: string;
   description: string;
   description_es?: string | null;
@@ -201,7 +203,7 @@ export function AssessmentResults() {
                     <span
                       className={`shrink-0 inline-flex items-center justify-center h-[50px] px-6 rounded-full font-body font-bold text-xl text-brand-charcoal ${GIFT_COLORS[index % GIFT_COLORS.length]}`}
                     >
-                      {gift.name}
+                      {(isEs && gift.name_es) || gift.name}
                     </span>
 
                     <p className="flex-1 font-body font-bold text-xl text-brand-charcoal leading-[30px]">
@@ -225,7 +227,7 @@ export function AssessmentResults() {
                 <div className="flex flex-wrap gap-2">
                   {results.abilities.map((ability, idx) => (
                     <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-purple/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
-                      {ability}
+                      {optionLabel(ability, isEs)}
                     </span>
                   ))}
                 </div>
@@ -254,7 +256,7 @@ export function AssessmentResults() {
                     <span
                       className={`shrink-0 inline-flex items-center justify-center h-[50px] px-6 rounded-full font-body font-bold text-xl text-brand-charcoal ${PASSION_COLORS[index % PASSION_COLORS.length]}`}
                     >
-                      {passion.name}
+                      {(isEs && passion.name_es) || passion.name}
                     </span>
 
                     <p className="flex-1 font-body font-bold text-xl text-brand-charcoal leading-[30px]">
@@ -280,7 +282,7 @@ export function AssessmentResults() {
                 <div className="flex flex-wrap gap-2">
                   {results.people.map((person, idx) => (
                     <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-pink/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
-                      {person}
+                      {optionLabel(person, isEs)}
                     </span>
                   ))}
                 </div>
@@ -293,7 +295,7 @@ export function AssessmentResults() {
                 <div className="flex flex-wrap gap-2">
                   {results.causes.map((cause, idx) => (
                     <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-teal-light/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
-                      {cause}
+                      {optionLabel(cause, isEs)}
                     </span>
                   ))}
                 </div>

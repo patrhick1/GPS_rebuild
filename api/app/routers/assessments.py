@@ -646,6 +646,7 @@ async def grade_assessment_preview(
                 {
                     "id": g.id,
                     "name": g.name,
+                    "name_es": g.name_es,
                     "short_code": g.short_code,
                     "description": g.description,
                     "description_es": g.description_es,
@@ -657,6 +658,7 @@ async def grade_assessment_preview(
                 {
                     "id": g.id,
                     "name": g.name,
+                    "name_es": g.name_es,
                     "short_code": g.short_code,
                     "description": g.description,
                     "description_es": g.description_es,
@@ -668,6 +670,7 @@ async def grade_assessment_preview(
                 {
                     "id": p.id,
                     "name": p.name,
+                    "name_es": p.name_es,
                     "short_code": p.short_code,
                     "description": p.description,
                     "description_es": p.description_es,
@@ -679,6 +682,7 @@ async def grade_assessment_preview(
                 {
                     "id": p.id,
                     "name": p.name,
+                    "name_es": p.name_es,
                     "short_code": p.short_code,
                     "description": p.description,
                     "description_es": p.description_es,

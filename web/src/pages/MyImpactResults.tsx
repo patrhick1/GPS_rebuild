@@ -94,7 +94,7 @@ export function MyImpactResults() {
               onClick={() => navigate(-1)}
               className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors"
             >
-              Go Back
+              {t('Go Back')}
             </button>
           </div>
         </main>
@@ -108,7 +108,7 @@ export function MyImpactResults() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <p className="font-body text-lg text-brand-gray-med">Loading results...</p>
+          <p className="font-body text-lg text-brand-gray-med">{t('Loading results...')}</p>
         </main>
         <Footer />
       </div>

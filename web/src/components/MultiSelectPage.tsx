@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface MultiSelectPageProps {
-  question: { id: string; question: string };
+  question: { id: string; question: string; question_es?: string | null };
   options: string[][]; // 2D array for column layout
   maxSelections: number;
   customCount: number;
   initialValue?: string; // Comma-separated from answers
   onChange: (value: string) => void; // Returns comma-separated string
+  // Optional English→Spanish display map. When provided AND locale=es, options
+  // render in Spanish but selection still STORES the English key so DB rows,
+  // admin views, and the scoring service remain locale-independent.
+  displayMap?: Record<string, string>;
 }
 
 export function MultiSelectPage({
@@ -16,7 +21,9 @@ export function MultiSelectPage({
   customCount,
   initialValue,
   onChange,
+  displayMap,
 }: MultiSelectPageProps) {
+  const { t, isEs } = useTranslation();
   // Flatten all options for easy checking
   const allOptions = options.flat();
   
@@ -61,20 +68,23 @@ export function MultiSelectPage({
     });
   };
   
+  const label = (item: string) => (isEs && displayMap?.[item]) || item;
+
   const getCustomLabel = (index: number) => {
-    if (customCount === 1) return 'Other';
-    return index === 0 ? 'Other' : `Other ${index + 1}`;
+    const other = t('Other');
+    if (customCount === 1) return other;
+    return index === 0 ? other : `${other} ${index + 1}`;
   };
-  
+
   return (
     <div>
       <p className="font-body font-bold text-[20px] leading-[30px] text-brand-charcoal mb-6">
-        {question.question}
+        {(isEs && question.question_es) ? question.question_es : question.question}
       </p>
-      
+
       {/* Selection counter */}
       <p className="font-body text-base text-brand-gray-med mb-4">
-        Selected {selectedItems.length} of {maxSelections}
+        {t('Selected')} {selectedItems.length} {t('of')} {maxSelections}
       </p>
 
       <hr className="border-brand-gray-light mb-6" />
@@ -106,7 +116,7 @@ export function MultiSelectPage({
                     )}
                   </button>
                   <span className="font-body font-bold text-[20px] text-brand-charcoal">
-                    {item}
+                    {label(item)}
                   </span>
                 </label>
               );

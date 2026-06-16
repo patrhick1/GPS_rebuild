@@ -11,6 +11,9 @@ class GiftsPassion(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)  # e.g., "Administration", "Apostle", "Teacher"
+    # Spanish display name for the gift/style bubble on the results page.
+    # Falls back to `name` (English) when NULL.
+    name_es = Column(String(100), nullable=True)
     short_code = Column(String(5), nullable=False, unique=True)  # e.g., "AD", "AP", "TE"
     description = Column(Text, nullable=False)
     # Spanish description, displayed when user.locale == 'es'. Frontend falls

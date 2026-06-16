@@ -64,6 +64,7 @@ class AssessmentSubmit(BaseModel):
 class GiftPassionResult(BaseModel):
     id: str
     name: str
+    name_es: Optional[str] = None
     short_code: str
     description: str
     description_es: Optional[str] = None

@@ -30,6 +30,8 @@ const es: Record<string, string> = {
   'Answers': 'Respuestas',
   'Almost Never': 'Casi Nunca',
   'Almost Always': 'Casi Siempre',
+  'Selected': 'Seleccionado',
+  'Other': 'Otro',
   'Previous': 'Anterior',
   'Next': 'Siguiente',
   'Submit': 'Enviar',

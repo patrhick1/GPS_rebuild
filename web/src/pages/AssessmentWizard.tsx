@@ -6,7 +6,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { MultiSelectPage } from '../components/MultiSelectPage';
-import { PEOPLE_OPTIONS, CAUSES_OPTIONS, ABILITIES_OPTIONS } from '../data/assessmentOptions';
+import { PEOPLE_OPTIONS, CAUSES_OPTIONS, ABILITIES_OPTIONS, OPTION_LABEL_ES } from '../data/assessmentOptions';
 import goldMenuIcon from '../../Graphics for Dev/Icons/Gold Menu Icon.svg';
 import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 import leftArrowIcon from '../../Graphics for Dev/Icons/Charcoal Left Arrow Icon.svg';
@@ -265,6 +265,7 @@ export function AssessmentWizard() {
               customCount={2}
               initialValue={answers[currentPage.questions[0].id]?.multiple_choice_answer}
               onChange={(value) => saveAnswer(currentPage.questions[0].id, { multiple_choice_answer: value })}
+              displayMap={OPTION_LABEL_ES}
             />
           )}
 
@@ -276,6 +277,7 @@ export function AssessmentWizard() {
               customCount={2}
               initialValue={answers[currentPage.questions[0].id]?.multiple_choice_answer}
               onChange={(value) => saveAnswer(currentPage.questions[0].id, { multiple_choice_answer: value })}
+              displayMap={OPTION_LABEL_ES}
             />
           )}
 
@@ -287,6 +289,7 @@ export function AssessmentWizard() {
               customCount={2}
               initialValue={answers[currentPage.questions[0].id]?.multiple_choice_answer}
               onChange={(value) => saveAnswer(currentPage.questions[0].id, { multiple_choice_answer: value })}
+              displayMap={OPTION_LABEL_ES}
             />
           )}
 

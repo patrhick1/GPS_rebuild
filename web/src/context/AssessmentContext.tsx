@@ -26,6 +26,7 @@ interface Answer {
 interface GiftResult {
   id: string;
   name: string;
+  name_es?: string | null;
   short_code: string;
   description: string;
   description_es?: string | null;

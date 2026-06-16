@@ -24,6 +24,7 @@ class GiftPassionResult:
     short_code: str
     description: str
     points: int
+    name_es: Optional[str] = None
     description_es: Optional[str] = None
 
 
@@ -185,6 +186,7 @@ class ScoringService:
             results.append(GiftPassionResult(
                 id=str(gift.id),
                 name=gift.name,
+                name_es=gift.name_es,
                 short_code=gift.short_code,
                 description=gift.description,
                 description_es=gift.description_es,
@@ -227,6 +229,7 @@ class ScoringService:
             results.append(GiftPassionResult(
                 id=str(passion.id),
                 name=passion.name,
+                name_es=passion.name_es,
                 short_code=passion.short_code,
                 description=passion.description,
                 description_es=passion.description_es,

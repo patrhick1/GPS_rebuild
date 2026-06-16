@@ -344,19 +344,19 @@ async def get_member_results(
         graded = scoring_service.grade_assessment(assessment)
         return GradedAssessmentResponse(
             gifts=[
-                {"id": g.id, "name": g.name, "short_code": g.short_code, "description": g.description, "points": g.points}
+                {"id": g.id, "name": g.name, "name_es": g.name_es, "short_code": g.short_code, "description": g.description, "description_es": g.description_es, "points": g.points}
                 for g in graded.gifts
             ],
             top_gifts=[
-                {"id": g.id, "name": g.name, "short_code": g.short_code, "description": g.description, "points": g.points}
+                {"id": g.id, "name": g.name, "name_es": g.name_es, "short_code": g.short_code, "description": g.description, "description_es": g.description_es, "points": g.points}
                 for g in graded.top_gifts
             ],
             passions=[
-                {"id": p.id, "name": p.name, "short_code": p.short_code, "description": p.description, "points": p.points}
+                {"id": p.id, "name": p.name, "name_es": p.name_es, "short_code": p.short_code, "description": p.description, "description_es": p.description_es, "points": p.points}
                 for p in graded.passions
             ],
             top_passions=[
-                {"id": p.id, "name": p.name, "short_code": p.short_code, "description": p.description, "points": p.points}
+                {"id": p.id, "name": p.name, "name_es": p.name_es, "short_code": p.short_code, "description": p.description, "description_es": p.description_es, "points": p.points}
                 for p in graded.top_passions
             ],
             abilities=graded.abilities,
