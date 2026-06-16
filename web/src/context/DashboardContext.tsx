@@ -90,19 +90,32 @@ interface AssessmentDetail {
   };
 }
 
+interface ComparisonAssessmentGps {
+  id: string;
+  completed_at?: string;
+  gifts: { id: string; name: string; short_code: string; score: number }[];
+  passions: { id: string; name: string; short_code: string; score: number }[];
+}
+
+interface ComparisonAssessmentMyImpact {
+  id: string;
+  completed_at?: string;
+  // Dimension-keyed (e.g. {"loving": 8, "joyful": 7, ...}); null for unanswered
+  character: Record<string, number | null>;
+  calling: Record<string, number | null>;
+  character_score: number | null;
+  calling_score: number | null;
+  myimpact_score: number | null;
+}
+
 interface ComparisonResult {
-  assessment_1: {
-    id: string;
-    completed_at?: string;
-    gifts: { id: string; name: string; short_code: string; score: number }[];
-    passions: { id: string; name: string; short_code: string; score: number }[];
-  };
-  assessment_2: {
-    id: string;
-    completed_at?: string;
-    gifts: { id: string; name: string; short_code: string; score: number }[];
-    passions: { id: string; name: string; short_code: string; score: number }[];
-  };
+  instrument_type: 'gps' | 'myimpact';
+  // GPS shape (populated when instrument_type === 'gps')
+  assessment_1?: ComparisonAssessmentGps;
+  assessment_2?: ComparisonAssessmentGps;
+  // MyImpact shape (populated when instrument_type === 'myimpact')
+  myimpact_1?: ComparisonAssessmentMyImpact;
+  myimpact_2?: ComparisonAssessmentMyImpact;
 }
 
 interface ChurchSearchResult {

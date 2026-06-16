@@ -95,16 +95,91 @@ export function Dashboard() {
     }
   };
 
-  // Build a unified delta table from comparison result
+  // Build a unified delta table from a GPS comparison result
   const buildDeltaRows = (result: any) => {
+    const a1 = result.assessment_1;
+    const a2 = result.assessment_2;
+    if (!a1 || !a2) return [];
     const map1: Record<string, number> = {};
     const map2: Record<string, number> = {};
-    result.assessment_1.gifts.forEach((g: any) => { map1[g.name] = g.score; });
-    result.assessment_2.gifts.forEach((g: any) => { map2[g.name] = g.score; });
+    a1.gifts.forEach((g: any) => { map1[g.name] = g.score; });
+    a2.gifts.forEach((g: any) => { map2[g.name] = g.score; });
     const names = Array.from(new Set([...Object.keys(map1), ...Object.keys(map2)]));
     return names
       .map(name => ({ name, s1: map1[name] ?? 0, s2: map2[name] ?? 0, delta: (map2[name] ?? 0) - (map1[name] ?? 0) }))
       .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  };
+
+  // ── MyImpact comparison: parallel state to GPS. Keeping the two
+  // pools separate is cleaner UX than one pool that switches type
+  // mid-selection, and matches the API's "both must share
+  // instrument_type" guard.
+  const [miCompareSelected, setMiCompareSelected] = useState<string[]>([]);
+  const [miComparisonResult, setMiComparisonResult] = useState<any>(null);
+  const [miCompareError, setMiCompareError] = useState('');
+  const [miCompareLoading, setMiCompareLoading] = useState(false);
+
+  const toggleMiCompareSelect = (id: string) => {
+    setMiComparisonResult(null);
+    setMiCompareError('');
+    setMiCompareSelected(prev => {
+      if (prev.includes(id)) return prev.filter(i => i !== id);
+      if (prev.length >= 2) return [prev[1], id];
+      return [...prev, id];
+    });
+  };
+
+  const handleMiCompare = async () => {
+    if (miCompareSelected.length !== 2) return;
+    setMiCompareLoading(true);
+    setMiCompareError('');
+    try {
+      const result = await compareAssessments(miCompareSelected[0], miCompareSelected[1]);
+      setMiComparisonResult(result);
+    } catch {
+      setMiCompareError('Failed to load comparison. Please try again.');
+    } finally {
+      setMiCompareLoading(false);
+    }
+  };
+
+  // MyImpact dimension labels — same source used on the wizard / results
+  // page. Wrapping in t() so Spanish picks up existing keys.
+  const buildMiDimensionRows = (result: any) => {
+    const m1 = result?.myimpact_1;
+    const m2 = result?.myimpact_2;
+    if (!m1 || !m2) return { character: [], calling: [] };
+    const characterLabels: Array<{ key: string; label: string }> = [
+      { key: 'loving', label: t('Loving') },
+      { key: 'joyful', label: t('Joyful') },
+      { key: 'peaceful', label: t('Peaceful') },
+      { key: 'patient', label: t('Patient') },
+      { key: 'kind', label: t('Kind') },
+      { key: 'good', label: t('Good') },
+      { key: 'faithful', label: t('Faithful') },
+      { key: 'gentle', label: t('Gentle') },
+      { key: 'self_controlled', label: t('Self-Controlled') },
+    ];
+    const callingLabels: Array<{ key: string; label: string }> = [
+      { key: 'know_gifts', label: t('I can name my top 3 Spiritual Gifts') },
+      { key: 'know_people', label: t('I know the people/causes God wants me to serve') },
+      { key: 'using_gifts', label: t('I am using my gifts to serve others') },
+      { key: 'see_impact', label: t('I see God making a difference through me') },
+      { key: 'experience_joy', label: t('I experience joy in serving others') },
+      { key: 'pray_regularly', label: t('I regularly pray for people around me') },
+      { key: 'see_movement', label: t('I see people move toward faith') },
+      { key: 'receive_support', label: t('I receive support in my calling') },
+    ];
+    const rowFor = (dims: Array<{ key: string; label: string }>, src1: any, src2: any) =>
+      dims.map(({ key, label }) => {
+        const s1 = src1?.[key] ?? 0;
+        const s2 = src2?.[key] ?? 0;
+        return { name: label, s1, s2, delta: s2 - s1 };
+      });
+    return {
+      character: rowFor(characterLabels, m1.character, m2.character),
+      calling: rowFor(callingLabels, m1.calling, m2.calling),
+    };
   };
 
   useEffect(() => {
@@ -590,6 +665,7 @@ export function Dashboard() {
                 <table className="w-full min-w-[800px]">
                   <thead>
                     <tr className="border-b border-brand-gray-light">
+                      <th className="px-6 py-4 w-10" />
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-6 py-4">
                         {t('Started')}
                       </th>
@@ -611,6 +687,18 @@ export function Dashboard() {
                   <tbody>
                     {myimpactHistory.map((item) => (
                       <tr key={item.id} className="border-b border-brand-gray-light last:border-b-0">
+                        {/* Compare checkbox */}
+                        <td className="px-6 py-5">
+                          {item.status === 'completed' && (
+                            <input
+                              type="checkbox"
+                              checked={miCompareSelected.includes(item.id)}
+                              onChange={() => toggleMiCompareSelect(item.id)}
+                              className="w-4 h-4 accent-brand-teal cursor-pointer"
+                              aria-label="Select for comparison"
+                            />
+                          )}
+                        </td>
                         {/* Started */}
                         <td className="px-6 py-5 font-body font-bold text-lg text-brand-charcoal">
                           {formatDate(item.created_at)}
@@ -706,6 +794,114 @@ export function Dashboard() {
               </div>
             )}
           </div>
+
+          {/* MyImpact compare controls (mirrors the GPS compare UX above) */}
+          {miCompareSelected.length > 0 && (
+            <div className="mt-4 flex items-center gap-4">
+              <span className="font-body text-base text-brand-gray-med">
+                {miCompareSelected.length === 1 ? 'Select one more to compare' : '2 assessments selected'}
+              </span>
+              <button
+                onClick={handleMiCompare}
+                disabled={miCompareSelected.length !== 2 || miCompareLoading}
+                className="h-10 px-6 bg-brand-teal text-white font-body font-bold text-base rounded-xl hover:bg-brand-teal/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {miCompareLoading ? 'Loading…' : 'Compare'}
+              </button>
+              <button
+                onClick={() => { setMiCompareSelected([]); setMiComparisonResult(null); setMiCompareError(''); }}
+                className="h-10 px-6 border border-brand-gray-light text-brand-charcoal font-body font-bold text-base rounded-xl hover:bg-brand-gray-lightest transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
+          {miCompareError && (
+            <p className="mt-3 font-body text-sm text-red-600">{miCompareError}</p>
+          )}
+
+          {/* MyImpact delta panel — character + calling + MyImpact-score change */}
+          {miComparisonResult && miComparisonResult.myimpact_1 && miComparisonResult.myimpact_2 && (
+            <div className="mt-6 border border-brand-gray-light rounded-xl overflow-hidden">
+              <div className="bg-brand-teal/10 px-6 py-3 flex items-center justify-between">
+                <h3 className="font-heading font-bold text-lg text-brand-charcoal">
+                  {t('MyImpact Score')}&ensp;
+                  <span className="font-body font-normal text-sm text-brand-gray-med">
+                    {miComparisonResult.myimpact_1.completed_at && new Date(miComparisonResult.myimpact_1.completed_at).toLocaleDateString()}
+                    {' → '}
+                    {miComparisonResult.myimpact_2.completed_at && new Date(miComparisonResult.myimpact_2.completed_at).toLocaleDateString()}
+                  </span>
+                </h3>
+                <button
+                  onClick={() => setMiComparisonResult(null)}
+                  className="text-brand-gray-med hover:text-brand-charcoal text-xl font-bold leading-none"
+                  aria-label="Close comparison"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="px-6 py-4 space-y-6">
+                {/* Headline score delta */}
+                <div className="flex items-center gap-4 pb-3 border-b border-brand-gray-light">
+                  <span className="font-body font-bold text-base text-brand-charcoal w-40">{t('MyImpact Score')}</span>
+                  <span className="font-body text-base text-brand-gray-med">
+                    {(miComparisonResult.myimpact_1.myimpact_score ?? 0).toFixed(1)} → {(miComparisonResult.myimpact_2.myimpact_score ?? 0).toFixed(1)}
+                  </span>
+                  {(() => {
+                    const d = (miComparisonResult.myimpact_2.myimpact_score ?? 0) - (miComparisonResult.myimpact_1.myimpact_score ?? 0);
+                    if (Math.abs(d) < 0.05) return <span className="font-body text-base text-brand-gray-med">—</span>;
+                    return (
+                      <span className={`font-body font-bold text-base ${d > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {d > 0 ? `+${d.toFixed(1)}` : d.toFixed(1)}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                {/* Character dimensions */}
+                <div>
+                  <h4 className="font-body font-bold text-base text-brand-gray-med uppercase mb-3">{t('Character')}</h4>
+                  <div className="space-y-2">
+                    {buildMiDimensionRows(miComparisonResult).character.map(({ name, s1, s2, delta }) => (
+                      <div key={name} className="flex items-center gap-3">
+                        <span className="w-56 font-body font-bold text-base text-brand-charcoal truncate">{name}</span>
+                        <span className="font-body text-base text-brand-gray-med">{s1} → {s2}</span>
+                        {delta !== 0 ? (
+                          <span className={`font-body font-bold text-base ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {delta > 0 ? `+${delta}` : delta}
+                          </span>
+                        ) : (
+                          <span className="font-body text-base text-brand-gray-med">—</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Calling dimensions */}
+                <div>
+                  <h4 className="font-body font-bold text-base text-brand-gray-med uppercase mb-3">{t('Calling')}</h4>
+                  <div className="space-y-2">
+                    {buildMiDimensionRows(miComparisonResult).calling.map(({ name, s1, s2, delta }) => (
+                      <div key={name} className="flex items-start gap-3">
+                        <span className="w-56 font-body font-bold text-base text-brand-charcoal">{name}</span>
+                        <span className="font-body text-base text-brand-gray-med">{s1} → {s2}</span>
+                        {delta !== 0 ? (
+                          <span className={`font-body font-bold text-base ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {delta > 0 ? `+${delta}` : delta}
+                          </span>
+                        ) : (
+                          <span className="font-body text-base text-brand-gray-med">—</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
         {/* Re-take Confirmation Modal */}
         {retakeModalOpen && (

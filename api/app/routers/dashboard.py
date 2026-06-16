@@ -277,8 +277,13 @@ async def compare_assessments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_verified_user)
 ):
-    """Compare two assessments side by side"""
-    
+    """Compare two assessments side by side.
+
+    Both assessments must share the same `instrument_type` (both GPS or
+    both MyImpact). Mixed comparisons are rejected with 400 because
+    Character/Calling scores can't be plotted against Spiritual Gifts.
+    """
+
     # Verify both assessments belong to user (excludes soft-deleted)
     assessment1 = db.query(Assessment).filter(
         Assessment.id == comparison.assessment_id_1,
@@ -293,22 +298,59 @@ async def compare_assessments(
         Assessment.status == "completed",
         Assessment.deleted_at.is_(None),
     ).first()
-    
+
     if not assessment1 or not assessment2:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="One or both assessments not found"
         )
-    
+
+    if assessment1.instrument_type != assessment2.instrument_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot compare a GPS assessment with a MyImpact assessment",
+        )
+
+    if assessment1.instrument_type == "myimpact":
+        mi1 = db.query(MyImpactResult).filter(
+            MyImpactResult.assessment_id == assessment1.id
+        ).first()
+        mi2 = db.query(MyImpactResult).filter(
+            MyImpactResult.assessment_id == assessment2.id
+        ).first()
+        return ComparisonResult(
+            instrument_type="myimpact",
+            myimpact_1={
+                "id": assessment1.id,
+                "completed_at": assessment1.completed_at,
+                "character": mi1.get_character_breakdown() if mi1 else {},
+                "calling": mi1.get_calling_breakdown() if mi1 else {},
+                "character_score": mi1.character_score if mi1 else None,
+                "calling_score": mi1.calling_score if mi1 else None,
+                "myimpact_score": mi1.myimpact_score if mi1 else None,
+            },
+            myimpact_2={
+                "id": assessment2.id,
+                "completed_at": assessment2.completed_at,
+                "character": mi2.get_character_breakdown() if mi2 else {},
+                "calling": mi2.get_calling_breakdown() if mi2 else {},
+                "character_score": mi2.character_score if mi2 else None,
+                "calling_score": mi2.calling_score if mi2 else None,
+                "myimpact_score": mi2.myimpact_score if mi2 else None,
+            },
+        )
+
+    # GPS path (existing behavior)
     result1 = db.query(AssessmentResult).filter(
         AssessmentResult.assessment_id == assessment1.id
     ).first()
-    
+
     result2 = db.query(AssessmentResult).filter(
         AssessmentResult.assessment_id == assessment2.id
     ).first()
-    
+
     return ComparisonResult(
+        instrument_type="gps",
         assessment_1={
             "id": assessment1.id,
             "completed_at": assessment1.completed_at,

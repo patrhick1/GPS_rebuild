@@ -152,9 +152,31 @@ class ComparisonAssessment(BaseModel):
     passions: List[PassionDetail] = []
 
 
+class ComparisonMyImpactAssessment(BaseModel):
+    """Shape returned by /dashboard/compare when both assessments are
+    MyImpact. Character / calling dicts are keyed by dimension name
+    (matches MyImpactResult.get_character_breakdown / get_calling_breakdown)
+    so the frontend can resolve labels via the same i18n map it already
+    uses on the results page."""
+    id: uuid.UUID
+    completed_at: Optional[datetime] = None
+    character: dict = {}
+    calling: dict = {}
+    character_score: Optional[float] = None
+    calling_score: Optional[float] = None
+    myimpact_score: Optional[float] = None
+
+
 class ComparisonResult(BaseModel):
-    assessment_1: ComparisonAssessment
-    assessment_2: ComparisonAssessment
+    # New discriminator field defaulted to "gps" so existing clients that
+    # never read it continue to render GPS comparisons correctly.
+    instrument_type: str = "gps"
+    # GPS shape (populated when instrument_type == "gps")
+    assessment_1: Optional[ComparisonAssessment] = None
+    assessment_2: Optional[ComparisonAssessment] = None
+    # MyImpact shape (populated when instrument_type == "myimpact")
+    myimpact_1: Optional[ComparisonMyImpactAssessment] = None
+    myimpact_2: Optional[ComparisonMyImpactAssessment] = None
 
 
 # Church linking schemas
