@@ -64,7 +64,7 @@ app.include_router(webhooks.internal_router)
 @app.get("/")
 async def root():
     return {
-        "message": "Welcome to GPS Assessment Platform API",
+        "message": "Welcome to Impact Dashboard API",
         "version": settings.VERSION,
         "docs": "/docs"
     }

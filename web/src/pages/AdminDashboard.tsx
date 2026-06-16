@@ -305,7 +305,7 @@ export function AdminDashboard() {
   const handlePrintMember = (member: typeof members[0]) => {
     const w = window.open('', '_blank', 'width=800,height=600');
     if (!w) return;
-    const gifts = (member.top_gifts || []).map(g => g.short_code || g.name).join(', ');
+    const gifts = (member.top_gifts || []).map(g => g.name || g.short_code).join(', ');
     const passions = (member.top_passions || []).map(p => p.name).join(', ');
     w.document.write(`
       <html><head><title>${member.first_name} ${member.last_name} — Member Report</title>
@@ -715,8 +715,8 @@ export function AdminDashboard() {
                             </span>
                             <div className="flex gap-1 flex-wrap">
                               {(member.top_gifts || []).map((g, i) => (
-                                <span key={i} className="inline-flex items-center justify-center h-8 px-3 bg-[rgba(167,185,211,0.5)] rounded-full font-body font-bold text-lg text-brand-charcoal">
-                                  {g.short_code}
+                                <span key={i} className="inline-flex items-center justify-center h-8 px-3 bg-[rgba(167,185,211,0.5)] rounded-full font-body font-bold text-base text-brand-charcoal whitespace-nowrap">
+                                  {g.name || g.short_code}
                                 </span>
                               ))}
                             </div>
@@ -802,8 +802,8 @@ export function AdminDashboard() {
                                 <p className="font-body font-bold text-[16px] text-brand-gray-med uppercase mb-1">Gifts</p>
                                 <div className="flex gap-1 flex-wrap">
                                   {(member.top_gifts || []).map((g, i) => (
-                                    <span key={i} className="inline-flex items-center justify-center h-8 px-3 bg-[rgba(167,185,211,0.5)] rounded-full font-body font-bold text-lg text-brand-charcoal">
-                                      {g.short_code}
+                                    <span key={i} className="inline-flex items-center justify-center h-8 px-3 bg-[rgba(167,185,211,0.5)] rounded-full font-body font-bold text-base text-brand-charcoal whitespace-nowrap">
+                                      {g.name || g.short_code}
                                     </span>
                                   ))}
                                 </div>

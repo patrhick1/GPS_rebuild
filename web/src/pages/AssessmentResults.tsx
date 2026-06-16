@@ -244,7 +244,7 @@ export function AssessmentResults() {
              this helps users focus in." */}
           <section className="mt-16">
             <h2 className="font-heading font-medium text-[32px] leading-[41px] text-brand-teal mb-2">
-              {t('Passions')}
+              {t('Influencing Styles')}
             </h2>
             <p className="font-body font-bold text-xl text-brand-charcoal leading-[30px] mb-6">
               {t('Your Spiritual Influencing Styles (highest score is primary & lower is secondary)')}

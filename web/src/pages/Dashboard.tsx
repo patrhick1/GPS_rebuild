@@ -433,9 +433,9 @@ export function Dashboard() {
                               {item.top_gifts.map((gift, idx) => (
                                 <span
                                   key={idx}
-                                  className="inline-flex items-center justify-center px-3 h-8 bg-brand-purple/50 rounded-full font-body font-bold text-lg text-brand-charcoal"
+                                  className="inline-flex items-center justify-center px-3 h-8 bg-brand-purple/50 rounded-full font-body font-bold text-base text-brand-charcoal whitespace-nowrap"
                                 >
-                                  {gift.short_code}
+                                  {gift.name}
                                 </span>
                               ))}
                             </div>

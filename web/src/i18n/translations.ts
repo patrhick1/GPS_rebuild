@@ -47,6 +47,7 @@ const es: Record<string, string> = {
   'Your Spiritual Gifts': 'Tus Dones Espirituales',
   'Score:': 'Puntaje:',
   'Passions': 'Pasiones',
+  'Influencing Styles': 'Estilos de Influencia',
   'Your Spiritual Influencing Styles (highest score is primary & lower is secondary)':
     'Tus estilos de influencia espiritual (el puntaje más alto es el principal y el más bajo es el secundario)',
   'Your Selections': 'Tus Selecciones',

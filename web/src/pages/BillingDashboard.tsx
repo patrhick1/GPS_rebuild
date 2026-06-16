@@ -535,10 +535,10 @@ export function BillingDashboard() {
               <p className="text-center font-body font-semibold text-base text-brand-gray-med mt-10">
                 Have questions?{' '}
                 <a
-                  href="mailto:support@giftpassionstory.com"
+                  href="mailto:info@disciplesmade.com"
                   className="text-brand-teal underline hover:text-brand-teal/80 transition-colors"
                 >
-                  Email us at support@giftpassionstory.com
+                  Email us at info@disciplesmade.com
                 </a>
               </p>
             </section>
