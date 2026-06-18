@@ -12,7 +12,7 @@ import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 export function Dashboard() {
   const { user, logout } = useAuth();
   const { summary, history, myimpactHistory, fetchSummary, fetchHistory, fetchMyImpactHistory, isLoading, error, compareAssessments, deleteAssessment } = useDashboard();
-  const { t } = useTranslation();
+  const { t, isEs } = useTranslation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -306,6 +306,16 @@ export function Dashboard() {
                       className="w-full text-left px-6 font-body font-bold text-lg text-brand-charcoal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
                     >
                       {t('Update Password')}
+                    </button>
+                    <hr className="border-brand-gray-light mx-4" />
+                    {/* Locale toggle — Chelsie 2026-06-17: needs to live in
+                       the page hamburger on both mobile and desktop, not
+                       just the footer. */}
+                    <button
+                      onClick={() => { setMenuOpen(false); navigate(isEs ? '/update-locale?locale=en' : '/update-locale?locale=es'); }}
+                      className="w-full text-left px-6 font-body font-bold text-lg text-brand-teal leading-[50px] hover:bg-brand-gray-lightest transition-colors"
+                    >
+                      {isEs ? 'In English?' : '¿En español?'}
                     </button>
                     <hr className="border-brand-gray-light mx-4" />
                     <button

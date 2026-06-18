@@ -372,7 +372,14 @@ export function MyImpactResults() {
                 </button>
               )}
               <button
-                onClick={() => window.print()}
+                onClick={() => {
+                  // iOS Safari quirk (Chelsie 2026-06-17): the first
+                  // window.print() call inside an onClick can silently
+                  // no-op if any media-query CSS hasn't fully resolved.
+                  // Deferring past the current render cycle reliably
+                  // surfaces the print dialog.
+                  setTimeout(() => window.print(), 0);
+                }}
                 className="h-[50px] px-5 sm:px-8 bg-brand-teal text-white font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-teal/90 transition-colors flex items-center gap-2 whitespace-nowrap"
               >
                 {t('Print')} <span className="text-xl">&rarr;</span>

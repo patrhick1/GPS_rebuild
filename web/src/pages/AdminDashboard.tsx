@@ -5,6 +5,7 @@ import { useAdmin } from '../context/AdminContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { CrmIntegrationPanel } from '../components/CrmIntegrationPanel';
+import { useTranslation } from '../hooks/useTranslation';
 import goldMenuIcon from '../../Graphics for Dev/Icons/Gold Menu Icon.svg';
 import goldXIcon from '../../Graphics for Dev/Icons/Gold X Icon.svg';
 import tealArrowIcon from '../../Graphics for Dev/Icons/Dark Teal Arrow Circle Icon.svg';
@@ -61,6 +62,7 @@ export function AdminDashboard() {
   } = useAdmin();
 
   const navigate = useNavigate();
+  const { isEs } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<AdminTab>('gps');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -451,6 +453,9 @@ export function AdminDashboard() {
                     { label: 'MyImpact Assessments', action: () => navigate('/dashboard') },
                     { label: 'Account', action: () => navigate('/account') },
                     { label: 'Update Password', action: () => navigate('/update-password') },
+                    // Locale toggle — Chelsie 2026-06-17: needs to live in
+                    // the page hamburger (mobile + desktop), not just footer.
+                    { label: isEs ? 'In English?' : '¿En español?', action: () => navigate(isEs ? '/update-locale?locale=en' : '/update-locale?locale=es') },
                     { label: 'Logout', action: () => { setMenuOpen(false); logout(); } },
                   ].map((item) => (
                     <button
