@@ -529,6 +529,7 @@ def _get_top_gifts_summary(db: Session, result: AssessmentResult):
             if gift:
                 gifts.append({
                     "name": gift.name,
+                    "name_es": gift.name_es,
                     "short_code": gift.short_code,
                     "score": score
                 })
@@ -547,6 +548,7 @@ def _get_top_passions_summary(db: Session, result: AssessmentResult):
             if passion:
                 passions.append({
                     "name": passion.name,
+                    "name_es": passion.name_es,
                     "short_code": passion.short_code,
                     "score": score
                 })

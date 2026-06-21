@@ -61,8 +61,8 @@ interface AssessmentHistoryItem {
   completed_at?: string;
   created_at: string;
   progress_percentage: number;
-  top_gifts: { name: string; short_code: string; score: number }[];
-  top_passions: { name: string; short_code: string; score: number }[];
+  top_gifts: { name: string; name_es?: string; short_code: string; score: number }[];
+  top_passions: { name: string; name_es?: string; short_code: string; score: number }[];
   myimpact_score?: number;
   character_score?: number;
   calling_score?: number;

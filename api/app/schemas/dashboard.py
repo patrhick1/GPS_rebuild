@@ -71,12 +71,14 @@ class DashboardSummary(BaseModel):
 # History schemas
 class GiftHistoryItem(BaseModel):
     name: str
+    name_es: Optional[str] = None
     short_code: str
     score: int
 
 
 class PassionHistoryItem(BaseModel):
     name: str
+    name_es: Optional[str] = None
     short_code: str
     score: int
 

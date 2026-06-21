@@ -515,7 +515,7 @@ export function Dashboard() {
                                   key={idx}
                                   className="inline-flex items-center justify-center px-3 h-8 bg-brand-purple/50 rounded-full font-body font-bold text-base text-brand-charcoal whitespace-nowrap"
                                 >
-                                  {gift.name}
+                                  {(isEs && gift.name_es) || gift.name}
                                 </span>
                               ))}
                             </div>
@@ -535,7 +535,7 @@ export function Dashboard() {
                                   key={idx}
                                   className="inline-flex items-center justify-center px-4 h-8 bg-brand-pink/50 rounded-full font-body font-bold text-lg text-brand-charcoal"
                                 >
-                                  {passion.name}
+                                  {(isEs && passion.name_es) || passion.name}
                                 </span>
                               ))}
                             </div>
