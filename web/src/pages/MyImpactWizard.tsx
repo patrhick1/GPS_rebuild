@@ -197,7 +197,7 @@ export function MyImpactWizard() {
 
             {currentQuestion.default_text && (
               <p className="font-body text-sm italic text-brand-gray-med mb-6">
-                {currentQuestion.default_text}
+                {(isEs && currentQuestion.default_text_es) || currentQuestion.default_text}
               </p>
             )}
 

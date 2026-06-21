@@ -10,7 +10,9 @@ interface Question {
   question_type_id: string;
   passion_type?: string;
   default_text?: string;
+  default_text_es?: string;
   summary?: string;
+  summary_es?: string;
   section?: string;
   question_type_name?: string;  // "likert", "multiple_choice", "text"
   type_name?: string;           // "Spiritual Gift", "Influencing Style", "Story"

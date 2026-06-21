@@ -181,7 +181,9 @@ class QuestionForAssessment(BaseModel):
     question_type_id: uuid.UUID
     passion_type: Optional[str] = None
     default_text: Optional[str] = None
+    default_text_es: Optional[str] = None
     summary: Optional[str] = None
+    summary_es: Optional[str] = None
     section: Optional[str] = None  # For MyImpact: Character, Calling
     question_type_name: Optional[str] = None  # "likert", "multiple_choice", "text"
     type_name: Optional[str] = None  # "Spiritual Gift", "Influencing Style", "Story"

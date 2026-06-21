@@ -428,7 +428,7 @@ function TextPage({
   answer,
   onTextChange,
 }: {
-  question: { id: string; question: string; question_es?: string; default_text?: string; summary?: string };
+  question: { id: string; question: string; question_es?: string; default_text?: string; default_text_es?: string; summary?: string; summary_es?: string };
   answer?: { text_value?: string };
   onTextChange: (questionId: string, value: string) => void;
 }) {
@@ -441,14 +441,14 @@ function TextPage({
 
       {question.summary && (
         <p className="font-body text-base text-brand-gray-med italic mb-4">
-          {question.summary}
+          {(isEs && question.summary_es) || question.summary}
         </p>
       )}
 
       {question.default_text && (
         <div className="bg-brand-gray-lightest rounded-lg p-4 mb-4">
           <p className="font-body text-sm text-brand-gray-med italic whitespace-pre-line">
-            {question.default_text}
+            {(isEs && question.default_text_es) || question.default_text}
           </p>
         </div>
       )}
