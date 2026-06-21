@@ -23,6 +23,12 @@ class Subscription(Base):
     trial_end = Column(DateTime, nullable=True)
     canceled_at = Column(DateTime, nullable=True)
     cancel_at_period_end = Column(Boolean, default=False, nullable=False)
+    # Idempotency markers for the platform-wide Zapier integration.
+    # Set to NOW() once the Toolkit Activated / Canceled webhook has been
+    # enqueued for this subscription so duplicate Stripe deliveries can't
+    # double-fire. See platform_webhook_service.fire_toolkit_*.
+    zapier_activated_at = Column(DateTime, nullable=True)
+    zapier_canceled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

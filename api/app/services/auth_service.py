@@ -126,6 +126,19 @@ class AuthService:
                     db_user.id, joined_org.id,
                 )
 
+        # Platform-wide Zapier: every new dashboard account fires this,
+        # independent OR church-attached. Distinct from the per-org
+        # user_registered webhook above (which only fires for joined orgs).
+        try:
+            from app.services.platform_webhook_service import fire_new_account
+            account_type = "church-attached" if joined_org is not None else "independent"
+            fire_new_account(db_user, account_type)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "platform fire_new_account failed for user %s", db_user.id,
+            )
+
         return db_user
 
     def register_church_admin(self, data: ChurchAdminRegister) -> User:
@@ -204,6 +217,19 @@ class AuthService:
             logging.getLogger(__name__).exception(
                 "fire_church_created_event failed for org %s",
                 org.id,
+            )
+
+        # Platform-wide Zapier: church admins count as new accounts too,
+        # tagged "church-attached" (they're attached to the church they
+        # just created).
+        try:
+            from app.services.platform_webhook_service import fire_new_account
+            fire_new_account(db_user, "church-attached")
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "platform fire_new_account failed for church admin %s",
+                db_user.id,
             )
 
         return db_user
@@ -507,6 +533,13 @@ class AuthService:
                 detail="Current password is incorrect.",
             )
 
+        # Capture identifiers BEFORE the anonymization block below
+        # overwrites user.email with deleted_<id>@deleted.local. The
+        # platform webhook must carry the real email so Jason can
+        # remove the subscriber from Kit.
+        deleted_user_id = user.id
+        deleted_user_email = user.email
+
         # Block deletion if user is a primary admin
         primary_membership = self.db.query(Membership).filter(
             Membership.user_id == user.id,
@@ -563,6 +596,18 @@ class AuthService:
         user.status = "deleted"
 
         self.db.commit()
+
+        # Platform-wide Zapier: fire AFTER commit so we don't emit a
+        # "user deleted" event for a deletion that ultimately rolled back.
+        # Uses pre-anonymization identifiers captured at function entry.
+        try:
+            from app.services.platform_webhook_service import fire_user_deleted
+            fire_user_deleted(deleted_user_id, deleted_user_email)
+        except Exception:
+            logger.exception(
+                "platform fire_user_deleted failed for user %s",
+                deleted_user_id,
+            )
 
     def change_password(self, user_id: UUID, current_password: str, new_password: str) -> bool:
         """Change password for a user."""

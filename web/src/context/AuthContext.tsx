@@ -71,6 +71,9 @@ interface RegisterData {
   first_name?: string;
   last_name?: string;
   phone_number?: string;
+  city?: string;
+  state?: string;
+  country?: string;
   organization_key?: string;
 }
 

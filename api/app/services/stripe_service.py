@@ -310,6 +310,31 @@ class StripeService:
                     "auto-un-COMP'd org %s on subscription %s status=%s",
                     org.id, sub_id, sub.get("status"),
                 )
+
+        # Platform-wide Zapier (Disciples Made's central Kit). Gated on
+        # Toolkit price_id so future products can't accidentally fire.
+        # fire_toolkit_* are idempotent via Subscription.zapier_*_at
+        # columns — duplicate Stripe deliveries can't double-fire.
+        try:
+            from app.services.platform_webhook_service import (
+                fire_toolkit_activated,
+                fire_toolkit_canceled,
+                is_toolkit_subscription,
+            )
+            current_status = sub.get("status")
+            event_type = event.get("type") if isinstance(event, dict) else event.type
+            if db_subscription and is_toolkit_subscription(db_subscription.stripe_price_id):
+                if current_status in ("active", "trialing"):
+                    fire_toolkit_activated(db, db_subscription)
+                elif (
+                    current_status in ("canceled", "unpaid", "incomplete_expired")
+                    or event_type == "customer.subscription.deleted"
+                ):
+                    fire_toolkit_canceled(db, db_subscription)
+        except Exception:
+            logging.exception(
+                "platform fire_toolkit_* failed for subscription %s", sub_id,
+            )
     
     @staticmethod
     def handle_invoice_payment_succeeded(event: stripe.Event, db: Session) -> None:

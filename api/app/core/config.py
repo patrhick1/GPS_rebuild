@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     # Internal cron auth — shared secret for /api/internal/* endpoints.
     # Generate via: python -c "import secrets; print(secrets.token_urlsafe(32))"
     INTERNAL_CRON_SECRET: Optional[str] = None
+
+    # Zapier — Disciples Made's central Kit account. One Catch Hook URL
+    # per event type, owned by them, set in Render UI. Each call site
+    # no-ops if its URL is unset so dev/test envs stay quiet.
+    ZAPIER_NEW_ACCOUNT_URL: Optional[str] = None
+    ZAPIER_TOOLKIT_ACTIVATED_URL: Optional[str] = None
+    ZAPIER_TOOLKIT_CANCELED_URL: Optional[str] = None
+    ZAPIER_USER_DELETED_URL: Optional[str] = None
     
     @field_validator('SECRET_KEY')
     @classmethod

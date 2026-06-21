@@ -66,7 +66,7 @@ export function Register() {
     }
 
     try {
-      const { confirmPassword, country, city, state, ...registerData } = formData;
+      const { confirmPassword, ...registerData } = formData;
       await register({ ...registerData, ...(orgKey ? { organization_key: orgKey } : {}) });
       navigate('/verify-email');
     } catch (err) {
