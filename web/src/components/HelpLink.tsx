@@ -7,7 +7,7 @@
  * by subject prefix.
  */
 const HELP_MAILTO =
-  'mailto:info@disciplesmade.com?subject=GPS%20Platform%20Help%20Request';
+  'mailto:info@disciplesmade.com?subject=Impact%20Dashboard%20Help%20Request';
 
 interface HelpLinkProps {
   /** Tailwind classes overriding the default styling. Lets the Navbar render

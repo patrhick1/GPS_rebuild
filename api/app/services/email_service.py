@@ -105,7 +105,7 @@ def send_verification_email(to_email: str, first_name: str, verification_token: 
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -167,7 +167,7 @@ def send_invite_email(
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -221,7 +221,7 @@ def send_assessment_notification_email(
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -339,7 +339,7 @@ def send_gps_result_email(to_email: str, first_name: str, result, results_url: s
         </p>
         <hr style="border:none; border-top:1px solid #eee; margin:32px 0;" />
         <p style="color:#999; font-size:12px; text-align:center;">
-          Gift, Passion, Story Assessment Platform &mdash;
+          Impact Dashboard &mdash;
           <a href="{settings.FRONTEND_URL}" style="color:#999;">disciplesmade.com</a>
         </p>
       </div>
@@ -482,7 +482,7 @@ def send_myimpact_result_email(to_email: str, first_name: str, result, results_u
         </p>
         <hr style="border:none; border-top:1px solid #eee; margin:32px 0;" />
         <p style="color:#999; font-size:12px; text-align:center;">
-          Gift, Passion, Story Assessment Platform &mdash;
+          Impact Dashboard &mdash;
           <a href="{settings.FRONTEND_URL}" style="color:#999;">disciplesmade.com</a>
         </p>
       </div>
@@ -530,7 +530,7 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -582,7 +582,7 @@ def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_toke
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -630,7 +630,7 @@ def send_membership_approved_email(to_email: str, first_name: str, org_name: str
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
@@ -676,7 +676,7 @@ def send_membership_declined_email(to_email: str, first_name: str, org_name: str
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
       <p style="color: #999; font-size: 12px;">
-        Gift, Passion, Story Assessment Platform &mdash;
+        Impact Dashboard &mdash;
         <a href="{settings.FRONTEND_URL}" style="color: #999;">disciplesmade.com</a>
       </p>
     </div>
