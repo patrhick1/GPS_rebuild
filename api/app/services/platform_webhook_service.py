@@ -29,6 +29,7 @@ from typing import Optional
 from uuid import UUID
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -78,12 +79,35 @@ def is_toolkit_subscription(stripe_price_id: Optional[str]) -> bool:
     """True if the Stripe price_id matches a Toolkit plan (monthly or
     yearly). Today only Toolkit subscriptions exist, but the explicit
     check guards against future product additions accidentally firing
-    the Kit webhooks."""
+    the Kit webhooks. Empty-string config values are filtered out so
+    a misconfigured env can't match an empty price_id."""
     if not stripe_price_id:
         return False
-    return stripe_price_id in (
-        settings.STRIPE_PRICE_MONTHLY,
-        settings.STRIPE_PRICE_YEARLY,
+    known = {
+        p for p in (settings.STRIPE_PRICE_MONTHLY, settings.STRIPE_PRICE_YEARLY) if p
+    }
+    return stripe_price_id in known
+
+
+def _get_primary_admin(db: Session, organization_id) -> Optional[User]:
+    """Return the active primary admin User for an organization, or None.
+
+    Filters on User.status == 'active' so a (theoretically impossible)
+    deleted-yet-still-primary admin can't leak `deleted_<id>@deleted.local`
+    into the Zapier payload. delete_account currently blocks deletion of
+    primary admins outright, but defense in depth is one filter clause.
+    """
+    from app.models.membership import Membership
+
+    return (
+        db.query(User)
+        .join(Membership, Membership.user_id == User.id)
+        .filter(
+            Membership.organization_id == organization_id,
+            Membership.is_primary_admin == True,  # noqa: E712 (SQLA filter)
+            User.status == "active",
+        )
+        .first()
     )
 
 
@@ -119,14 +143,29 @@ def fire_toolkit_activated(db: Session, subscription: Subscription) -> None:
     """Trigger 2: Toolkit subscription becomes active/trialing for the
     FIRST time per subscription.
 
-    Caller (stripe_service.handle_subscription_updated) must have
-    already verified the price_id is a Toolkit price (via
-    is_toolkit_subscription) and the status is active/trialing.
+    Caller (stripe_service.handle_subscription_updated) must have:
+      - verified the price_id is a Toolkit price (via is_toolkit_subscription)
+      - verified the status is active/trialing
+      - COMMITTED any pending changes (we issue our own commit below
+        and don't want to flush caller state by accident)
 
-    Sets zapier_activated_at = now() before POSTing so a duplicate
-    Stripe webhook delivery in the same minute can't double-fire.
+    Race protection: SELECT FOR UPDATE locks the row before the
+    check-then-set so two concurrent Stripe webhook deliveries for
+    the same subscription can't both pass the IS NULL check and
+    double-fire. SQLAlchemy's identity map means the locked row IS
+    `subscription` (same Python object), so we can keep using it
+    after the lock — the lock just reflects fresh on-disk state.
+
+    Sets zapier_activated_at = now() before POSTing so even a Zapier
+    outage can't trigger a re-fire on the next webhook retry. We
+    prefer occasional missed events (Jason can backfill from Stripe)
+    over duplicate Kit subscriber updates.
     """
+    db.execute(
+        select(Subscription).where(Subscription.id == subscription.id).with_for_update()
+    ).scalar_one()
     if subscription.zapier_activated_at is not None:
+        db.commit()  # release the FOR UPDATE lock cleanly
         return
     subscription.zapier_activated_at = datetime.now(timezone.utc)
     db.commit()
@@ -135,19 +174,12 @@ def fire_toolkit_activated(db: Session, subscription: Subscription) -> None:
     if not url:
         return
 
-    from app.models.membership import Membership
     from app.models.organization import Organization
 
     org = db.query(Organization).filter(
         Organization.id == subscription.organization_id,
     ).first()
-    primary = db.query(Membership, User).join(
-        User, Membership.user_id == User.id,
-    ).filter(
-        Membership.organization_id == subscription.organization_id,
-        Membership.is_primary_admin == True,  # noqa: E712 (SQLA filter)
-    ).first()
-    primary_user = primary[1] if primary else None
+    primary_user = _get_primary_admin(db, subscription.organization_id)
 
     _post(url, {
         "event": "toolkit_activated",
@@ -164,9 +196,16 @@ def fire_toolkit_activated(db: Session, subscription: Subscription) -> None:
 
 def fire_toolkit_canceled(db: Session, subscription: Subscription) -> None:
     """Trigger 3: Toolkit subscription transitions to canceled / unpaid /
-    incomplete_expired for the first time per subscription. Same
-    idempotency pattern as fire_toolkit_activated."""
+    incomplete_expired for the first time per subscription.
+
+    Same caller preconditions and race-protection pattern as
+    fire_toolkit_activated — see that docstring.
+    """
+    db.execute(
+        select(Subscription).where(Subscription.id == subscription.id).with_for_update()
+    ).scalar_one()
     if subscription.zapier_canceled_at is not None:
+        db.commit()
         return
     subscription.zapier_canceled_at = datetime.now(timezone.utc)
     db.commit()
@@ -175,15 +214,7 @@ def fire_toolkit_canceled(db: Session, subscription: Subscription) -> None:
     if not url:
         return
 
-    from app.models.membership import Membership
-
-    primary = db.query(Membership, User).join(
-        User, Membership.user_id == User.id,
-    ).filter(
-        Membership.organization_id == subscription.organization_id,
-        Membership.is_primary_admin == True,  # noqa: E712
-    ).first()
-    primary_user = primary[1] if primary else None
+    primary_user = _get_primary_admin(db, subscription.organization_id)
 
     _post(url, {
         "event": "toolkit_canceled",

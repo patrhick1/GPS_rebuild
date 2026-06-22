@@ -81,6 +81,13 @@ def find_event(event_name: str) -> dict | None:
     return None
 
 
+def find_event_with_url(event_name: str) -> tuple[str, dict] | tuple[None, None]:
+    for url, payload in captured:
+        if payload.get("event") == event_name:
+            return url, payload
+    return None, None
+
+
 # ─────────────────────── Setup: DB fixtures ──────────────────────────
 
 
@@ -158,10 +165,11 @@ def test_trigger_1_independent_user() -> None:
     user = auth.register_user(user_data, organization_key=None)
     created_user_ids.append(user.id)
 
-    payload = find_event("new_dashboard_account")
+    url, payload = find_event_with_url("new_dashboard_account")
     check("event fired", payload is not None)
     if not payload:
         return
+    check("routed to ZAPIER_NEW_ACCOUNT_URL", url == settings.ZAPIER_NEW_ACCOUNT_URL)
     check("user_id present", payload.get("user_id") == str(user.id))
     check("email correct", payload.get("email") == user_data.email.lower())
     check("first_name", payload.get("first_name") == "Indep")
@@ -293,9 +301,10 @@ def test_trigger_2_toolkit_activated_and_idempotent() -> None:
 
     # First fire — should send
     platform_webhook_service.fire_toolkit_activated(db, sub)
-    payload = find_event("toolkit_activated")
+    url, payload = find_event_with_url("toolkit_activated")
     check("first call fires", payload is not None)
     if payload:
+        check("routed to ZAPIER_TOOLKIT_ACTIVATED_URL", url == settings.ZAPIER_TOOLKIT_ACTIVATED_URL)
         check("user_id = primary admin", payload.get("user_id") == str(admin.id))
         check("church_id correct", payload.get("church_id") == str(org.id))
         check("email = admin email", payload.get("email") == admin.email)
@@ -323,9 +332,10 @@ def test_trigger_3_toolkit_canceled_and_idempotent() -> None:
     db.commit()
 
     platform_webhook_service.fire_toolkit_canceled(db, sub)
-    payload = find_event("toolkit_canceled")
+    url, payload = find_event_with_url("toolkit_canceled")
     check("first call fires", payload is not None)
     if payload:
+        check("routed to ZAPIER_TOOLKIT_CANCELED_URL", url == settings.ZAPIER_TOOLKIT_CANCELED_URL)
         check("church_id correct", payload.get("church_id") == str(sub.organization_id))
         check("subscription_status=canceled", payload.get("subscription_status") == "canceled")
     db.refresh(sub)
@@ -341,9 +351,10 @@ def test_trigger_4_user_deleted() -> None:
     captured.clear()
     fake_id = uuid.uuid4()
     platform_webhook_service.fire_user_deleted(fake_id, "deleted-test@example.com")
-    payload = find_event("user_deleted")
+    url, payload = find_event_with_url("user_deleted")
     check("event fired", payload is not None)
     if payload:
+        check("routed to ZAPIER_USER_DELETED_URL", url == settings.ZAPIER_USER_DELETED_URL)
         check("user_id stringified", payload.get("user_id") == str(fake_id))
         check("email is real (not anonymized)", payload.get("email") == "deleted-test@example.com")
 
