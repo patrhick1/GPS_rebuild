@@ -5,6 +5,7 @@ import { HelpLink } from './HelpLink';
 import dmLogo from '../../Graphics for Dev/Logos/Disciples+Made+Logo+Horizontal 1.svg';
 import gpsLogo from '../../Graphics for Dev/Logos/gps-logo 1.svg';
 import myImpactLogo from '../../Graphics for Dev/Logos/MyImpact Logo.svg';
+import impactLogo from '../../Graphics for Dev/Logos/Impact Dashboard Logo.png';
 
 export function Navbar() {
   const navigate = useNavigate();
@@ -15,9 +16,13 @@ export function Navbar() {
   return (
     <nav className="w-full bg-white border-b-[3px] border-brand-teal">
       <div className="flex items-center justify-between px-8 lg:px-16 h-[72px]">
-        {/* Left: Disciples Made logo */}
-        <button onClick={() => navigate(homePath)} className="cursor-pointer">
+        {/* Left: Disciples Made logo + Impact Dashboard wordmark.
+           Wordmark added per Sherri's 2026-06-22 brand placement mockup —
+           hidden on mobile to keep the right-side cluster (Help + Bell)
+           from wrapping. */}
+        <button onClick={() => navigate(homePath)} className="cursor-pointer flex items-center gap-4">
           <img src={dmLogo} alt="Disciples Made" className="h-10" />
+          <img src={impactLogo} alt="Impact Dashboard" className="hidden md:block h-8" />
         </button>
 
         {/* Right: GPS + MyImpact logos + Help + notification bell (desktop) */}
