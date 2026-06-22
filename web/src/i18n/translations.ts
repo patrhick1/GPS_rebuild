@@ -97,6 +97,7 @@ const es: Record<string, string> = {
   'Progress': 'Progreso',
   'Gifts': 'Regalos',
   'Passion': 'Pasión',
+  'Influencing Style': 'Estilo de Influencia',
   'incomplete': 'incompleta',
   'INCOMPLETE': 'INCOMPLETA',
   'View Results': 'Ver resultados',

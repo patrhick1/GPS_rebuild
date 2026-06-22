@@ -461,7 +461,7 @@ export function Dashboard() {
                         {t('Gifts')}
                       </th>
                       <th className="text-left uppercase font-body font-bold text-base text-brand-gray-med px-4 py-4">
-                        {t('Passion')}
+                        {t('Influencing Style')}
                       </th>
                       <th className="px-4 py-4" />
                     </tr>

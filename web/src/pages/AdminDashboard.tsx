@@ -693,7 +693,7 @@ export function AdminDashboard() {
 
                   {/* ── Table (desktop lg+) ── */}
                   <div className="hidden lg:block overflow-x-auto">
-                    <div className="grid grid-cols-[180px_130px_120px_120px_1fr] gap-2 mb-2">
+                    <div className="grid grid-cols-[180px_130px_180px_140px_1fr] gap-6 mb-2">
                       <button onClick={() => handleSort('name')} className="font-body font-bold text-[16px] text-brand-gray-med uppercase text-left hover:text-brand-teal transition-colors cursor-pointer">Name{sortIndicator('name')}</button>
                       <button onClick={() => handleSort('date')} className="font-body font-bold text-[16px] text-brand-gray-med uppercase text-left hover:text-brand-teal transition-colors cursor-pointer">Last Assessment{sortIndicator('date')}</button>
                       <span className="font-body font-bold text-[16px] text-brand-gray-med uppercase">Gifts</span>
@@ -711,7 +711,7 @@ export function AdminDashboard() {
                     ) : (
                       sortedMembers.map((member) => (
                         <div key={member.id}>
-                          <div className="grid grid-cols-[180px_130px_120px_120px_1fr] gap-2 items-center py-3">
+                          <div className="grid grid-cols-[180px_130px_180px_140px_1fr] gap-6 items-center py-3">
                             <button onClick={() => setSelectedMember(member)} className="font-body font-bold text-lg text-brand-teal truncate text-left hover:underline cursor-pointer">
                               {member.first_name} {member.last_name}
                             </button>
