@@ -10,6 +10,17 @@ Most of the latest feature work appears to be implemented: notifications, CRM/Za
 
 The remaining concerns are mostly production-hardening and configuration details rather than missing core product features. In plain terms, the app looks feature-complete for the recent work, but there are a few places where the user could be sent to the wrong page, a billing event could need manual cleanup, or production domain/email settings could still point at older values.
 
+## Passive Notes That Should Be Treated As Action Items
+
+This section flags places where earlier wording was too passive, waited for external confirmation unnecessarily, or softened a clear implementation issue.
+
+1. Branding cleanup should not wait for Sherri's team to identify individual screens. Sherri already provided the brand goals and template. Remaining deviations should be fixed against the brand guide unless there is a true licensing or asset-access question.
+2. Brandon Grotesque loading is not just a visual preference. The guide explicitly names it for headlines, so the app needs either the licensed webfont bundled/loaded or an approved substitute documented.
+3. Legacy purple/blue CSS files should be treated as unresolved cleanup, not optional follow-up. If a CSS file is imported or can affect a reachable page, it should be remapped to brand tokens.
+4. Gold overuse, off-brand blue/purple UI, heavy shadows, and oversized rounding are brand deviations. They do not need another stakeholder callout before cleanup.
+5. CI and broader regression tests should not be framed as "when ready" indefinitely. They are an engineering gap to prioritize after launch-critical fixes.
+6. Production domain migration is not a decision anymore. `api.disciplesmade.com` has been confirmed as the intended public API domain; the remaining Render `VITE_API_URL` change is an operational task.
+
 ## Confirmed Applied
 
 - Notification system is present and wired into the FastAPI app.
@@ -303,8 +314,9 @@ The auth hero now renders a teal → light-teal gradient instead of the
 old indigo → purple. The other legacy CSS files listed above
 (`AssessmentResults.css`, `MyImpactResults.css`, `AuditLog.css`,
 `SystemExport.css`, `AssessmentHistory.css`, `ChurchLinking.css`)
-remain untouched in this pass — flag separately if Sherri's team
-calls them out.
+remain unresolved. They should be reviewed and remapped to the brand
+guide if they are imported by reachable screens. This should not wait
+for Sherri's team to call out each page individually.
 
 ### Too Many Non-Brand Status Colors
 
@@ -318,7 +330,7 @@ Risk level: low to medium.
 
 What could happen: the interface can feel busier and less brand-controlled than the guide intends. This is especially noticeable when blue/purple are used as regular UI colors rather than only as semantic status colors.
 
-Suggested direction: keep red/green/yellow only where they communicate real system state, like error/success/warning. Avoid using blue/purple as decorative or default UI colors. Prefer Deep Teal, Charcoal, Light Teal, Light Gray, and White for normal interface styling.
+Action direction: keep red/green/yellow only where they communicate real system state, like error/success/warning. Avoid using blue/purple as decorative or default UI colors. Prefer Deep Teal, Charcoal, Light Teal, Light Gray, and White for normal interface styling.
 
 ### Gold Is Sometimes Used Like A Button Background
 
@@ -352,7 +364,7 @@ Risk level: low to medium.
 
 What could happen: even when colors are correct, the UI may still feel slightly different from Figma because the shape language and shadows are heavier than expected.
 
-Suggested direction: use lighter shadows, subtler borders, and less-rounded controls unless the Figma files intentionally use the larger radius.
+Action direction: use lighter shadows, subtler borders, and less-rounded controls when the current implementation visually diverges from the brand guide. Only preserve heavier shadows or larger radius where the actual Figma files clearly require them.
 
 ### Tailwind Gray Is Used Alongside Brand Charcoal/Gray
 
@@ -366,7 +378,7 @@ Risk level: low.
 
 What could happen: text and UI containers may look close but not exact. This can produce the "slightly off" feeling when compared side-by-side with Figma.
 
-Suggested direction: use `brand-charcoal`, `brand-gray-med`, `brand-gray-light`, `brand-gray-lightest`, and white for normal text, dividers, and containers.
+Action direction: use `brand-charcoal`, `brand-gray-med`, `brand-gray-light`, `brand-gray-lightest`, and white for normal text, dividers, and containers.
 
 ### Overall Brand Deviation Summary
 
@@ -383,10 +395,11 @@ Plain English conclusion: the implementation is partway there. The newer app sty
 ## Suggested Follow-Up Priority
 
 1. ~~Confirm whether Stripe Billing Portal should return to `/admin/billing`; if yes, update the backend return URL.~~ **Done 2026-06-23 — commit `ec87061`.**
-2. Review Stripe webhook deduplication order so failed handlers can be retried safely. *(Project owner read this as an intentional, code-commented trade-off — leave-as-is unless a manual-reconciliation tool is wanted.)*
+2. Review Stripe webhook deduplication order so failed handlers can be retried safely. *(Current code treats this as an intentional trade-off. Do not leave it ambiguous: either accept the trade-off and document the manual reconciliation process, or build a retry/reconciliation path.)*
 3. ~~Decide whether production API domain should be `https://api.disciplesmade.com`; if yes, align CSP and frontend env references.~~ **Done 2026-06-23 — commit `e6ebd4f` (CSP + .env.example).** Domain verified live (HTTP 200). Operational follow-up: flip `VITE_API_URL` in Render UI, then drop legacy `gps-api-4q4m.onrender.com` from CSP in a follow-up commit.
-4. Confirm whether `EMAIL_FROM` should move from the old Gift Passion Story domain to a Disciples Made domain. *(Per project memory, `no-reply@email.giftpassionstory.com` is an intentional Resend-verified subdomain — not a misconfiguration. Reply-required flows use `info@disciplesmade.com`.)*
-5. Add CI and broader regression tests when ready.
+4. `EMAIL_FROM` should be treated as intentionally configured only if Resend/domain verification confirms that `no-reply@email.giftpassionstory.com` is the approved sender. If that is true, keep it and document why. If not, move it to the approved Disciples Made sender domain.
+5. Add CI and broader regression tests. This is not blocked by product feedback; it is an engineering reliability gap.
+6. Clean up remaining brand deviations against the brand guide: Brandon font loading/substitution, imported legacy CSS, off-brand blue/purple use, gold overuse, heavy shadows, oversized rounding, and Tailwind gray drift.
 
 ## Resolution Log
 
@@ -395,3 +408,4 @@ Plain English conclusion: the implementation is partway there. The newer app sty
 | 2026-06-23 | `ec87061` | A1 — Billing portal return URL `/billing` → `/admin/billing` |
 | 2026-06-23 | `ec87061` | A2 — Replaced legacy indigo/purple in `App.css` with brand tokens |
 | 2026-06-23 | `e6ebd4f` | B1 — Added `api.disciplesmade.com` to CSP `connect-src` + updated `.env.example` |
+| 2026-06-23 | `6171193` | A2-extended — Swept SaaS palette out of remaining 6 .css files (AssessmentResults, MyImpactResults, AuditLog, SystemExport, AssessmentHistory, ChurchLinking) |
