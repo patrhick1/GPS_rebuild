@@ -6,7 +6,7 @@
 .error {
   text-align: center;
   padding: 40px;
-  color: #6b7280;
+  color: #797E7C;
 }
 
 .error {
@@ -16,12 +16,12 @@
 .empty-history {
   text-align: center;
   padding: 60px 20px;
-  background: #f9fafb;
+  background: #F8F8F8;
   border-radius: 12px;
 }
 
 .empty-history p {
-  color: #6b7280;
+  color: #797E7C;
   margin-bottom: 20px;
 }
 
@@ -31,14 +31,14 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: #eff6ff;
+  background: #F8F8F8;
   border-radius: 8px;
   margin-bottom: 20px;
 }
 
 .compare-controls span {
   font-weight: 500;
-  color: #374151;
+  color: #3F4644;
 }
 
 /* Comparison View */
@@ -52,7 +52,7 @@
 
 .comparison-view h3 {
   margin: 0 0 20px 0;
-  color: #1f2937;
+  color: #3F4644;
 }
 
 .comparison-grid {
@@ -63,19 +63,19 @@
 
 .comparison-column {
   padding: 20px;
-  background: #f9fafb;
+  background: #F8F8F8;
   border-radius: 8px;
 }
 
 .comparison-column h4 {
   margin: 0 0 16px 0;
-  color: #374151;
+  color: #3F4644;
   font-size: 18px;
 }
 
 .comparison-column h5 {
   margin: 16px 0 8px 0;
-  color: #6b7280;
+  color: #797E7C;
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -85,7 +85,7 @@
   display: flex;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #E3E3E3;
 }
 
 .comparison-item:last-child {
@@ -94,7 +94,7 @@
 
 .comparison-item .score {
   font-weight: 600;
-  color: #667eea;
+  color: #0B6C80;
 }
 
 /* Detail View */
@@ -122,7 +122,7 @@
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6b7280;
+  color: #797E7C;
 }
 
 .detail-section {
@@ -131,7 +131,7 @@
 
 .detail-section h4 {
   margin: 0 0 12px 0;
-  color: #374151;
+  color: #3F4644;
   font-size: 18px;
 }
 
@@ -146,7 +146,7 @@
   display: flex;
   justify-content: space-between;
   padding: 12px;
-  background: #f9fafb;
+  background: #F8F8F8;
   border-radius: 6px;
 }
 
@@ -162,8 +162,8 @@
 }
 
 .tag {
-  background: #e5e7eb;
-  color: #374151;
+  background: #E3E3E3;
+  color: #3F4644;
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 14px;
@@ -183,13 +183,13 @@
 .history-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #E3E3E3;
 }
 
 .history-table th {
   font-weight: 600;
-  color: #374151;
-  background: #f9fafb;
+  color: #3F4644;
+  background: #F8F8F8;
 }
 
 .history-table input[type="checkbox"] {
@@ -212,18 +212,18 @@
 }
 
 .mini-tag.gift {
-  background: #dbeafe;
-  color: #1e40af;
+  background: rgba(167, 185, 211, 0.5);
+  color: #3F4644;
 }
 
 .mini-tag.passion {
-  background: #d1fae5;
-  color: #065f46;
+  background: rgba(227, 162, 162, 0.5);
+  color: #3F4644;
 }
 
 .btn-view {
   padding: 8px 16px;
-  background: #667eea;
+  background: #0B6C80;
   color: white;
   border: none;
   border-radius: 6px;
@@ -232,7 +232,7 @@
 }
 
 .btn-view:hover {
-  background: #5568d3;
+  background: #095668;
 }
 
 /* Responsive */

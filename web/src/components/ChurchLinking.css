@@ -4,7 +4,7 @@
 
 .church-linking h2 {
   margin: 0 0 24px 0;
-  color: #1f2937;
+  color: #3F4644;
 }
 
 /* Message Banner */
@@ -38,7 +38,7 @@
 
 .current-status h3 {
   margin: 0 0 16px 0;
-  color: #374151;
+  color: #3F4644;
   font-size: 18px;
 }
 
@@ -47,21 +47,21 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  background: #f9fafb;
+  background: #F8F8F8;
   border-radius: 8px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid #E3E3E3;
 }
 
 .org-info h4 {
   margin: 0 0 8px 0;
-  color: #1f2937;
+  color: #3F4644;
   font-size: 20px;
 }
 
 .role-badge {
   display: inline-block;
   padding: 4px 12px;
-  background: #667eea;
+  background: #0B6C80;
   color: white;
   border-radius: 12px;
   font-size: 12px;
@@ -86,10 +86,10 @@
 
 .no-org {
   padding: 20px;
-  background: #f9fafb;
+  background: #F8F8F8;
   border-radius: 8px;
   text-align: center;
-  color: #6b7280;
+  color: #797E7C;
 }
 
 /* Search Section */
@@ -103,11 +103,11 @@
 
 .search-section h3 {
   margin: 0 0 8px 0;
-  color: #374151;
+  color: #3F4644;
 }
 
 .search-section > p {
-  color: #6b7280;
+  color: #797E7C;
   margin-bottom: 20px;
 }
 
@@ -119,14 +119,14 @@
 .search-box input {
   flex: 1;
   padding: 12px 16px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid #E3E3E3;
   border-radius: 8px;
   font-size: 16px;
 }
 
 .search-box input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #0B6C80;
 }
 
 /* Search Results */
@@ -136,7 +136,7 @@
 
 .search-results h4 {
   margin: 0 0 16px 0;
-  color: #374151;
+  color: #3F4644;
 }
 
 .church-result {
@@ -144,26 +144,26 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  background: #f9fafb;
+  background: #F8F8F8;
   border-radius: 8px;
   margin-bottom: 12px;
 }
 
 .church-result h5 {
   margin: 0 0 4px 0;
-  color: #1f2937;
+  color: #3F4644;
   font-size: 16px;
 }
 
 .church-result p {
   margin: 0;
-  color: #6b7280;
+  color: #797E7C;
   font-size: 14px;
 }
 
 .btn-link {
   padding: 10px 20px;
-  background: #667eea;
+  background: #0B6C80;
   color: white;
   border: none;
   border-radius: 6px;
@@ -173,30 +173,30 @@
 }
 
 .btn-link:hover:not(:disabled) {
-  background: #5568d3;
+  background: #095668;
 }
 
 .btn-link:disabled {
-  background: #a5b4fc;
+  background: #88C0C3;
   cursor: not-allowed;
 }
 
 .no-results {
   margin-top: 24px;
   padding: 24px;
-  background: #f9fafb;
+  background: #F8F8F8;
   border-radius: 8px;
   text-align: center;
 }
 
 .no-results p {
   margin: 0 0 8px 0;
-  color: #6b7280;
+  color: #797E7C;
 }
 
 /* Upgrade Section */
 .upgrade-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0B6C80 0%, #88C0C3 100%);
   color: white;
   padding: 32px;
   border-radius: 12px;
@@ -215,12 +215,12 @@
 
 .upgrade-section .btn-secondary {
   background: white;
-  color: #667eea;
+  color: #0B6C80;
   border: none;
 }
 
 .upgrade-section .btn-secondary:hover:not(:disabled) {
-  background: #f3f4f6;
+  background: #F8F8F8;
 }
 
 /* Responsive */

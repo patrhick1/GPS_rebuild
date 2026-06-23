@@ -8,7 +8,7 @@
 
 .page-header h1 {
   margin: 0;
-  color: #1f2937;
+  color: #3F4644;
 }
 
 .error-banner {
@@ -57,7 +57,7 @@
 
 .filters-bar select {
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #E3E3E3;
   border-radius: 8px;
   font-size: 14px;
   background: white;
@@ -79,13 +79,13 @@
 .log-table td {
   padding: 16px;
   text-align: left;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #E3E3E3;
 }
 
 .log-table th {
-  background: #f9fafb;
+  background: #F8F8F8;
   font-weight: 600;
-  color: #374151;
+  color: #3F4644;
 }
 
 .action-badge {
@@ -102,8 +102,8 @@
 }
 
 .action-badge.info {
-  background: #dbeafe;
-  color: #1e40af;
+  background: rgba(11, 108, 128, 0.12);
+  color: #0B6C80;
 }
 
 .action-badge.success {
@@ -113,7 +113,7 @@
 
 .btn-view {
   padding: 8px 16px;
-  background: #667eea;
+  background: #0B6C80;
   color: white;
   border: none;
   border-radius: 6px;
@@ -131,7 +131,7 @@
 .page-btn {
   padding: 8px 16px;
   background: white;
-  border: 1px solid #d1d5db;
+  border: 1px solid #E3E3E3;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -161,31 +161,31 @@
 
 .modal h2 {
   margin: 0 0 20px 0;
-  color: #1f2937;
+  color: #3F4644;
 }
 
 .detail-content p {
   margin: 0 0 12px 0;
-  color: #4b5563;
+  color: #797E7C;
 }
 
 .details-section {
   margin-top: 20px;
   padding: 16px;
-  background: #f9fafb;
+  background: #F8F8F8;
   border-radius: 8px;
 }
 
 .details-section h3 {
   margin: 0 0 12px 0;
-  color: #374151;
+  color: #3F4644;
 }
 
 .details-section pre {
   margin: 0;
   padding: 12px;
-  background: #1f2937;
-  color: #e5e7eb;
+  background: #3F4644;
+  color: #E3E3E3;
   border-radius: 6px;
   overflow-x: auto;
   font-size: 12px;
@@ -194,7 +194,7 @@
 .btn-close {
   margin-top: 20px;
   padding: 12px 24px;
-  background: #f3f4f6;
+  background: #F8F8F8;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -202,7 +202,7 @@
 
 .btn-export {
   padding: 10px 20px;
-  background: #1f2937;
+  background: #3F4644;
   color: white;
   border: none;
   border-radius: 8px;
@@ -213,7 +213,7 @@
 }
 
 .btn-export:hover {
-  background: #374151;
+  background: #2c3231;
 }
 
 .btn-export:disabled {

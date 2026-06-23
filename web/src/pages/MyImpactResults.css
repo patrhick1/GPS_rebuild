@@ -13,19 +13,19 @@
 }
 
 .myimpact-header h1 {
-  color: #2d3748;
+  color: #3F4644;
   margin-bottom: 0.5rem;
 }
 
 .results-subtitle {
-  color: #718096;
+  color: #797E7C;
   font-size: 1.1rem;
   margin-bottom: 1.5rem;
 }
 
 /* Hero Section */
 .myimpact-hero {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0B6C80 0%, #88C0C3 100%);
   border-radius: 16px;
   padding: 2rem;
   margin-bottom: 2rem;
@@ -134,7 +134,7 @@
 }
 
 .results-section h2 {
-  color: #2d3748;
+  color: #3F4644;
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
@@ -147,7 +147,7 @@
   gap: 1rem;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid #E3E3E3;
 }
 
 .section-icon {
@@ -160,7 +160,7 @@
 }
 
 .section-subtitle {
-  color: #718096;
+  color: #797E7C;
   font-size: 0.9rem;
   margin: 0;
 }
@@ -172,37 +172,37 @@
 .score-number {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #667eea;
+  color: #0B6C80;
   line-height: 1;
 }
 
 .score-denominator {
   font-size: 1.2rem;
-  color: #a0aec0;
+  color: #797E7C;
 }
 
 .section-description {
-  color: #4a5568;
+  color: #797E7C;
   margin-bottom: 1.5rem;
   font-style: italic;
 }
 
-/* Character Section - Red/Orange theme */
+/* Character Section — brand-teal accent */
 .character-section {
-  border-left: 4px solid #e53e3e;
+  border-left: 4px solid #0B6C80;
 }
 
 .character-section .section-icon {
-  color: #e53e3e;
+  color: #0B6C80;
 }
 
-/* Calling Section - Blue theme */
+/* Calling Section — brand-gold accent (sparingly used per brand guide) */
 .calling-section {
-  border-left: 4px solid #3182ce;
+  border-left: 4px solid #F7A824;
 }
 
 .calling-section .section-icon {
-  color: #3182ce;
+  color: #F7A824;
 }
 
 /* Dimensions Grid */
@@ -212,7 +212,7 @@
 }
 
 .dimension-card {
-  background: #f7fafc;
+  background: #F8F8F8;
   padding: 1rem;
   border-radius: 8px;
 }
@@ -226,17 +226,17 @@
 
 .dimension-name {
   font-weight: 500;
-  color: #2d3748;
+  color: #3F4644;
 }
 
 .dimension-score {
   font-weight: 600;
-  color: #667eea;
+  color: #0B6C80;
 }
 
 .dimension-bar {
   height: 8px;
-  background: #e2e8f0;
+  background: #E3E3E3;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -253,16 +253,16 @@
 
 /* Calling Dimension Cards */
 .calling-dimension {
-  background: #ebf8ff;
+  background: rgba(247, 168, 36, 0.08);
 }
 
 .calling-dimension .dimension-score {
-  color: #3182ce;
+  color: #F7A824;
 }
 
 /* Growth Tips */
 .growth-tips {
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  background: linear-gradient(135deg, #F8F8F8 0%, #E3E3E3 100%);
 }
 
 .growth-tips h2 {
@@ -284,13 +284,13 @@
 }
 
 .tip-card h3 {
-  color: #2d3748;
+  color: #3F4644;
   font-size: 1rem;
   margin-bottom: 0.5rem;
 }
 
 .tip-card p {
-  color: #718096;
+  color: #797E7C;
   font-size: 0.9rem;
   margin: 0;
 }
@@ -316,7 +316,7 @@
   .results-section {
     page-break-inside: avoid;
     box-shadow: none;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #E3E3E3;
   }
   
   .no-print {
