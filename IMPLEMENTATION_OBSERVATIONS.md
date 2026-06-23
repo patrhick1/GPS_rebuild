@@ -153,6 +153,21 @@ Risk level: medium if production is supposed to use `api.disciplesmade.com`.
 
 What could happen: the frontend may keep talking to the Render subdomain. That can still work, but it may create confusion, CORS/CSP issues, mixed-domain behavior, or a harder migration later. If the Render subdomain changes or is disabled, the frontend could stop reaching the API.
 
+**Partially resolved 2026-06-23 — commit `e6ebd4f`.** Project owner
+confirmed `api.disciplesmade.com` is the intended public domain and
+verified live (Render screenshot shows the custom domain attached to
+`gps-api`; `curl https://api.disciplesmade.com/` returns HTTP 200 with
+the Impact Dashboard API welcome). Frontend CSP `connect-src` updated
+to allow the new domain; `web/.env.example` updated to recommend it.
+The legacy `gps-api-4q4m.onrender.com` was intentionally kept in CSP
+during the transition window so the frontend doesn't break if a deploy
+lands before Render's `VITE_API_URL` env var is flipped.
+
+**Operational follow-up (not code):** flip `VITE_API_URL` in Render →
+gps-web → Environment from `https://gps-api-4q4m.onrender.com` to
+`https://api.disciplesmade.com`, redeploy, verify, then ship a follow-up
+commit removing the legacy entry from `connect-src`.
+
 ## Testing And Tooling Notes
 
 ### Automated Tests
@@ -369,7 +384,7 @@ Plain English conclusion: the implementation is partway there. The newer app sty
 
 1. ~~Confirm whether Stripe Billing Portal should return to `/admin/billing`; if yes, update the backend return URL.~~ **Done 2026-06-23 — commit `ec87061`.**
 2. Review Stripe webhook deduplication order so failed handlers can be retried safely. *(Project owner read this as an intentional, code-commented trade-off — leave-as-is unless a manual-reconciliation tool is wanted.)*
-3. Decide whether production API domain should be `https://api.disciplesmade.com`; if yes, align CSP and frontend env references. *(Owner confirmed 2026-06-23: yes, `api.disciplesmade.com` is the intended prod domain. Pending DNS confirmation before flipping CSP + `VITE_API_URL`.)*
+3. ~~Decide whether production API domain should be `https://api.disciplesmade.com`; if yes, align CSP and frontend env references.~~ **Done 2026-06-23 — commit `e6ebd4f` (CSP + .env.example).** Domain verified live (HTTP 200). Operational follow-up: flip `VITE_API_URL` in Render UI, then drop legacy `gps-api-4q4m.onrender.com` from CSP in a follow-up commit.
 4. Confirm whether `EMAIL_FROM` should move from the old Gift Passion Story domain to a Disciples Made domain. *(Per project memory, `no-reply@email.giftpassionstory.com` is an intentional Resend-verified subdomain — not a misconfiguration. Reply-required flows use `info@disciplesmade.com`.)*
 5. Add CI and broader regression tests when ready.
 
@@ -379,3 +394,4 @@ Plain English conclusion: the implementation is partway there. The newer app sty
 |---|---|---|
 | 2026-06-23 | `ec87061` | A1 — Billing portal return URL `/billing` → `/admin/billing` |
 | 2026-06-23 | `ec87061` | A2 — Replaced legacy indigo/purple in `App.css` with brand tokens |
+| 2026-06-23 | `e6ebd4f` | B1 — Added `api.disciplesmade.com` to CSP `connect-src` + updated `.env.example` |
