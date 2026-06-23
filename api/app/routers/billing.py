@@ -564,7 +564,7 @@ async def create_billing_portal(
     try:
         session = stripe_service.create_billing_portal_session(
             customer_id=customer.id,
-            return_url=f"{settings.FRONTEND_URL}/billing",
+            return_url=f"{settings.FRONTEND_URL}/admin/billing",
         )
         return {"url": session.url}
     except Exception as e:

@@ -4,7 +4,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0B6C80 0%, #88C0C3 100%);
   padding: 20px;
 }
 
@@ -19,12 +19,12 @@
 
 .auth-card h1 {
   margin: 0 0 10px 0;
-  color: #333;
+  color: #3F4644;
   font-size: 28px;
 }
 
 .auth-card > p {
-  color: #666;
+  color: #797E7C;
   margin-bottom: 30px;
 }
 
@@ -41,7 +41,7 @@
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  color: #333;
+  color: #3F4644;
   font-weight: 500;
   font-size: 14px;
 }
@@ -49,7 +49,7 @@
 .form-group input {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #E3E3E3;
   border-radius: 6px;
   font-size: 16px;
   transition: border-color 0.2s;
@@ -58,13 +58,13 @@
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #0B6C80;
 }
 
 .btn-primary {
   width: 100%;
   padding: 14px;
-  background: #667eea;
+  background: #0B6C80;
   color: white;
   border: none;
   border-radius: 6px;
@@ -75,19 +75,19 @@
 }
 
 .btn-primary:hover {
-  background: #5568d3;
+  background: #095668;
 }
 
 .btn-primary:disabled {
-  background: #a5b4fc;
+  background: #88C0C3;
   cursor: not-allowed;
 }
 
 .btn-secondary {
   padding: 10px 20px;
   background: transparent;
-  color: #667eea;
-  border: 1px solid #667eea;
+  color: #0B6C80;
+  border: 1px solid #0B6C80;
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
@@ -95,7 +95,7 @@
 }
 
 .btn-secondary:hover {
-  background: #667eea;
+  background: #0B6C80;
   color: white;
 }
 
@@ -112,11 +112,11 @@
   margin-top: 20px;
   text-align: center;
   font-size: 14px;
-  color: #666;
+  color: #797E7C;
 }
 
 .auth-links a {
-  color: #667eea;
+  color: #0B6C80;
   text-decoration: none;
 }
 
@@ -127,7 +127,7 @@
 /* Dashboard Styles */
 .dashboard {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #F8F8F8;
 }
 
 .dashboard-header {
@@ -141,7 +141,7 @@
 
 .dashboard-header h1 {
   margin: 0;
-  color: #333;
+  color: #3F4644;
   font-size: 24px;
 }
 
@@ -152,7 +152,7 @@
 }
 
 .user-menu span {
-  color: #666;
+  color: #797E7C;
 }
 
 .dashboard-content {
@@ -163,11 +163,11 @@
 
 .dashboard-content h2 {
   margin: 0 0 10px 0;
-  color: #333;
+  color: #3F4644;
 }
 
 .dashboard-content > p {
-  color: #666;
+  color: #797E7C;
   margin-bottom: 30px;
 }
 
@@ -186,11 +186,11 @@
 
 .card h3 {
   margin: 0 0 10px 0;
-  color: #333;
+  color: #3F4644;
 }
 
 .card p {
-  color: #666;
+  color: #797E7C;
   margin-bottom: 20px;
 }
 
@@ -203,5 +203,5 @@
 
 .loading-spinner {
   font-size: 18px;
-  color: #667eea;
+  color: #0B6C80;
 }
