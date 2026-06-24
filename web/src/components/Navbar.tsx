@@ -16,13 +16,15 @@ export function Navbar() {
   return (
     <nav className="w-full bg-white border-b-[3px] border-brand-teal">
       <div className="flex items-center justify-between px-8 lg:px-16 h-[72px]">
-        {/* Left: Disciples Made logo + Impact Dashboard wordmark.
-           Wordmark added per Sherri's 2026-06-22 brand placement mockup —
-           hidden on mobile to keep the right-side cluster (Help + Bell)
-           from wrapping. */}
-        <button onClick={() => navigate(homePath)} className="cursor-pointer flex items-center gap-4">
-          <img src={dmLogo} alt="Disciples Made" className="h-10" />
-          <img src={impactLogo} alt="Impact Dashboard" className="hidden md:block h-8" />
+        {/* Mobile shows the Impact Dashboard brand. Desktop also includes
+           the Disciples Made parent brand per the placement mockup. */}
+        <button onClick={() => navigate(homePath)} className="cursor-pointer flex min-w-0 items-center gap-4">
+          <img src={dmLogo} alt="Disciples Made" className="hidden h-10 md:block" />
+          <img
+            src={impactLogo}
+            alt="Impact Dashboard"
+            className="h-auto w-[190px] max-w-[55vw] md:h-8 md:w-auto md:max-w-none"
+          />
         </button>
 
         {/* Right: GPS + MyImpact logos + Help + notification bell (desktop) */}
