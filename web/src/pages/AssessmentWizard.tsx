@@ -301,24 +301,28 @@ export function AssessmentWizard() {
             />
           )}
 
-          {/* ── Navigation ── */}
-          <div className="flex justify-between items-center mt-10 mb-8">
+          {/* ── Navigation ──
+             Mobile: 2-col grid — Previous+Next on row 1, Save & Exit
+             spans row 2 (Sherri 2026-06-23 follow-up to results-page
+             mobile fix; same overflow root cause).
+             Desktop: original flex justify-between layout preserved. */}
+          <div className="grid grid-cols-2 gap-3 mt-10 mb-8 sm:flex sm:justify-between sm:items-center">
             {currentPageIndex > 0 ? (
               <button
                 onClick={goToPreviousPage}
-                className="w-[175px] h-[50px] bg-brand-gray-light rounded-xl flex items-center justify-center gap-2 font-body font-bold text-lg text-brand-charcoal hover:bg-brand-gray-light/80 transition-colors"
+                className="w-full sm:w-[175px] h-[50px] bg-brand-gray-light rounded-xl flex items-center justify-center gap-2 font-body font-bold text-lg text-brand-charcoal hover:bg-brand-gray-light/80 transition-colors"
               >
                 <img src={leftArrowIcon} alt="" className="w-[11px] h-[15px]" />
                 {t('Previous')}
               </button>
             ) : (
-              <div className="w-[175px]" />
+              <div className="hidden sm:block sm:w-[175px]" />
             )}
 
             <button
               onClick={handleSaveAndExit}
               disabled={isLoading}
-              className="px-6 h-[50px] border border-brand-gray-light rounded-xl font-body font-bold text-lg text-brand-charcoal hover:bg-brand-gray-lightest disabled:opacity-50 transition-colors"
+              className="w-full sm:w-auto px-6 h-[50px] border border-brand-gray-light rounded-xl font-body font-bold text-lg text-brand-charcoal hover:bg-brand-gray-lightest disabled:opacity-50 transition-colors col-span-2 order-3 sm:order-none"
             >
               {t('Save & Exit')}
             </button>
@@ -327,7 +331,7 @@ export function AssessmentWizard() {
               <button
                 onClick={handleSubmit}
                 disabled={isLoading || !isCurrentPageComplete()}
-                className="w-[175px] h-[50px] bg-brand-teal rounded-xl flex items-center justify-center gap-2 font-body font-bold text-lg text-white hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full sm:w-[175px] h-[50px] bg-brand-teal rounded-xl flex items-center justify-center gap-2 font-body font-bold text-lg text-white hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors order-2 sm:order-none"
               >
                 {isLoading ? t('Submitting...') : t('Submit')}
                 {!isLoading && <img src={rightArrowIcon} alt="" className="w-[11px] h-[15px]" />}
@@ -336,7 +340,7 @@ export function AssessmentWizard() {
               <button
                 onClick={goToNextPage}
                 disabled={!isCurrentPageComplete()}
-                className="w-[175px] h-[50px] bg-brand-teal rounded-xl flex items-center justify-center gap-2 font-body font-bold text-lg text-white hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full sm:w-[175px] h-[50px] bg-brand-teal rounded-xl flex items-center justify-center gap-2 font-body font-bold text-lg text-white hover:bg-brand-teal/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors order-2 sm:order-none"
               >
                 {t('Next')}
                 <img src={rightArrowIcon} alt="" className="w-[11px] h-[15px]" />

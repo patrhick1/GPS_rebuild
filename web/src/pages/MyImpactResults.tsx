@@ -350,41 +350,41 @@ export function MyImpactResults() {
           </section>
 
           {/* Navigation footer.
-             Wraps + scales button padding at narrow widths so the
-             Print/Download buttons don't overflow off the right edge
-             on mobile (Sherri 2026-06-16). */}
-          <div className="flex flex-wrap justify-between items-center gap-3 mt-16 no-print">
+             Mobile (Sherri 2026-06-23): grid with Back+Print on row 1,
+             Download PDF full-width on row 2. Avoids the wonky wrap the
+             old flex+justify-between produced on narrow viewports.
+             Desktop: flex row with Back on the left and Download+Print
+             grouped on the right (mr-auto pushes the trailing buttons). */}
+          <div className="grid grid-cols-2 gap-3 mt-16 no-print sm:flex sm:flex-wrap sm:items-center">
             <button
               onClick={() => navigate(-1)}
-              className="h-[50px] px-5 sm:px-8 bg-brand-gray-light text-brand-charcoal font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors flex items-center gap-2 whitespace-nowrap"
+              className="h-[50px] px-5 sm:px-8 bg-brand-gray-light text-brand-charcoal font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-gray-light/80 transition-colors flex items-center justify-center gap-2 whitespace-nowrap w-full sm:w-auto sm:mr-auto"
             >
               <span className="text-xl">&larr;</span> {t('Back')}
             </button>
 
-            <div className="flex flex-wrap items-center gap-3">
-              {assessmentId && (
-                <button
-                  onClick={handleDownloadPdf}
-                  disabled={pdfLoading}
-                  className="h-[50px] px-5 sm:px-8 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-teal/10 transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
-                >
-                  {pdfLoading ? t('Generating...') : t('Download PDF')}
-                </button>
-              )}
+            {assessmentId && (
               <button
-                onClick={() => {
-                  // iOS Safari quirk (Chelsie 2026-06-17): the first
-                  // window.print() call inside an onClick can silently
-                  // no-op if any media-query CSS hasn't fully resolved.
-                  // Deferring past the current render cycle reliably
-                  // surfaces the print dialog.
-                  setTimeout(() => window.print(), 0);
-                }}
-                className="h-[50px] px-5 sm:px-8 bg-brand-teal text-white font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-teal/90 transition-colors flex items-center gap-2 whitespace-nowrap"
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                className="h-[50px] px-5 sm:px-8 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-teal/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap w-full sm:w-auto col-span-2 order-3 sm:order-none"
               >
-                {t('Print')} <span className="text-xl">&rarr;</span>
+                {pdfLoading ? t('Generating...') : t('Download PDF')}
               </button>
-            </div>
+            )}
+            <button
+              onClick={() => {
+                // iOS Safari quirk (Chelsie 2026-06-17): the first
+                // window.print() call inside an onClick can silently
+                // no-op if any media-query CSS hasn't fully resolved.
+                // Deferring past the current render cycle reliably
+                // surfaces the print dialog.
+                setTimeout(() => window.print(), 0);
+              }}
+              className="h-[50px] px-5 sm:px-8 bg-brand-teal text-white font-body font-bold text-base sm:text-lg rounded-xl hover:bg-brand-teal/90 transition-colors flex items-center justify-center gap-2 whitespace-nowrap w-full sm:w-auto order-2 sm:order-none"
+            >
+              {t('Print')} <span className="text-xl">&rarr;</span>
+            </button>
           </div>
 
           {/* Primary next-step CTA — Sherri 2026-06-16: users need a clear

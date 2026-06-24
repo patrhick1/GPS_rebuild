@@ -225,12 +225,16 @@ export function MyImpactWizard() {
             </div>
           </div>
 
-          {/* Navigation Buttons */}
-          <div className="flex justify-between items-center">
+          {/* Navigation Buttons.
+             Mobile: 2-col grid — Previous+Next on row 1, Save & Exit
+             spans row 2 (Sherri 2026-06-23 follow-up to results-page
+             mobile fix; same overflow root cause).
+             Desktop: original flex justify-between layout preserved. */}
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:justify-between sm:items-center">
             <button
               onClick={goToPrevious}
               disabled={currentQuestionIndex === 0}
-              className="px-6 py-2.5 bg-brand-gray-light rounded-xl font-body font-bold text-base text-brand-charcoal disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-gray-light/80 transition-colors"
+              className="w-full sm:w-auto px-6 py-2.5 bg-brand-gray-light rounded-xl font-body font-bold text-base text-brand-charcoal disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-gray-light/80 transition-colors"
             >
               {t('Previous')}
             </button>
@@ -238,7 +242,7 @@ export function MyImpactWizard() {
             <button
               onClick={handleSaveAndExit}
               disabled={isLoading}
-              className="px-6 py-2.5 border border-brand-gray-light rounded-xl font-body font-bold text-base text-brand-charcoal hover:bg-brand-gray-lightest disabled:opacity-50 transition-colors"
+              className="w-full sm:w-auto px-6 py-2.5 border border-brand-gray-light rounded-xl font-body font-bold text-base text-brand-charcoal hover:bg-brand-gray-lightest disabled:opacity-50 transition-colors col-span-2 order-3 sm:order-none"
             >
               {t('Save & Exit')}
             </button>
@@ -247,7 +251,7 @@ export function MyImpactWizard() {
               <button
                 onClick={goToNext}
                 disabled={!currentAnswer}
-                className="px-6 py-2.5 bg-brand-teal rounded-xl font-body font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-teal/90 transition-colors"
+                className="w-full sm:w-auto px-6 py-2.5 bg-brand-teal rounded-xl font-body font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-teal/90 transition-colors order-2 sm:order-none"
               >
                 {t('Next')}
               </button>
@@ -255,7 +259,7 @@ export function MyImpactWizard() {
               <button
                 onClick={handleSubmit}
                 disabled={isLoading || !currentAnswer}
-                className="px-6 py-2.5 bg-brand-teal rounded-xl font-body font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-teal/90 transition-colors"
+                className="w-full sm:w-auto px-6 py-2.5 bg-brand-teal rounded-xl font-body font-bold text-base text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-teal/90 transition-colors order-2 sm:order-none"
               >
                 {isLoading ? t('Submitting...') : t('Submit')}
               </button>
