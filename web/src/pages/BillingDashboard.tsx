@@ -1,13 +1,26 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { useBilling } from '../context/BillingContext';
+import { useBilling, type PromotionCodePreview } from '../context/BillingContext';
 import { api } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import adminHeroImg from '../../Graphics for Dev/Images/Admin Accounts Hero.webp';
 import tealArrowIcon from '../../Graphics for Dev/Icons/Dark Teal Arrow Circle Icon.svg';
+
+interface BillingHistoryItem {
+  id: string;
+  created?: number;
+  created_at?: string;
+  status: string;
+  amount_paid?: number;
+  amount_due?: number;
+  amount?: number;
+  currency: string;
+  receipt_url?: string | null;
+  hosted_invoice_url?: string | null;
+}
 
 // Stripe promise (loaded once)
 let stripePromise: ReturnType<typeof loadStripe> | null = null;
@@ -23,22 +36,59 @@ function getStripePromise(publishableKey: string | null) {
 
 function CheckoutForm({
   plan,
+  initialPromotionCode,
   onSuccess,
   onCancel,
 }: {
   plan: 'monthly' | 'yearly';
+  initialPromotionCode?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
-  const { subscribe } = useBilling();
+  const { previewPromotionCode, subscribe } = useBilling();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isApplyingPromotion, setIsApplyingPromotion] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [promotionCode, setPromotionCode] = useState(initialPromotionCode || '');
+  const [promotionPreview, setPromotionPreview] = useState<PromotionCodePreview | null>(null);
+
+  const formatMoney = (amount: number, currency: string) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(amount / 100);
+
+  const handleApplyPromotion = async () => {
+    const code = promotionCode.trim();
+    if (!code) {
+      setPromotionPreview(null);
+      setError('Enter a promotion code.');
+      return;
+    }
+
+    setIsApplyingPromotion(true);
+    setError(null);
+    try {
+      const preview = await previewPromotionCode(code, plan);
+      setPromotionPreview(preview);
+      setPromotionCode(preview.code);
+    } catch (err) {
+      setPromotionPreview(null);
+      setError(err instanceof Error ? err.message : 'Unable to apply this promotion code.');
+    } finally {
+      setIsApplyingPromotion(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
+    if (promotionCode.trim() && !promotionPreview) {
+      setError('Apply the promotion code before subscribing, or remove it.');
+      return;
+    }
 
     setIsProcessing(true);
     setError(null);
@@ -60,7 +110,7 @@ function CheckoutForm({
       }
 
       // Subscribe via backend
-      const result = await subscribe(plan, paymentMethod.id);
+      const result = await subscribe(plan, paymentMethod.id, 1, promotionPreview?.code);
 
       // Payment confirmation is always required with default_incomplete behavior.
       // A missing client_secret means the backend failed to return it — surface that immediately.
@@ -88,6 +138,84 @@ function CheckoutForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label
+          htmlFor={`promotion-code-${plan}`}
+          className="block font-body font-bold text-base text-brand-charcoal mb-2"
+        >
+          Promotion code <span className="font-normal text-brand-gray-med">(optional)</span>
+        </label>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input
+            id={`promotion-code-${plan}`}
+            type="text"
+            value={promotionCode}
+            onChange={(event) => {
+              setPromotionCode(event.target.value);
+              setPromotionPreview(null);
+              setError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void handleApplyPromotion();
+              }
+            }}
+            autoComplete="off"
+            placeholder="Enter code"
+            maxLength={64}
+            className="min-w-0 flex-1 h-[50px] px-4 bg-[rgba(136,192,195,0.17)] border border-brand-teal-light rounded-xl font-body font-bold text-base text-brand-charcoal uppercase placeholder:normal-case placeholder:font-normal focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+          />
+          <button
+            type="button"
+            onClick={() => void handleApplyPromotion()}
+            disabled={isApplyingPromotion || !promotionCode.trim()}
+            className="h-[50px] px-6 bg-white border-2 border-brand-teal text-brand-teal font-body font-bold text-base rounded-xl hover:bg-brand-teal/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isApplyingPromotion ? 'Applying...' : 'Apply'}
+          </button>
+        </div>
+
+        {promotionPreview && (
+          <div className="mt-3 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl font-body text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <span className="font-bold">
+                {promotionPreview.code}: {promotionPreview.label}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPromotionCode('');
+                  setPromotionPreview(null);
+                }}
+                className="font-bold underline hover:no-underline"
+              >
+                Remove
+              </button>
+            </div>
+            <div className="mt-2 space-y-1">
+              <div className="flex justify-between">
+                <span>Plan price</span>
+                <span>{formatMoney(promotionPreview.subtotal, promotionPreview.currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Discount</span>
+                <span>-{formatMoney(promotionPreview.discount_total, promotionPreview.currency)}</span>
+              </div>
+              <div className="flex justify-between font-bold border-t border-green-200 pt-1">
+                <span>Due today</span>
+                <span>{formatMoney(promotionPreview.total, promotionPreview.currency)}</span>
+              </div>
+            </div>
+            {promotionPreview.duration && (
+              <p className="mt-2 text-green-700">
+                Discount applies for {promotionPreview.duration}.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       <div>
         <label className="block font-body font-bold text-base text-brand-charcoal mb-2">
           Card Details
@@ -118,10 +246,14 @@ function CheckoutForm({
       <div className="flex items-center gap-4">
         <button
           type="submit"
-          disabled={!stripe || isProcessing}
+          disabled={!stripe || isProcessing || isApplyingPromotion}
           className="h-[50px] px-8 bg-brand-teal text-white font-body font-bold text-lg rounded-xl hover:bg-brand-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isProcessing ? 'Processing...' : `Subscribe — ${plan === 'monthly' ? '$10/mo' : '$99/yr'}`}
+          {isProcessing
+            ? 'Processing...'
+            : promotionPreview
+              ? `Subscribe — ${formatMoney(promotionPreview.total, promotionPreview.currency)} today`
+              : `Subscribe — ${plan === 'monthly' ? '$10/mo' : '$99/yr'}`}
         </button>
         <button
           type="button"
@@ -233,6 +365,12 @@ function AddCardForm({
 /* ─────────────────────── Main Billing Dashboard ─────────────────────── */
 
 export function BillingDashboard() {
+  const [searchParams] = useSearchParams();
+  const initialPromotionCode = (
+    searchParams.get('promo')
+    || sessionStorage.getItem('toolkitPromotionCode')
+    || ''
+  ).trim().slice(0, 64);
   const {
     subscription,
     invoices,
@@ -380,7 +518,7 @@ export function BillingDashboard() {
             Subscription &amp; Billing
           </h1>
           <p className="font-body font-semibold text-lg text-white/80 mt-2">
-            Manage your church's plan and payment
+            Manage your church&apos;s plan and payment
           </p>
         </div>
       </div>
@@ -428,7 +566,9 @@ export function BillingDashboard() {
                   <Elements stripe={getStripePromise(config.publishable_key)}>
                     <CheckoutForm
                       plan={selectedPlan}
+                      initialPromotionCode={initialPromotionCode}
                       onSuccess={() => {
+                        sessionStorage.removeItem('toolkitPromotionCode');
                         setSelectedPlan(null);
                         fetchSubscription();
                         setActionMessage({ type: 'success', text: 'Subscription created successfully! Welcome aboard.' });
@@ -561,7 +701,9 @@ export function BillingDashboard() {
                       <Elements stripe={getStripePromise(config.publishable_key)}>
                         <CheckoutForm
                           plan={selectedPlan}
+                          initialPromotionCode={initialPromotionCode}
                           onSuccess={() => {
+                            sessionStorage.removeItem('toolkitPromotionCode');
                             setSelectedPlan(null);
                             fetchSubscription();
                             fetchInvoices();
@@ -711,7 +853,7 @@ export function BillingDashboard() {
                 {subscription.trial_end && new Date(subscription.trial_end) > new Date() && (
                   <div className="bg-brand-teal/10 border border-brand-teal rounded-xl px-6 py-4 text-center">
                     <p className="font-body font-bold text-base text-brand-teal">
-                      You're currently in your trial period. Trial ends on {formatDate(subscription.trial_end)}.
+                      You&apos;re currently in your trial period. Trial ends on {formatDate(subscription.trial_end)}.
                     </p>
                   </div>
                 )}
@@ -859,17 +1001,17 @@ export function BillingDashboard() {
                   </p>
                 ) : (
                   <div className="divide-y divide-brand-gray-light">
-                    {[...invoices, ...payments]
+                    {([...invoices, ...payments] as BillingHistoryItem[])
                       .sort(
-                        (a: any, b: any) =>
-                          (b.created || new Date(b.created_at).getTime() / 1000) -
-                          (a.created || new Date(a.created_at).getTime() / 1000)
+                        (a, b) =>
+                          (b.created || new Date(b.created_at || 0).getTime() / 1000) -
+                          (a.created || new Date(a.created_at || 0).getTime() / 1000)
                       )
-                      .map((item: any) => (
+                      .map((item) => (
                         <div key={item.id} className="flex items-center justify-between px-6 py-4">
                           <div>
                             <p className="font-body font-bold text-base text-brand-charcoal">
-                              {formatDate(item.created || item.created_at)}
+                              {formatDate(item.created || item.created_at || null)}
                             </p>
                             <span
                               className={`inline-block mt-1 px-3 py-0.5 rounded-full font-body font-bold text-xs uppercase ${
@@ -886,13 +1028,15 @@ export function BillingDashboard() {
                           <div className="flex items-center gap-4">
                             <span className="font-heading font-black text-lg text-brand-charcoal">
                               {formatCurrency(
-                                item.amount_paid > 0 ? item.amount_paid : (item.amount_due ?? item.amount ?? 0),
+                                (item.amount_paid ?? 0) > 0
+                                  ? (item.amount_paid ?? 0)
+                                  : (item.amount_due ?? item.amount ?? 0),
                                 item.currency
                               )}
                             </span>
                             {(item.receipt_url || item.hosted_invoice_url) && (
                               <a
-                                href={item.receipt_url || item.hosted_invoice_url}
+                                href={item.receipt_url || item.hosted_invoice_url || undefined}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="font-body font-bold text-sm text-brand-teal underline hover:text-brand-teal/80 transition-colors"

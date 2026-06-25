@@ -1,7 +1,6 @@
 """
 Billing API endpoints for Stripe integration
 """
-from typing import Optional
 from datetime import datetime, timezone
 import logging
 import stripe
@@ -12,7 +11,7 @@ from sqlalchemy import desc
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.rate_limits import limiter, ADMIN_RATE
-from app.core.exceptions import handle_exception, handle_stripe_exception
+from app.core.exceptions import handle_stripe_exception
 from app.dependencies.auth import (
     get_current_verified_user,
     require_admin,
@@ -20,12 +19,12 @@ from app.dependencies.auth import (
     require_primary_admin_no_impersonation
 )
 from app.models.user import User
-from app.models.organization import Organization
 from app.models.subscription import Subscription, Payment
 from app.models.membership import Membership
 from app.models.audit_log import AuditLog
 from app.models.webhook_event import WebhookEvent
 from app.services.stripe_service import stripe_service, _period_dates
+from app.schemas.billing import PromotionCodePreviewRequest, SubscribeRequest
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
@@ -78,7 +77,7 @@ async def get_subscription_status(
     if not membership.is_primary_admin:
         primary_mem = db.query(Membership).filter(
             Membership.organization_id == membership.organization_id,
-            Membership.is_primary_admin == True,
+            Membership.is_primary_admin.is_(True),
         ).first()
         if primary_mem:
             primary_user = db.query(User).filter(User.id == primary_mem.user_id).first()
@@ -102,7 +101,7 @@ async def get_subscription(
     # Get user's organization
     membership = db.query(Membership).filter(
         Membership.user_id == current_user.id,
-        Membership.is_primary_admin == True
+        Membership.is_primary_admin.is_(True)
     ).first()
     
     if not membership:
@@ -208,13 +207,21 @@ async def get_subscription(
 @limiter.limit(ADMIN_RATE)
 async def create_subscription(
     request: Request,
-    plan: str,  # "monthly" or "yearly"
-    payment_method_id: str,
-    quantity: int = 1,
+    payload: SubscribeRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_primary_admin_no_impersonation)
 ):
     """Create a new subscription"""
+    plan = payload.plan
+    payment_method_id = payload.payment_method_id
+    quantity = payload.quantity
+    promotion_code = payload.promotion_code.strip() if payload.promotion_code else None
+
+    if quantity < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Quantity must be at least 1."
+        )
     
     # Get price ID based on plan
     price_id = settings.STRIPE_PRICE_MONTHLY if plan == "monthly" else settings.STRIPE_PRICE_YEARLY
@@ -228,7 +235,7 @@ async def create_subscription(
     # Get user's organization
     membership = db.query(Membership).filter(
         Membership.user_id == current_user.id,
-        Membership.is_primary_admin == True
+        Membership.is_primary_admin.is_(True)
     ).first()
     
     if not membership:
@@ -267,7 +274,8 @@ async def create_subscription(
             price_id=price_id,
             plan=plan,
             quantity=quantity,
-            payment_method_id=payment_method_id
+            payment_method_id=payment_method_id,
+            promotion_code=promotion_code,
         )
 
         # Upsert local subscription record — one row per organization.
@@ -308,7 +316,9 @@ async def create_subscription(
             details={
                 "plan": plan,
                 "quantity": quantity,
-                "stripe_subscription_id": result["subscription"].id
+                "stripe_subscription_id": result["subscription"].id,
+                "promotion_code": result["promotion_code"],
+                "stripe_promotion_code_id": result["promotion_code_id"],
             }
         )
         db.add(audit_log)
@@ -330,6 +340,88 @@ async def create_subscription(
             "requires_action": result["subscription"].status == "incomplete"
         }
         
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_stripe_exception(e)
+
+
+@router.post("/promotion-code/preview")
+@limiter.limit(ADMIN_RATE)
+async def preview_promotion_code(
+    request: Request,
+    payload: PromotionCodePreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_primary_admin_no_impersonation),
+):
+    """Validate a promotion code and return Stripe's authoritative preview."""
+    if payload.quantity < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Quantity must be at least 1."
+        )
+
+    price_id = (
+        settings.STRIPE_PRICE_MONTHLY
+        if payload.plan == "monthly"
+        else settings.STRIPE_PRICE_YEARLY
+    )
+    if not price_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Price not configured for {payload.plan} plan"
+        )
+
+    membership = db.query(Membership).filter(
+        Membership.user_id == current_user.id,
+        Membership.is_primary_admin.is_(True),
+    ).first()
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No organization found"
+        )
+
+    try:
+        # Persist a newly-created Stripe customer even if code validation later
+        # fails, so repeated invalid attempts do not leave orphan customers.
+        customer = stripe_service.get_or_create_customer(
+            membership.organization,
+            current_user.email,
+        )
+        db.commit()
+        result = stripe_service.preview_promotion_code(
+            organization=membership.organization,
+            email=current_user.email,
+            price_id=price_id,
+            code=payload.code,
+            quantity=payload.quantity,
+            customer_id=customer.id,
+        )
+        # get_or_create_customer may set organization.stripe_id.
+        db.commit()
+        return {
+            key: value
+            for key, value in result.items()
+            if key != "promotion_code_id"
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except stripe.error.InvalidRequestError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This promotion code cannot be applied to the selected plan."
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         raise handle_stripe_exception(e)
 
@@ -346,7 +438,7 @@ async def cancel_subscription(
     
     membership = db.query(Membership).filter(
         Membership.user_id == current_user.id,
-        Membership.is_primary_admin == True
+        Membership.is_primary_admin.is_(True)
     ).first()
     
     if not membership:
@@ -429,7 +521,7 @@ async def reactivate_subscription(
     
     membership = db.query(Membership).filter(
         Membership.user_id == current_user.id,
-        Membership.is_primary_admin == True
+        Membership.is_primary_admin.is_(True)
     ).first()
     
     if not membership:
@@ -486,7 +578,7 @@ async def add_payment_method(
     
     membership = db.query(Membership).filter(
         Membership.user_id == current_user.id,
-        Membership.is_primary_admin == True
+        Membership.is_primary_admin.is_(True)
     ).first()
     
     if not membership:
@@ -550,7 +642,7 @@ async def create_billing_portal(
     """Create a Stripe Customer Portal session — primary admin only, no impersonation"""
     membership = db.query(Membership).filter(
         Membership.user_id == current_user.id,
-        Membership.is_primary_admin == True
+        Membership.is_primary_admin.is_(True)
     ).first()
 
     if not membership:
@@ -583,7 +675,7 @@ async def get_invoices(
     
     membership = db.query(Membership).filter(
         Membership.user_id == current_user.id,
-        Membership.is_primary_admin == True
+        Membership.is_primary_admin.is_(True)
     ).first()
     
     if not membership:

@@ -1,9 +1,9 @@
 """
 Billing/Payment schemas
 """
-from typing import Optional, List
+from typing import Literal, Optional
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from uuid import UUID
 
 
@@ -65,9 +65,26 @@ class UpcomingInvoiceResponse(BaseModel):
 
 
 class SubscribeRequest(BaseModel):
-    plan: str  # "monthly" or "yearly"
-    payment_method_id: str
-    quantity: int = 1
+    plan: Literal["monthly", "yearly"]
+    payment_method_id: str = Field(min_length=1, max_length=255)
+    quantity: int = Field(default=1, ge=1, le=100)
+    promotion_code: Optional[str] = Field(default=None, max_length=64)
+
+
+class PromotionCodePreviewRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=64)
+    plan: Literal["monthly", "yearly"]
+    quantity: int = Field(default=1, ge=1, le=100)
+
+
+class PromotionCodePreviewResponse(BaseModel):
+    code: str
+    subtotal: int
+    discount_total: int
+    total: int
+    currency: str
+    label: str
+    duration: Optional[str] = None
 
 
 class SubscribeResponse(BaseModel):

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -32,6 +32,7 @@ export function ChurchUpgrade() {
   });
   const { upgradeToChurchAdmin, error, clearError, isLoading, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [warningDismissed, setWarningDismissed] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -42,8 +43,15 @@ export function ChurchUpgrade() {
     e.preventDefault();
     clearError();
     try {
+      const promo = new URLSearchParams(location.search).get('promo')?.trim();
+      if (promo) {
+        sessionStorage.setItem('toolkitPromotionCode', promo.slice(0, 64));
+      }
       await upgradeToChurchAdmin(formData);
-      navigate('/admin/billing');
+      navigate({
+        pathname: '/admin/billing',
+        search: location.search,
+      });
     } catch {
       // Error handled by AuthContext
     }
@@ -81,7 +89,7 @@ export function ChurchUpgrade() {
               </p>
             )}
             <p className="font-body font-semibold text-base text-brand-gray-med text-center max-w-[480px]">
-              $10/month or $99/year. You'll set up billing on the next step.
+              $10/month or $99/year. You&apos;ll set up billing on the next step.
             </p>
           </div>
 

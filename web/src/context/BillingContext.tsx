@@ -1,5 +1,13 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import axios from 'axios';
 import { api } from './AuthContext';
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError<{ detail?: string }>(error)) {
+    return error.response?.data?.detail || fallback;
+  }
+  return fallback;
+}
 
 interface Subscription {
   id: string;
@@ -66,6 +74,16 @@ interface BillingConfig {
   };
 }
 
+export interface PromotionCodePreview {
+  code: string;
+  subtotal: number;
+  discount_total: number;
+  total: number;
+  currency: string;
+  label: string;
+  duration: string | null;
+}
+
 interface BillingContextType {
   subscription: Subscription | null;
   invoices: Invoice[];
@@ -76,7 +94,8 @@ interface BillingContextType {
   fetchSubscription: () => Promise<void>;
   fetchInvoices: () => Promise<void>;
   fetchConfig: () => Promise<void>;
-  subscribe: (plan: string, paymentMethodId: string, quantity?: number) => Promise<{ client_secret?: string; requires_action: boolean }>;
+  previewPromotionCode: (code: string, plan: string, quantity?: number) => Promise<PromotionCodePreview>;
+  subscribe: (plan: string, paymentMethodId: string, quantity?: number, promotionCode?: string) => Promise<{ client_secret?: string; requires_action: boolean }>;
   cancelSubscription: (atPeriodEnd?: boolean) => Promise<void>;
   reactivateSubscription: () => Promise<void>;
   addPaymentMethod: (paymentMethodId: string) => Promise<void>;
@@ -101,8 +120,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     try {
       const { data } = await api.get('/billing/subscription');
       setSubscription(data.status === 'none' ? null : data);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to fetch subscription');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Failed to fetch subscription'));
     } finally {
       setIsLoading(false);
     }
@@ -115,8 +134,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       const { data } = await api.get('/billing/invoices');
       setInvoices(data.stripe_invoices || []);
       setPayments(data.payments || []);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to fetch invoices');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Failed to fetch invoices'));
     } finally {
       setIsLoading(false);
     }
@@ -131,17 +150,39 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const subscribe = useCallback(async (plan: string, paymentMethodId: string, quantity = 1) => {
+  const previewPromotionCode = useCallback(async (code: string, plan: string, quantity = 1) => {
+    try {
+      const { data } = await api.post('/billing/promotion-code/preview', {
+        code,
+        plan,
+        quantity,
+      });
+      return data as PromotionCodePreview;
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, 'Unable to apply this promotion code');
+      throw new Error(message);
+    }
+  }, []);
+
+  const subscribe = useCallback(async (
+    plan: string,
+    paymentMethodId: string,
+    quantity = 1,
+    promotionCode?: string,
+  ) => {
     setIsLoading(true);
     setError(null);
     try {
-      const { data } = await api.post(
-        `/billing/subscribe?plan=${plan}&payment_method_id=${paymentMethodId}&quantity=${quantity}`
-      );
+      const { data } = await api.post('/billing/subscribe', {
+        plan,
+        payment_method_id: paymentMethodId,
+        quantity,
+        promotion_code: promotionCode || null,
+      });
       await fetchSubscription();
       return data;
-    } catch (err: any) {
-      const message = err.response?.data?.detail || 'Failed to create subscription';
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, 'Failed to create subscription');
       setError(message);
       throw new Error(message);
     } finally {
@@ -155,8 +196,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     try {
       await api.post(`/billing/subscription/cancel?at_period_end=${atPeriodEnd}`);
       await fetchSubscription();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to cancel subscription');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Failed to cancel subscription'));
       throw err;
     } finally {
       setIsLoading(false);
@@ -169,8 +210,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     try {
       await api.post('/billing/subscription/reactivate');
       await fetchSubscription();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to reactivate subscription');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Failed to reactivate subscription'));
       throw err;
     } finally {
       setIsLoading(false);
@@ -183,8 +224,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     try {
       await api.post(`/billing/payment-method?payment_method_id=${paymentMethodId}&set_default=true`);
       await fetchSubscription();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to add payment method');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Failed to add payment method'));
       throw err;
     } finally {
       setIsLoading(false);
@@ -197,8 +238,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     try {
       await api.delete(`/billing/payment-method/${paymentMethodId}`);
       await fetchSubscription();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to remove payment method');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Failed to remove payment method'));
       throw err;
     } finally {
       setIsLoading(false);
@@ -211,8 +252,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     try {
       await api.post(`/billing/payment-method?payment_method_id=${paymentMethodId}&set_default=true`);
       await fetchSubscription();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to set default payment method');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Failed to set default payment method'));
       throw err;
     } finally {
       setIsLoading(false);
@@ -225,8 +266,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     try {
       const { data } = await api.post('/billing/portal');
       window.location.href = data.url;
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to open billing portal');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Failed to open billing portal'));
       throw err;
     } finally {
       setIsLoading(false);
@@ -244,6 +285,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       fetchSubscription,
       fetchInvoices,
       fetchConfig,
+      previewPromotionCode,
       subscribe,
       cancelSubscription,
       reactivateSubscription,

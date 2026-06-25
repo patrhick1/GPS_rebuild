@@ -48,6 +48,109 @@ def _period_dates(sub) -> tuple[Optional[datetime], Optional[datetime]]:
 
 class StripeService:
     """Service for handling Stripe operations"""
+
+    @staticmethod
+    def resolve_promotion_code(
+        code: str,
+        customer_id: Optional[str] = None,
+    ) -> stripe.PromotionCode:
+        """Resolve an active customer-facing promotion code.
+
+        Stripe performs the authoritative eligibility checks when the code is
+        applied to an invoice/subscription. Keeping lookup here prevents the
+        client from submitting arbitrary coupon or promotion-code IDs.
+        """
+        normalized_code = code.strip()
+        if not normalized_code:
+            raise ValueError("Enter a promotion code.")
+
+        promotion_codes = stripe.PromotionCode.list(
+            code=normalized_code,
+            active=True,
+            limit=100,
+            expand=["data.promotion.coupon"],
+        )
+        for promotion_code in promotion_codes.data:
+            restricted_customer = promotion_code.get("customer")
+            if isinstance(restricted_customer, dict):
+                restricted_customer = restricted_customer.get("id")
+            if not restricted_customer or restricted_customer == customer_id:
+                return promotion_code
+
+        raise ValueError("This promotion code is invalid or no longer available.")
+
+    @staticmethod
+    def _promotion_code_description(
+        promotion_code: stripe.PromotionCode,
+    ) -> tuple[str, Optional[str]]:
+        """Build a safe, user-facing description from the expanded coupon."""
+        promotion = promotion_code.get("promotion") or {}
+        coupon = promotion.get("coupon") or {}
+        if isinstance(coupon, str):
+            coupon = stripe.Coupon.retrieve(coupon)
+
+        percent_off = coupon.get("percent_off")
+        amount_off = coupon.get("amount_off")
+        currency = (coupon.get("currency") or "usd").upper()
+        if percent_off is not None:
+            percent = float(percent_off)
+            label = f"{percent:g}% off"
+        elif amount_off is not None:
+            label = f"{amount_off / 100:.2f} {currency} off"
+        else:
+            label = "Promotion applied"
+
+        duration = coupon.get("duration")
+        if duration == "once":
+            duration_label = "first payment"
+        elif duration == "repeating":
+            months = coupon.get("duration_in_months")
+            duration_label = f"{months} months" if months else "limited time"
+        elif duration == "forever":
+            duration_label = "for the life of the subscription"
+        else:
+            duration_label = None
+
+        return label, duration_label
+
+    @staticmethod
+    def preview_promotion_code(
+        organization: Organization,
+        email: str,
+        price_id: str,
+        code: str,
+        quantity: int = 1,
+        customer_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Preview Stripe's exact total for a promotion code and plan."""
+        if not customer_id:
+            customer = StripeService.get_or_create_customer(organization, email)
+            customer_id = customer.id
+        promotion_code = StripeService.resolve_promotion_code(code, customer_id)
+
+        invoice = stripe.Invoice.create_preview(
+            customer=customer_id,
+            discounts=[{"promotion_code": promotion_code.id}],
+            subscription_details={
+                "items": [{"price": price_id, "quantity": quantity}],
+            },
+        )
+        discount_total = sum(
+            item.get("amount", 0)
+            for item in (invoice.get("total_discount_amounts") or [])
+        )
+        label, duration = StripeService._promotion_code_description(promotion_code)
+
+        return {
+            "code": promotion_code.code,
+            "promotion_code_id": promotion_code.id,
+            "subtotal": invoice.get("subtotal", 0),
+            "discount_total": discount_total,
+            "total": invoice.get("total", 0),
+            "currency": invoice.get("currency", "usd"),
+            "label": label,
+            "duration": duration,
+        }
     
     @staticmethod
     def create_customer(organization: Organization, email: str) -> stripe.Customer:
@@ -88,7 +191,8 @@ class StripeService:
         price_id: str,
         plan: str = "monthly",
         quantity: int = 1,
-        payment_method_id: Optional[str] = None
+        payment_method_id: Optional[str] = None,
+        promotion_code: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a new subscription for an organization"""
         
@@ -106,16 +210,37 @@ class StripeService:
                 invoice_settings={"default_payment_method": payment_method_id}
             )
         
-        # Create subscription
+        promotion = (
+            StripeService.resolve_promotion_code(promotion_code, customer.id)
+            if promotion_code
+            else None
+        )
+        metadata = {
+            "organization_id": str(organization.id),
+            "organization_key": organization.key,
+        }
+        create_params = {
+            "customer": customer.id,
+            "items": [{"price": price_id, "quantity": quantity}],
+            "payment_behavior": "default_incomplete",
+            "expand": ["latest_invoice.confirmation_secret"],
+            "metadata": metadata,
+        }
+        if promotion:
+            create_params["discounts"] = [{"promotion_code": promotion.id}]
+            metadata["promotion_code"] = promotion.code
+            metadata["promotion_code_id"] = promotion.id
+
+        # The payment-method ID makes retries of the same checkout attempt
+        # idempotent without preventing a later, intentional resubscription.
+        idempotency_key = (
+            f"subscription-create-{organization.id}-{payment_method_id}"
+            if payment_method_id
+            else None
+        )
         subscription = stripe.Subscription.create(
-            customer=customer.id,
-            items=[{"price": price_id, "quantity": quantity}],
-            payment_behavior="default_incomplete",
-            expand=["latest_invoice.confirmation_secret"],
-            metadata={
-                "organization_id": str(organization.id),
-                "organization_key": organization.key
-            }
+            **create_params,
+            idempotency_key=idempotency_key,
         )
         
         # Create local subscription record
@@ -136,7 +261,9 @@ class StripeService:
         
         return {
             "subscription": subscription,
-            "db_subscription": db_subscription
+            "db_subscription": db_subscription,
+            "promotion_code": promotion.code if promotion else None,
+            "promotion_code_id": promotion.id if promotion else None,
         }
     
     @staticmethod

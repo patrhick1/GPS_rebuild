@@ -1,4 +1,4 @@
-import { useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -9,18 +9,24 @@ import tealArrowIcon from '../../Graphics for Dev/Icons/Dark Teal Arrow Circle I
 
 export function Upgrade() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const handleUpgrade = () => {
+    const promo = new URLSearchParams(location.search).get('promo')?.trim();
+    if (promo) {
+      sessionStorage.setItem('toolkitPromotionCode', promo.slice(0, 64));
+    }
+
     if (user?.is_primary_admin) {
       // Already an admin — go straight to billing
-      navigate('/admin/billing');
+      navigate({ pathname: '/admin/billing', search: location.search });
     } else if (user) {
       // Logged in but not yet an admin — upgrade existing account
-      navigate('/upgrade/church');
+      navigate({ pathname: '/upgrade/church', search: location.search });
     } else {
       // Not logged in — new signup flow
-      navigate('/register/church');
+      navigate({ pathname: '/register/church', search: location.search });
     }
   };
 
@@ -63,7 +69,7 @@ export function Upgrade() {
                 You may already be using the Disciples Made Impact Dashboard to take assessments and view your own results. But what if you want to help your whole church take the next step?
               </p>
               <p className="font-body font-bold text-lg leading-[26px] text-brand-charcoal mt-4">
-                Do you want to see your members' assessment results so your team can support clearer next steps? Do you want practical resources for making personal calling development more normal in your church?
+                Do you want to see your members&apos; assessment results so your team can support clearer next steps? Do you want practical resources for making personal calling development more normal in your church?
               </p>
               <p className="font-body font-bold text-lg leading-[26px] text-brand-charcoal mt-4">
                 The Calling Development Toolkit helps your church move from personal assessment results to church-wide calling development.
