@@ -1,53 +1,62 @@
 /**
- * Copies licensed webfont files into public/fonts/ before `vite build`.
+ * Stages the licensed Brandon Grotesque webfonts before `vite build`.
  *
- * The Fontspring EULA prohibits redistributing Brandon Grotesque with
- * public source code, so the actual .woff2/.woff files are kept out of
- * the repo (see .gitignore). On Render, we mount them via Secret Files
- * (/etc/secrets/*) and this prebuild step stages them where Vite picks
- * them up for the static bundle.
- *
- * Local development: drop the .woff2/.woff files in web/public/fonts/
- * by hand. This script is a no-op when /etc/secrets/ doesn't exist.
+ * Fontspring prohibits distributing the files with public source code, so
+ * production receives them through Render Secret Files. Local development
+ * may place them directly in web/public/fonts/.
  */
-import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const SECRETS_DIR = '/etc/secrets';
 const TARGET_DIR = join(process.cwd(), 'public', 'fonts');
+const REQUIRED_FONTS = [
+  'brandon-grotesque-medium.woff2',
+  'brandon-grotesque-medium.woff',
+  'brandon-grotesque-black.woff2',
+  'brandon-grotesque-black.woff',
+];
 
-function log(msg) {
-  process.stdout.write(`[copy-fonts] ${msg}\n`);
+function log(message) {
+  process.stdout.write(`[copy-fonts] ${message}\n`);
 }
 
-if (!existsSync(SECRETS_DIR)) {
-  log('no /etc/secrets/ found — assuming local dev, skipping');
-  process.exit(0);
+function normalizedName(file) {
+  const lower = file.toLowerCase();
+  const extension = lower.endsWith('.woff2') ? '.woff2' : lower.endsWith('.woff') ? '.woff' : null;
+  if (!extension) return null;
+  if (lower.includes('brandongrotesque-medium') || lower.includes('brandon-grotesque-medium')) {
+    return `brandon-grotesque-medium${extension}`;
+  }
+  if (lower.includes('brandongrotesque-black') || lower.includes('brandon-grotesque-black')) {
+    return `brandon-grotesque-black${extension}`;
+  }
+  return null;
 }
 
-let entries;
-try {
-  entries = readdirSync(SECRETS_DIR);
-} catch (err) {
-  log(`could not read ${SECRETS_DIR}: ${err.message}`);
-  process.exit(0);
+if (existsSync(SECRETS_DIR)) {
+  const entries = readdirSync(SECRETS_DIR);
+  mkdirSync(TARGET_DIR, { recursive: true });
+
+  for (const file of entries) {
+    const source = join(SECRETS_DIR, file);
+    if (!statSync(source).isFile()) continue;
+    const targetName = normalizedName(file);
+    if (!targetName) continue;
+    copyFileSync(source, join(TARGET_DIR, targetName));
+    log(`staged ${file} as ${targetName}`);
+  }
+} else {
+  log('no /etc/secrets/ found - checking local public/fonts');
 }
 
-const fonts = entries.filter(
-  (name) =>
-    (name.endsWith('.woff2') || name.endsWith('.woff')) &&
-    statSync(join(SECRETS_DIR, name)).isFile(),
-);
-
-if (fonts.length === 0) {
-  log(`no .woff2/.woff files in ${SECRETS_DIR}; skipping`);
-  process.exit(0);
+const missing = REQUIRED_FONTS.filter((file) => !existsSync(join(TARGET_DIR, file)));
+if (missing.length > 0) {
+  const message = `missing required Brandon Grotesque files: ${missing.join(', ')}`;
+  if (process.env.RENDER || existsSync(SECRETS_DIR)) {
+    throw new Error(message);
+  }
+  log(`${message}; local build will use the CSS fallback`);
+} else {
+  log(`verified all ${REQUIRED_FONTS.length} required Brandon Grotesque files`);
 }
-
-mkdirSync(TARGET_DIR, { recursive: true });
-
-for (const file of fonts) {
-  copyFileSync(join(SECRETS_DIR, file), join(TARGET_DIR, file));
-}
-
-log(`copied ${fonts.length} font file(s) into ${TARGET_DIR}`);

@@ -35,6 +35,40 @@ def _safe(value) -> str:
         return ""
     return html.escape(str(value))
 
+
+def _brand_email_html(body: str) -> str:
+    """Apply branded fonts with fallbacks for restrictive email clients."""
+    font_root = settings.FRONTEND_URL.rstrip("/")
+    styles = f"""
+    <style type="text/css">
+      @import url('https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;900&display=swap');
+      @font-face {{
+        font-family: 'Brandon Grotesque';
+        src: url('{font_root}/fonts/brandon-grotesque-medium.woff2') format('woff2');
+        font-weight: 500;
+        font-style: normal;
+      }}
+      @font-face {{
+        font-family: 'Brandon Grotesque';
+        src: url('{font_root}/fonts/brandon-grotesque-black.woff2') format('woff2');
+        font-weight: 900;
+        font-style: normal;
+      }}
+      h1, h2, h3, h4, h5, h6 {{
+        font-family: 'Brandon Grotesque', 'Mulish', Arial, sans-serif;
+        font-weight: 900;
+      }}
+    </style>
+    """
+    branded_body = body.replace(
+        "font-family: Arial, sans-serif",
+        "font-family: 'Mulish', Arial, sans-serif",
+    ).replace(
+        "font-family:Arial,sans-serif",
+        "font-family:'Mulish',Arial,sans-serif",
+    )
+    return styles + branded_body
+
 # Domains that will always bounce — skip sending to protect sender reputation.
 _BLOCKED_DOMAINS: set[str] = {
     "example.com",
@@ -119,7 +153,7 @@ def send_verification_email(to_email: str, first_name: str, verification_token: 
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Verify your email address — GPS",
-            "html": body,
+            "html": _brand_email_html(body),
         })
         logger.info("Verification email sent to %s", to_email)
     except Exception as exc:
@@ -178,7 +212,7 @@ def send_invite_email(
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": f"You've been invited to join {org_name} on GPS",
-            "html": body,
+            "html": _brand_email_html(body),
         })
         logger.info("Invite email sent to %s for org %s", to_email, org_name)
     except Exception as exc:
@@ -232,7 +266,7 @@ def send_assessment_notification_email(
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": f"New assessment completed at {org_name}",
-            "html": body,
+            "html": _brand_email_html(body),
         })
         logger.info(
             "Assessment notification sent to %s for member %s at org %s",
@@ -351,7 +385,7 @@ def send_gps_result_email(to_email: str, first_name: str, result, results_url: s
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Your GPS Assessment Results",
-            "html": body,
+            "html": _brand_email_html(body),
         })
         logger.info("GPS result email sent to %s", to_email)
     except Exception as exc:
@@ -494,7 +528,7 @@ def send_myimpact_result_email(to_email: str, first_name: str, result, results_u
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Your MyImpact Assessment Results",
-            "html": body,
+            "html": _brand_email_html(body),
         })
         logger.info("MyImpact result email sent to %s", to_email)
     except Exception as exc:
@@ -544,7 +578,7 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Reset your GPS password",
-            "html": body,
+            "html": _brand_email_html(body),
         })
         logger.info("Password reset email sent to %s", to_email)
     except Exception as exc:
@@ -595,7 +629,7 @@ def send_primary_admin_welcome_email(to_email: str, church_name: str, reset_toke
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": f"You're the primary admin of {church_name} on GPS",
-            "html": body,
+            "html": _brand_email_html(body),
         })
         logger.info("Primary admin welcome email sent to %s", to_email)
     except Exception as exc:
@@ -641,7 +675,7 @@ def send_membership_approved_email(to_email: str, first_name: str, org_name: str
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": f"You've been accepted into {org_name} on GPS",
-            "html": body,
+            "html": _brand_email_html(body),
         })
         logger.info("Membership approved email sent to %s for org %s", to_email, org_name)
     except Exception as exc:
@@ -687,7 +721,7 @@ def send_membership_declined_email(to_email: str, first_name: str, org_name: str
             "from": settings.EMAIL_FROM,
             "to": [to_email],
             "subject": "Update on your GPS church membership request",
-            "html": body,
+            "html": _brand_email_html(body),
         })
         logger.info("Membership declined email sent to %s for org %s", to_email, org_name)
     except Exception as exc:

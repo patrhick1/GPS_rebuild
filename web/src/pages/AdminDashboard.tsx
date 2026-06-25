@@ -314,6 +314,9 @@ export function AdminDashboard() {
     const origin = window.location.origin;
     w.document.write(`
       <html><head><title>${member.first_name} ${member.last_name} — Member Report</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;900&display=swap" rel="stylesheet">
       <style>
         @font-face{font-family:'Brandon Grotesque';src:url('${origin}/fonts/brandon-grotesque-medium.woff2') format('woff2');font-weight:500;font-display:swap;}
         @font-face{font-family:'Brandon Grotesque';src:url('${origin}/fonts/brandon-grotesque-black.woff2') format('woff2');font-weight:900;font-display:swap;}
@@ -341,7 +344,10 @@ export function AdminDashboard() {
       </body></html>
     `);
     w.document.close();
-    w.print();
+    void w.document.fonts.ready.then(() => {
+      w.focus();
+      w.print();
+    });
   };
 
   const adminMembers = members.filter((m) => m.role === 'admin' || m.role === 'master');

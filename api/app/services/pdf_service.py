@@ -4,8 +4,12 @@ Uses ReportLab Platypus for layout.
 """
 from io import BytesIO
 from datetime import datetime
+import logging
+from pathlib import Path
+from tempfile import gettempdir
 from typing import Optional
 
+from fontTools.ttLib import TTFont as FontToolsTTFont
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
@@ -21,8 +25,12 @@ from reportlab.platypus import (
 )
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
 from reportlab.graphics.shapes import Drawing, Rect
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 from app.services.scoring_service import GradedAssessment
+
+logger = logging.getLogger(__name__)
 
 # Brand colours
 TEAL = HexColor("#4CABB0")
@@ -31,6 +39,135 @@ GRAY_LIGHT = HexColor("#E5E5E5")
 GOLD = HexColor("#F7A824")
 PINK = HexColor("#E3A2A2")
 WHITE = HexColor("#FFFFFF")
+
+BRANDON_MEDIUM = "BrandonGrotesque-Medium"
+BRANDON_BLACK = "BrandonGrotesque-Black"
+MULISH_REGULAR = "Mulish"
+MULISH_BOLD = "Mulish-Bold"
+
+
+def _first_existing(paths: list[Path]) -> Optional[Path]:
+    return next((path for path in paths if path.is_file()), None)
+
+
+def _convert_webfont(
+    source: Path,
+    target_name: str,
+    family_name: str,
+    style_name: str,
+) -> Path:
+    """Convert a licensed webfont to a temporary TTF for PDF embedding.
+
+    Fontspring's optimized webfonts strip their internal naming metadata.
+    ReportLab requires a valid PostScript name, so the temporary PDF-only
+    copy receives conventional family/style names.
+    """
+    target = Path(gettempdir()) / target_name
+    font = FontToolsTTFont(str(source))
+    font.flavor = None
+    name_table = font["name"]
+    name_table.names = [
+        record for record in name_table.names
+        if record.nameID not in {1, 2, 3, 4, 6}
+    ]
+    full_name = f"{family_name} {style_name}"
+    postscript_name = f"{family_name.replace(' ', '')}-{style_name}"
+    unique_name = f"DisciplesMade:{postscript_name}"
+    for platform_id, encoding_id, language_id in ((3, 1, 0x409), (1, 0, 0)):
+        name_table.setName(family_name, 1, platform_id, encoding_id, language_id)
+        name_table.setName(style_name, 2, platform_id, encoding_id, language_id)
+        name_table.setName(unique_name, 3, platform_id, encoding_id, language_id)
+        name_table.setName(full_name, 4, platform_id, encoding_id, language_id)
+        name_table.setName(postscript_name, 6, platform_id, encoding_id, language_id)
+    font.save(str(target))
+    return target
+
+
+def _register_brand_fonts() -> tuple[str, str, str, str]:
+    """Register Brandon headings and Mulish body fonts for PDF output."""
+    repo_root = Path(__file__).resolve().parents[3]
+    secret_root = Path("/etc/secrets")
+    local_webfonts = repo_root / "web" / "public" / "fonts"
+    bundled_fonts = Path(__file__).resolve().parents[1] / "assets" / "fonts"
+
+    brandon_medium = _first_existing([
+        secret_root / "brandon-grotesque-medium.woff2",
+        secret_root / "hvd_fonts_-_brandongrotesque-medium-webfont.woff2",
+        secret_root / "brandon-grotesque-medium.woff",
+        secret_root / "hvd_fonts_-_brandongrotesque-medium-webfont.woff",
+        local_webfonts / "brandon-grotesque-medium.woff2",
+        local_webfonts / "brandon-grotesque-medium.woff",
+    ])
+    brandon_black = _first_existing([
+        secret_root / "brandon-grotesque-black.woff2",
+        secret_root / "hvd_fonts_-_brandongrotesque-black-webfont.woff2",
+        secret_root / "brandon-grotesque-black.woff",
+        secret_root / "hvd_fonts_-_brandongrotesque-black-webfont.woff",
+        local_webfonts / "brandon-grotesque-black.woff2",
+        local_webfonts / "brandon-grotesque-black.woff",
+    ])
+    if not brandon_medium or not brandon_black:
+        logger.warning(
+            "Brandon Grotesque PDF fonts are unavailable; "
+            "configure the licensed webfonts in /etc/secrets"
+        )
+
+    heading_medium = "Helvetica-Bold"
+    heading_black = "Helvetica-Bold"
+    body_regular = "Helvetica"
+    body_bold = "Helvetica-Bold"
+
+    try:
+        if brandon_medium and BRANDON_MEDIUM not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont(
+                BRANDON_MEDIUM,
+                str(_convert_webfont(
+                    brandon_medium,
+                    "brandon-grotesque-medium.ttf",
+                    "Brandon Grotesque",
+                    "Medium",
+                )),
+            ))
+        if brandon_medium:
+            heading_medium = BRANDON_MEDIUM
+    except Exception:
+        logger.exception("Could not register Brandon Grotesque Medium for PDF output")
+
+    try:
+        if brandon_black and BRANDON_BLACK not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont(
+                BRANDON_BLACK,
+                str(_convert_webfont(
+                    brandon_black,
+                    "brandon-grotesque-black.ttf",
+                    "Brandon Grotesque",
+                    "Black",
+                )),
+            ))
+        if brandon_black:
+            heading_black = BRANDON_BLACK
+    except Exception:
+        logger.exception("Could not register Brandon Grotesque Black for PDF output")
+
+    mulish_regular = bundled_fonts / "Mulish-Regular.ttf"
+    mulish_bold = bundled_fonts / "Mulish-Bold.ttf"
+    try:
+        if mulish_regular.is_file() and MULISH_REGULAR not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont(MULISH_REGULAR, str(mulish_regular)))
+        if mulish_regular.is_file():
+            body_regular = MULISH_REGULAR
+    except Exception:
+        logger.exception("Could not register Mulish Regular for PDF output")
+
+    try:
+        if mulish_bold.is_file() and MULISH_BOLD not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont(MULISH_BOLD, str(mulish_bold)))
+        if mulish_bold.is_file():
+            body_bold = MULISH_BOLD
+    except Exception:
+        logger.exception("Could not register Mulish Bold for PDF output")
+
+    return heading_medium, heading_black, body_regular, body_bold
 
 
 # ── i18n ───────────────────────────────────────────────────────────────────────
@@ -319,12 +456,13 @@ def _story_question(story, locale: str) -> str:
 
 def _build_styles() -> dict:
     base = getSampleStyleSheet()
+    heading_medium, heading_black, body_regular, body_bold = _register_brand_fonts()
 
     styles = {
         "title": ParagraphStyle(
             "Title",
             parent=base["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=heading_black,
             fontSize=28,
             leading=36,
             textColor=CHARCOAL,
@@ -333,7 +471,7 @@ def _build_styles() -> dict:
         "subtitle": ParagraphStyle(
             "Subtitle",
             parent=base["Normal"],
-            fontName="Helvetica",
+            fontName=body_regular,
             fontSize=12,
             textColor=CHARCOAL,
             spaceAfter=2,
@@ -341,7 +479,7 @@ def _build_styles() -> dict:
         "section_heading": ParagraphStyle(
             "SectionHeading",
             parent=base["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=heading_medium,
             fontSize=18,
             textColor=TEAL,
             spaceBefore=20,
@@ -350,7 +488,7 @@ def _build_styles() -> dict:
         "subsection_heading": ParagraphStyle(
             "SubsectionHeading",
             parent=base["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=heading_black,
             fontSize=12,
             textColor=CHARCOAL,
             spaceBefore=10,
@@ -359,7 +497,7 @@ def _build_styles() -> dict:
         "body": ParagraphStyle(
             "Body",
             parent=base["Normal"],
-            fontName="Helvetica",
+            fontName=body_regular,
             fontSize=10,
             textColor=CHARCOAL,
             leading=15,
@@ -368,7 +506,7 @@ def _build_styles() -> dict:
         "body_bold": ParagraphStyle(
             "BodyBold",
             parent=base["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=body_bold,
             fontSize=10,
             textColor=CHARCOAL,
             leading=15,
@@ -376,7 +514,7 @@ def _build_styles() -> dict:
         "score": ParagraphStyle(
             "Score",
             parent=base["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=body_bold,
             fontSize=11,
             textColor=TEAL,
             alignment=TA_RIGHT,
@@ -384,14 +522,14 @@ def _build_styles() -> dict:
         "gift_name": ParagraphStyle(
             "GiftName",
             parent=base["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=heading_black,
             fontSize=11,
             textColor=CHARCOAL,
         ),
         "story_question": ParagraphStyle(
             "StoryQuestion",
             parent=base["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=heading_black,
             fontSize=10,
             textColor=CHARCOAL,
             spaceAfter=2,
@@ -399,7 +537,7 @@ def _build_styles() -> dict:
         "story_answer": ParagraphStyle(
             "StoryAnswer",
             parent=base["Normal"],
-            fontName="Helvetica",
+            fontName=body_regular,
             fontSize=10,
             textColor=CHARCOAL,
             leading=15,
@@ -408,7 +546,7 @@ def _build_styles() -> dict:
         "tag": ParagraphStyle(
             "Tag",
             parent=base["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=body_bold,
             fontSize=9,
             textColor=CHARCOAL,
         ),
@@ -653,7 +791,7 @@ def generate_myimpact_pdf(
 
     score_style_center = ParagraphStyle(
         "ScoreCenter", parent=styles["body"],
-        fontName="Helvetica-Bold", fontSize=14,
+        fontName=styles["body_bold"].fontName, fontSize=14,
         textColor=TEAL, alignment=TA_CENTER,
     )
     score_style_gold = ParagraphStyle(
@@ -662,12 +800,12 @@ def generate_myimpact_pdf(
     )
     label_style = ParagraphStyle(
         "ScoreLabel", parent=styles["body"],
-        fontName="Helvetica-Bold", fontSize=9,
+        fontName=styles["section_heading"].fontName, fontSize=9,
         textColor=CHARCOAL, alignment=TA_CENTER,
     )
     op_style = ParagraphStyle(
         "Operator", parent=styles["body"],
-        fontName="Helvetica-Bold", fontSize=16,
+        fontName=styles["body_bold"].fontName, fontSize=16,
         textColor=CHARCOAL, alignment=TA_CENTER,
     )
 
