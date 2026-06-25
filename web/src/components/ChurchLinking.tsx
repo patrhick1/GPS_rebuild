@@ -52,7 +52,7 @@ export function ChurchLinking() {
 
   return (
     <div className="church-linking">
-      <h2>Church Affiliation</h2>
+      <h2 className="font-heading font-black">Church Affiliation</h2>
 
       {message && (
         <div className="message-banner">
@@ -63,11 +63,11 @@ export function ChurchLinking() {
 
       {/* Current Status */}
       <div className="current-status">
-        <h3>Current Status</h3>
+        <h3 className="font-heading font-black">Current Status</h3>
         {hasOrganization && currentOrg ? (
           <div className="org-card">
             <div className="org-info">
-              <h4>{currentOrg.name}</h4>
+              <h4 className="font-heading font-black">{currentOrg.name}</h4>
               <span className="role-badge">{currentOrg.role}</span>
             </div>
             <button className="btn-leave" onClick={handleLeave}>
@@ -84,7 +84,7 @@ export function ChurchLinking() {
       {/* Search for Churches */}
       {!hasOrganization && (
         <div className="search-section">
-          <h3>Find Your Church</h3>
+          <h3 className="font-heading font-black">Find Your Church</h3>
           <p>Search for your church to request affiliation.</p>
           
           <div className="search-box">
@@ -107,11 +107,11 @@ export function ChurchLinking() {
           {/* Search Results */}
           {searchResults.length > 0 && (
             <div className="search-results">
-              <h4>Search Results</h4>
+              <h4 className="font-heading font-black">Search Results</h4>
               {searchResults.map((church) => (
                 <div key={church.id} className="church-result">
                   <div className="church-info">
-                    <h5>{church.name}</h5>
+                    <h5 className="font-heading font-black">{church.name}</h5>
                     <p>
                       {church.city}{church.state && `, ${church.state}`}
                       {' • '}
@@ -141,7 +141,7 @@ export function ChurchLinking() {
 
       {/* Upgrade to Admin Section */}
       <div className="upgrade-section">
-        <h3>Want to Register Your Church?</h3>
+        <h3 className="font-heading font-black">Want to Register Your Church?</h3>
         <p>
           If you're a church administrator and want to register your organization
           for GPS assessments, you can get the Calling Development Toolkit.

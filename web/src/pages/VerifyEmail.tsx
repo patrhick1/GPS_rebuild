@@ -64,7 +64,7 @@ export function VerifyEmail() {
             </svg>
           </div>
 
-          <h1 className="font-heading font-bold text-2xl text-brand-teal mb-3">
+          <h1 className="font-heading font-black text-2xl text-brand-teal mb-3">
             Check Your Email
           </h1>
 

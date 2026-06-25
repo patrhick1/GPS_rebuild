@@ -19,7 +19,7 @@ export function ResetPassword() {
     return (
       <div className="auth-container">
         <div className="auth-card">
-          <h1>Invalid Reset Link</h1>
+          <h1 className="font-heading font-black">Invalid Reset Link</h1>
           <p>This password reset link is missing or invalid.</p>
           <Link to="/forgot-password" className="btn-primary">
             Request a New Link
@@ -58,7 +58,7 @@ export function ResetPassword() {
     return (
       <div className="auth-container">
         <div className="auth-card">
-          <h1>Password Reset</h1>
+          <h1 className="font-heading font-black">Password Reset</h1>
           <p>Your password has been reset successfully. Redirecting to login&hellip;</p>
           <Link to="/login" className="btn-primary">
             Go to Login
@@ -71,7 +71,7 @@ export function ResetPassword() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1>Choose a New Password</h1>
+        <h1 className="font-heading font-black">Choose a New Password</h1>
         <p>Enter a new password for your account.</p>
 
         {error && <div className="error-message">{error}</div>}

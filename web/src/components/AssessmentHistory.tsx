@@ -112,7 +112,7 @@ export function AssessmentHistory() {
           const map2 = new Map(items2.map(i => [i.name, i.score]));
           return (
             <div className="mb-6">
-              <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">{label}</h4>
+              <h4 className="font-heading text-sm font-medium uppercase tracking-wide text-gray-500 mb-2">{label}</h4>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-400 border-b border-gray-200">
@@ -161,7 +161,7 @@ export function AssessmentHistory() {
         return (
           <div className="my-4 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-gray-800">Assessment Comparison</h3>
+              <h3 className="font-heading text-base font-medium text-gray-800">Assessment Comparison</h3>
               <div className="flex gap-4 text-xs text-gray-500">
                 <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-green-400"></span> Improved</span>
                 <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-red-400"></span> Declined</span>
@@ -178,12 +178,12 @@ export function AssessmentHistory() {
       {detailView && (
         <div className="detail-view">
           <div className="detail-header">
-            <h3>Assessment Details</h3>
+            <h3 className="font-heading font-black">Assessment Details</h3>
             <button className="btn-close" onClick={() => setDetailView(null)}>×</button>
           </div>
           
           <div className="detail-section">
-            <h4>Spiritual Gifts</h4>
+            <h4 className="font-heading font-black">Spiritual Gifts</h4>
             <div className="detail-gifts">
               {detailView.gifts.map((gift: any) => (
                 <div key={gift.id} className="detail-gift-item">
@@ -195,7 +195,7 @@ export function AssessmentHistory() {
           </div>
 
           <div className="detail-section">
-            <h4>Influencing Styles</h4>
+            <h4 className="font-heading font-black">Influencing Styles</h4>
             <div className="detail-passions">
               {detailView.passions.map((passion: any) => (
                 <div key={passion.id} className="detail-passion-item">
@@ -208,7 +208,7 @@ export function AssessmentHistory() {
 
           {detailView.selections && (
             <div className="detail-section">
-              <h4>Your Selections</h4>
+              <h4 className="font-heading font-black">Your Selections</h4>
               {detailView.selections.abilities.length > 0 && (
                 <div className="detail-selections">
                   <strong>Abilities:</strong>

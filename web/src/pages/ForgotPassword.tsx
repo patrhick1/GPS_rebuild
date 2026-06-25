@@ -27,7 +27,7 @@ export function ForgotPassword() {
     return (
       <div className="auth-container">
         <div className="auth-card">
-          <h1>Check Your Email</h1>
+          <h1 className="font-heading font-black">Check Your Email</h1>
           <p>
             If an account exists for <strong>{email}</strong>, you will receive
             a password reset link shortly.
@@ -43,7 +43,7 @@ export function ForgotPassword() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1>Reset Password</h1>
+        <h1 className="font-heading font-black">Reset Password</h1>
         <p>Enter your email address and we'll send you a link to reset your password.</p>
 
         {error && <div className="error-message">{error}</div>}

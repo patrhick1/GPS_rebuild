@@ -376,7 +376,7 @@ export function Dashboard() {
             ) : (
               <div className="mt-8 bg-brand-gray-lightest border border-brand-gray-light rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <p className="font-heading font-bold text-lg text-brand-charcoal">
+                  <p className="font-heading font-black text-lg text-brand-charcoal">
                     {t('Link My Assessment Results to a Church')}
                   </p>
                   <p className="font-body text-sm text-brand-gray-med mt-1">
@@ -617,7 +617,7 @@ export function Dashboard() {
           {comparisonResult && (
             <div className="mt-6 border border-brand-gray-light rounded-xl overflow-hidden">
               <div className="bg-brand-teal/10 px-6 py-3 flex items-center justify-between">
-                <h3 className="font-heading font-bold text-lg text-brand-charcoal">
+                <h3 className="font-heading font-black text-lg text-brand-charcoal">
                   Score Comparison&ensp;
                   <span className="font-body font-normal text-sm text-brand-gray-med">
                     {new Date(comparisonResult.assessment_1.completed_at).toLocaleDateString()}
@@ -635,7 +635,7 @@ export function Dashboard() {
               </div>
 
               <div className="px-6 py-4">
-                <h4 className="font-body font-bold text-base text-brand-gray-med uppercase mb-3">Spiritual Gifts</h4>
+                <h4 className="font-heading font-black text-base text-brand-gray-med uppercase mb-3">Spiritual Gifts</h4>
                 <div className="space-y-2">
                   {buildDeltaRows(comparisonResult).map(({ name, s1, s2, delta }) => (
                     <div key={name} className="flex items-center gap-3">
@@ -847,7 +847,7 @@ export function Dashboard() {
           {miComparisonResult && miComparisonResult.myimpact_1 && miComparisonResult.myimpact_2 && (
             <div className="mt-6 border border-brand-gray-light rounded-xl overflow-hidden">
               <div className="bg-brand-teal/10 px-6 py-3 flex items-center justify-between">
-                <h3 className="font-heading font-bold text-lg text-brand-charcoal">
+                <h3 className="font-heading font-black text-lg text-brand-charcoal">
                   {t('MyImpact Score')}&ensp;
                   <span className="font-body font-normal text-sm text-brand-gray-med">
                     {miComparisonResult.myimpact_1.completed_at && new Date(miComparisonResult.myimpact_1.completed_at).toLocaleDateString()}
@@ -884,7 +884,7 @@ export function Dashboard() {
 
                 {/* Character dimensions */}
                 <div>
-                  <h4 className="font-body font-bold text-base text-brand-gray-med uppercase mb-3">{t('Character')}</h4>
+                  <h4 className="font-heading font-black text-base text-brand-gray-med uppercase mb-3">{t('Character')}</h4>
                   <div className="space-y-2">
                     {buildMiDimensionRows(miComparisonResult).character.map(({ name, s1, s2, delta }) => (
                       <div key={name} className="flex items-center gap-3">
@@ -904,7 +904,7 @@ export function Dashboard() {
 
                 {/* Calling dimensions */}
                 <div>
-                  <h4 className="font-body font-bold text-base text-brand-gray-med uppercase mb-3">{t('Calling')}</h4>
+                  <h4 className="font-heading font-black text-base text-brand-gray-med uppercase mb-3">{t('Calling')}</h4>
                   <div className="space-y-2">
                     {buildMiDimensionRows(miComparisonResult).calling.map(({ name, s1, s2, delta }) => (
                       <div key={name} className="flex items-start gap-3">

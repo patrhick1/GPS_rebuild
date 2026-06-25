@@ -16,7 +16,7 @@ export function HeroBanner() {
 
       {/* Centered content */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-        <h1 className="font-heading font-bold italic text-4xl lg:text-5xl text-white leading-tight mb-3">
+        <h1 className="font-heading font-black italic text-4xl lg:text-5xl text-white leading-tight mb-3">
           Grow in Character and Calling
         </h1>
         <p className="font-body text-lg lg:text-xl text-white leading-relaxed max-w-xl">

@@ -309,9 +309,20 @@ export function AdminDashboard() {
     if (!w) return;
     const gifts = (member.top_gifts || []).map(g => g.name || g.short_code).join(', ');
     const passions = (member.top_passions || []).map(p => p.name).join(', ');
+    // Absolute origin so the print window (which has no relative-URL
+    // base) can resolve the @font-face URLs against our static site.
+    const origin = window.location.origin;
     w.document.write(`
       <html><head><title>${member.first_name} ${member.last_name} — Member Report</title>
-      <style>body{font-family:sans-serif;padding:40px;color:#333}h1{font-size:24px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #ddd}th{background:#f5f5f5;font-size:13px;text-transform:uppercase;color:#666}</style></head>
+      <style>
+        @font-face{font-family:'Brandon Grotesque';src:url('${origin}/fonts/brandon-grotesque-medium.woff2') format('woff2');font-weight:500;font-display:swap;}
+        @font-face{font-family:'Brandon Grotesque';src:url('${origin}/fonts/brandon-grotesque-black.woff2') format('woff2');font-weight:900;font-display:swap;}
+        body{font-family:'Mulish',sans-serif;padding:40px;color:#3F4644}
+        h1{font-family:'Brandon Grotesque',sans-serif;font-weight:900;font-size:24px}
+        table{width:100%;border-collapse:collapse;margin-top:20px}
+        th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #E3E3E3}
+        th{background:#F8F8F8;font-size:13px;text-transform:uppercase;color:#797E7C;font-family:'Brandon Grotesque',sans-serif;font-weight:500}
+      </style></head>
       <body>
         <h1>${member.first_name} ${member.last_name}</h1>
         <p><strong>Email:</strong> ${member.email || '—'}</p>
@@ -326,7 +337,7 @@ export function AdminDashboard() {
           <tr><th>Calling</th><td>${member.myimpact_calling_score ?? '—'}</td></tr>
           ` : ''}
         </table>
-        <p style="margin-top:20px;font-size:12px;color:#999">Printed from GPS Admin Dashboard — ${churchSettings?.name || ''}</p>
+        <p style="margin-top:20px;font-size:12px;color:#797E7C">Printed from Impact Dashboard — ${churchSettings?.name || ''}</p>
       </body></html>
     `);
     w.document.close();
@@ -1316,7 +1327,7 @@ export function AdminDashboard() {
                   <hr className="border-brand-gray-light my-6" />
 
                   {/* Administrators */}
-                  <h3 className="font-body font-bold text-lg text-brand-charcoal mb-3">Administrators</h3>
+                  <h3 className="font-heading font-black text-lg text-brand-charcoal mb-3">Administrators</h3>
                   {adminMembers.length > 0 ? (
                     <div className="space-y-2 mb-6">
                       {adminMembers.map((admin) => (
@@ -1361,7 +1372,7 @@ export function AdminDashboard() {
 
                   {user?.is_primary_admin && (
                     <div className="mt-4 mb-6">
-                      <h3 className="font-body font-bold text-lg text-brand-charcoal mb-2">
+                      <h3 className="font-heading font-black text-lg text-brand-charcoal mb-2">
                         Subscription &amp; Billing
                       </h3>
                       <button
@@ -1396,7 +1407,7 @@ export function AdminDashboard() {
       {transferTarget && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
-            <h2 className="font-heading font-bold text-2xl text-brand-charcoal mb-2">
+            <h2 className="font-heading font-black text-2xl text-brand-charcoal mb-2">
               Transfer Primary Admin
             </h2>
             <p className="font-body text-brand-gray-med text-sm mb-6">
@@ -1456,7 +1467,7 @@ export function AdminDashboard() {
           <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-brand-gray-light">
-              <h2 className="font-heading font-bold text-xl text-brand-charcoal">
+              <h2 className="font-heading font-black text-xl text-brand-charcoal">
                 Member Details
               </h2>
               <button
@@ -1511,7 +1522,7 @@ export function AdminDashboard() {
               {/* GPS Data */}
               {(selectedMember.top_gifts?.length > 0 || selectedMember.top_passions?.length > 0) && (
                 <div>
-                  <p className="font-heading font-bold text-lg text-brand-teal mb-3">GPS Assessment</p>
+                  <p className="font-heading font-black text-lg text-brand-teal mb-3">GPS Assessment</p>
                   <div className="space-y-3">
                     <div>
                       <p className="font-body text-sm text-brand-gray-med uppercase mb-1">Gifts</p>
@@ -1546,7 +1557,7 @@ export function AdminDashboard() {
               {/* MyImpact Data */}
               {selectedMember.myimpact_score != null && (
                 <div>
-                  <p className="font-heading font-bold text-lg text-brand-teal mb-3">MyImpact Assessment</p>
+                  <p className="font-heading font-black text-lg text-brand-teal mb-3">MyImpact Assessment</p>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center bg-brand-gray-lightest rounded-xl p-3">
                       <p className="font-heading font-black text-2xl text-brand-charcoal">
@@ -1611,7 +1622,7 @@ export function AdminDashboard() {
       {showExportModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 max-h-[90vh] overflow-y-auto">
-            <h2 className="font-heading font-bold text-2xl text-brand-charcoal mb-2">
+            <h2 className="font-heading font-black text-2xl text-brand-charcoal mb-2">
               Export Member Data
             </h2>
             <p className="font-body text-sm text-brand-gray-med mb-6">

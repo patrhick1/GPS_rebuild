@@ -47,7 +47,7 @@ export function VerifyEmailCallback() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h1 className="font-heading font-bold text-2xl text-brand-teal mb-3">
+              <h1 className="font-heading font-black text-2xl text-brand-teal mb-3">
                 Email Verified!
               </h1>
               <p className="text-brand-charcoal/70 mb-8">
@@ -69,7 +69,7 @@ export function VerifyEmailCallback() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              <h1 className="font-heading font-bold text-2xl text-red-600 mb-3">
+              <h1 className="font-heading font-black text-2xl text-red-600 mb-3">
                 Verification Failed
               </h1>
               <p className="text-brand-charcoal/70 mb-8">{errorMessage}</p>

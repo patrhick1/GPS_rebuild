@@ -129,7 +129,7 @@ function WebhookSection({
 
   return (
     <div className="border border-brand-gray-light rounded-xl p-5 mb-4 bg-white">
-      <h4 className="font-body font-bold text-lg text-brand-charcoal mb-1">
+      <h4 className="font-heading font-black text-lg text-brand-charcoal mb-1">
         {section.title}
       </h4>
       <p className="font-body text-sm text-brand-charcoal/70 mb-4">{section.blurb}</p>
@@ -259,7 +259,7 @@ function WebhookSection({
 
       {config && showLog && (
         <div className="mt-5 pt-4 border-t border-brand-gray-light">
-          <h5 className="font-body font-bold text-sm text-brand-charcoal mb-2">Recent deliveries (30 days)</h5>
+          <h5 className="font-heading font-black text-sm text-brand-charcoal mb-2">Recent deliveries (30 days)</h5>
           <WebhookDeliveryTable webhookId={config.id} />
         </div>
       )}
@@ -279,7 +279,7 @@ export function CrmIntegrationPanel({ readOnly = false }: { readOnly?: boolean }
 
   return (
     <div>
-      <h3 className="font-body font-bold text-lg text-brand-charcoal mb-2">CRM Integration</h3>
+      <h3 className="font-heading font-black text-lg text-brand-charcoal mb-2">CRM Integration</h3>
       <p className="font-body text-sm text-brand-charcoal/70 mb-4">
         Push GPS data into your church management system. Configure separate webhooks for assessment
         completions and new member registrations.

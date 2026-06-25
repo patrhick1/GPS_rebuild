@@ -93,7 +93,7 @@ export function SystemExport() {
   return (
     <div className="system-export">
       <div className="page-header">
-        <h1>System Data Export</h1>
+        <h1 className="font-heading font-black">System Data Export</h1>
       </div>
 
       {error && (
@@ -112,7 +112,7 @@ export function SystemExport() {
 
       {/* Filter Controls */}
       <div className="filter-section">
-        <h2>Export Filters</h2>
+        <h2 className="font-heading font-black">Export Filters</h2>
         <p className="filter-description">
           Apply filters before exporting. Filters apply to assessments and full system exports.
         </p>
@@ -165,7 +165,7 @@ export function SystemExport() {
 
       <div className="export-cards">
         <div className="export-card">
-          <h2>Users Export</h2>
+          <h2 className="font-heading font-black">Users Export</h2>
           <p>Export all users with their basic info and church associations.</p>
           <button
             className="btn-export"
@@ -177,7 +177,7 @@ export function SystemExport() {
         </div>
 
         <div className="export-card">
-          <h2>Assessments Export</h2>
+          <h2 className="font-heading font-black">Assessments Export</h2>
           <p>Export all completed assessments with scores and results.</p>
           <button
             className="btn-export"
@@ -189,7 +189,7 @@ export function SystemExport() {
         </div>
 
         <div className="export-card">
-          <h2>Full System Export</h2>
+          <h2 className="font-heading font-black">Full System Export</h2>
           <p>Complete export including all users, assessments, churches, and audit logs.</p>
           <button
             className="btn-export"
@@ -202,7 +202,7 @@ export function SystemExport() {
       </div>
 
       <div className="warning-box">
-        <h3>Important Notice</h3>
+        <h3 className="font-heading font-black">Important Notice</h3>
         <ul>
           <li>Exports contain sensitive user data</li>
           <li>Downloads are logged in the audit system</li>
@@ -215,7 +215,7 @@ export function SystemExport() {
       {showConfirm && (
         <div className="modal-overlay" onClick={() => setShowConfirm(false)}>
           <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Confirm Export</h2>
+            <h2 className="font-heading font-black">Confirm Export</h2>
             <p>You are about to export <strong>{pendingType === 'full' ? 'full system' : pendingType}</strong> data.</p>
 
             <div className="confirm-summary">

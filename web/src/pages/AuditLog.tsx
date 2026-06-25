@@ -61,7 +61,7 @@ export function AuditLog() {
   return (
     <div className="audit-log">
       <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Audit Log</h1>
+        <h1 className="font-heading font-black">Audit Log</h1>
         <button
           className="btn-export"
           onClick={handleExportAuditLog}
@@ -170,7 +170,7 @@ export function AuditLog() {
       {showDetail && selectedEntry && (
         <div className="modal-overlay" onClick={() => setShowDetail(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Audit Entry Details</h2>
+            <h2 className="font-heading font-black">Audit Entry Details</h2>
             <div className="detail-content">
               <p><strong>ID:</strong> {selectedEntry.id}</p>
               <p><strong>Time:</strong> {new Date(selectedEntry.created_at).toLocaleString()}</p>
@@ -181,7 +181,7 @@ export function AuditLog() {
               
               {selectedEntry.details && (
                 <div className="details-section">
-                  <h3>Details</h3>
+                  <h3 className="font-heading font-black">Details</h3>
                   <pre>{JSON.stringify(selectedEntry.details, null, 2)}</pre>
                 </div>
               )}

@@ -191,7 +191,7 @@ export function MyImpactWizard() {
             <p className="font-body text-sm uppercase text-brand-gray-med tracking-wide mb-2">
               {t('Question')} {currentQuestion.order}
             </p>
-            <h2 className="font-body font-bold text-xl text-brand-charcoal mb-4">
+            <h2 className="font-heading font-black text-xl text-brand-charcoal mb-4">
               {(isEs && currentQuestion.question_es) ? currentQuestion.question_es : currentQuestion.question}
             </h2>
 

@@ -9,7 +9,7 @@ export function UpgradeBanner() {
 
         {/* Text */}
         <div className="flex-1 text-center md:text-left">
-          <h2 className="font-heading font-bold text-xl lg:text-2xl text-brand-charcoal leading-snug">
+          <h2 className="font-heading font-black text-xl lg:text-2xl text-brand-charcoal leading-snug">
             Want to access toolkit resources and manage your church's assessment results?
           </h2>
           <p className="font-body text-base text-brand-gray-med mt-1">

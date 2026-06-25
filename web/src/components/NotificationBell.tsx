@@ -151,7 +151,7 @@ export function NotificationBell() {
         <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[420px] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h3 className="font-heading font-bold text-sm text-brand-charcoal">Notifications</h3>
+            <h3 className="font-heading font-black text-sm text-brand-charcoal">Notifications</h3>
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}

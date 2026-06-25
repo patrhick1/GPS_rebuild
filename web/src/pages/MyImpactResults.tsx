@@ -335,15 +335,15 @@ export function MyImpactResults() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-brand-gray-lightest rounded-xl p-6">
-                <h3 className="font-body font-black text-xl text-brand-charcoal mb-2">{t('Retake Regularly')}</h3>
+                <h3 className="font-heading font-black text-xl text-brand-charcoal mb-2">{t('Retake Regularly')}</h3>
                 <p className="font-body text-base text-brand-charcoal">{t('Take this assessment every 6-12 months to track your growth over time.')}</p>
               </div>
               <div className="bg-brand-gray-lightest rounded-xl p-6">
-                <h3 className="font-body font-black text-xl text-brand-charcoal mb-2">{t('Get Feedback')}</h3>
+                <h3 className="font-heading font-black text-xl text-brand-charcoal mb-2">{t('Get Feedback')}</h3>
                 <p className="font-body text-base text-brand-charcoal">{t('Ask those closest to you how they would rate your character and calling.')}</p>
               </div>
               <div className="bg-brand-gray-lightest rounded-xl p-6">
-                <h3 className="font-body font-black text-xl text-brand-charcoal mb-2">{t('Set Goals')}</h3>
+                <h3 className="font-heading font-black text-xl text-brand-charcoal mb-2">{t('Set Goals')}</h3>
                 <p className="font-body text-base text-brand-charcoal">{t('Focus on 1-2 dimensions at a time for sustainable growth.')}</p>
               </div>
             </div>

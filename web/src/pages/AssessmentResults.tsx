@@ -226,7 +226,7 @@ export function AssessmentResults() {
                legacy layout, abilities are the practical companion to gifts. */}
             {results.abilities.length > 0 && (
               <div className="mt-6">
-                <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t('Key Abilities')}</h3>
+                <h3 className="font-heading font-black text-xl text-brand-charcoal mb-3">{t('Key Abilities')}</h3>
                 <div className="flex flex-wrap gap-2">
                   {results.abilities.map((ability, idx) => (
                     <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-purple/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
@@ -281,7 +281,7 @@ export function AssessmentResults() {
                people, passions for causes". */}
             {results.people.length > 0 && (
               <div className="mt-6">
-                <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t("People You're Passionate About")}</h3>
+                <h3 className="font-heading font-black text-xl text-brand-charcoal mb-3">{t("People You're Passionate About")}</h3>
                 <div className="flex flex-wrap gap-2">
                   {results.people.map((person, idx) => (
                     <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-pink/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
@@ -294,7 +294,7 @@ export function AssessmentResults() {
 
             {results.causes.length > 0 && (
               <div className="mt-6">
-                <h3 className="font-body font-black text-xl text-brand-charcoal mb-3">{t('Causes You Care About')}</h3>
+                <h3 className="font-heading font-black text-xl text-brand-charcoal mb-3">{t('Causes You Care About')}</h3>
                 <div className="flex flex-wrap gap-2">
                   {results.causes.map((cause, idx) => (
                     <span key={idx} className="inline-flex items-center justify-center px-4 h-8 bg-brand-teal-light/50 rounded-full font-body font-bold text-lg text-brand-charcoal">
@@ -352,7 +352,7 @@ export function AssessmentResults() {
               <div className="mt-8 space-y-6">
                 {results.stories.map((story, idx) => (
                   <div key={idx} className="border-t border-brand-gray-light pt-5">
-                    <h3 className="font-body font-bold text-lg text-brand-teal">
+                    <h3 className="font-heading font-black text-lg text-brand-teal">
                       {(isEs && story.question_es) ? story.question_es : story.question}
                     </h3>
                     <p className="font-body text-lg text-brand-charcoal mt-2 whitespace-pre-wrap">

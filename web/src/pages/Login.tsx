@@ -46,7 +46,7 @@ export function Login() {
           <div className="bg-brand-gray-lightest rounded-lg shadow-sm p-10 lg:p-12 w-full md:w-[420px] shrink-0">
             <img src={dmLogo} alt="Disciples Made" className="h-10 mx-auto mb-4" />
 
-            <h2 className="font-heading font-bold text-2xl lg:text-3xl text-brand-teal text-center mb-6">
+            <h2 className="font-heading font-black text-2xl lg:text-3xl text-brand-teal text-center mb-6">
               Login
             </h2>
 
