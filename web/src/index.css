@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Brandon Grotesque — licensed webfonts (Fontspring EULA, HVD Fonts).
+   Files are NOT in the public repo; on Render they're mounted via
+   Secret Files and staged by web/scripts/copy-fonts.js before build.
+   For local dev, drop the .woff2/.woff files into web/public/fonts/. */
+@font-face {
+  font-family: 'Brandon Grotesque';
+  src: url('/fonts/brandon-grotesque-medium.woff2') format('woff2'),
+       url('/fonts/brandon-grotesque-medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Brandon Grotesque';
+  src: url('/fonts/brandon-grotesque-black.woff2') format('woff2'),
+       url('/fonts/brandon-grotesque-black.woff') format('woff');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --brand-teal: #0B6C80;
   --brand-gold: #F7A824;
