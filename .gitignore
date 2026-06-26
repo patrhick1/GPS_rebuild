@@ -41,15 +41,8 @@ web/dist-ssr/
 web/*.local
 web/.env
 
-# Webfonts (Brandon Grotesque) — licensed under Fontspring EULA which
-# prohibits redistribution with website source code. Fonts are mounted
-# at build time on Render via Secret Files (/etc/secrets/), copied into
-# this dir by web/scripts/copy-fonts.js. For local dev, drop the
-# .woff2/.woff files in here manually.
-web/public/fonts/
-
 # Local working copies of the licensed font assets delivered by the
-# design team. Kept out of git for the same EULA reason as above.
+# design team.
 Web Fonts/
 Licenses/
 References/

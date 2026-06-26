@@ -75,7 +75,11 @@ function validateFontSizes() {
   return problems;
 }
 
-if (existsSync(SECRETS_DIR)) {
+let fontProblems = validateFontSizes();
+
+if (fontProblems.length === 0) {
+  log('using committed Brandon Grotesque files from public/fonts');
+} else if (existsSync(SECRETS_DIR)) {
   const entries = readdirSync(SECRETS_DIR);
   mkdirSync(TARGET_DIR, { recursive: true });
   removeStagedBrandonFonts();
@@ -88,11 +92,12 @@ if (existsSync(SECRETS_DIR)) {
     copyFileSync(source, join(TARGET_DIR, targetName));
     log(`staged ${file} as ${targetName}`);
   }
+
+  fontProblems = validateFontSizes();
 } else {
   log('no /etc/secrets/ found - checking local public/fonts');
 }
 
-const fontProblems = validateFontSizes();
 if (fontProblems.length > 0) {
   const message = `invalid Brandon Grotesque webfont files:\n- ${fontProblems.join('\n- ')}`;
   if (process.env.RENDER || existsSync(SECRETS_DIR)) {
