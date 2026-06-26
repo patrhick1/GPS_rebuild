@@ -25,10 +25,18 @@ function normalizedName(file) {
   const lower = file.toLowerCase();
   const extension = lower.endsWith('.woff2') ? '.woff2' : lower.endsWith('.woff') ? '.woff' : null;
   if (!extension) return null;
-  if (lower.includes('brandongrotesque-medium') || lower.includes('brandon-grotesque-medium')) {
+  if (
+    lower.includes('brandongrotesque-medium') ||
+    lower.includes('brandon-grotesque-medium') ||
+    lower.includes('gps-brandon-medium')
+  ) {
     return `brandon-grotesque-medium${extension}`;
   }
-  if (lower.includes('brandongrotesque-black') || lower.includes('brandon-grotesque-black')) {
+  if (
+    lower.includes('brandongrotesque-black') ||
+    lower.includes('brandon-grotesque-black') ||
+    lower.includes('gps-brandon-black')
+  ) {
     return `brandon-grotesque-black${extension}`;
   }
   return null;
